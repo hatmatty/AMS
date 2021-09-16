@@ -19,12 +19,13 @@ AET plans to change this by introducing a combat system which has almost no init
 ### Camera
 > Files: [CameraController]
 - Managed various cameras such as the first person and spring camera and ensures that they do not have to directly interact with each other. 
-#### First Person Camera
-> Toggleable, Files: [FirstPerson]
-- Manages the creation and destruction of a first person camera on the player.
-#### Spring Camera
-> Toggleable, Files: [Spring]
-- Manages the creation and destruction of a spring camera on the player. Utilizes spring module. 
+
+	#### First Person Camera
+	> Toggleable, Files: [FirstPerson]
+	- Manages the creation and destruction of a first person camera on the player.
+	#### Spring Camera
+	> Toggleable, Files: [Spring]
+	- Manages the creation and destruction of a spring camera on the player. Utilizes spring module. 
 
 ### Sprinting 
 > Toggleable, Files: [SprintingService, SprintingController]
