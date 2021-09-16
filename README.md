@@ -23,7 +23,7 @@ AET plans to change this by introducing a combat system which has almost no init
 ### Camera
 > Files: [CameraController]
 - Manages various cameras such as the first person and spring camera and ensures that they do not have to directly interact with each other. 
-	#### First Person Camera | Low priority 
+	#### First Person Camera | low priority 
 	> Toggleable, Files: [FirstPerson]
 	- Manages the creation and destruction of a first person camera on the player.
 	#### Spring Camera
@@ -32,7 +32,7 @@ AET plans to change this by introducing a combat system which has almost no init
 
 ### BodyRotater | Low priority 
 > Toggleable, Files: [BodyRotaterService, BodyRotaterController]
-> Tracks camera rotation and rotates the body accordingly. This is what allows for the directional combat however it can be completely disabled.
+> - Tracks camera rotation and rotates the body accordingly. This is what allows for the directional combat however it can be completely disabled.
 
 ### Sprinting 
 > Toggleable, Files: [SprintingService, SprintingController]
