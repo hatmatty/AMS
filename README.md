@@ -23,15 +23,33 @@ AET plans to change this by introducing a combat system which has almost no init
 ### Camera
 > Files: [CameraController]
 - Manages various cameras such as the first person and spring camera and ensures that they do not have to directly interact with each other. 
-	#### First Person Camera
+	#### First Person Camera | Low priority 
 	> Toggleable, Files: [FirstPerson]
 	- Manages the creation and destruction of a first person camera on the player.
 	#### Spring Camera
 	> Toggleable, Files: [Spring]
 	- Manages the creation and destruction of a spring camera on the player. Utilizes spring module. 
 
+### BodyRotater | Low priority 
+> Toggleable, Files: [BodyRotaterService, BodyRotaterController]
+> Tracks camera rotation and rotates the body accordingly. This is what allows for the directional combat however it can be completely disabled.
+
 ### Sprinting 
 > Toggleable, Files: [SprintingService, SprintingController]
 - Player should be able to toggle sprinting across the map. Sprinting will not have to interact with many modules of the game allowing it to easily be disabled and enabled by game devs. 
+
+### Tools
+> Files: [ToolService]
+- There tool service handles the giving of tools (weapons, shields, etc) to players. This system is diverse and flexible, allowing for the creation of spears, bow & arrows, etc. 
+	#### Tool
+	> Files: [Tool]
+	- This is a component which attaches to the a tool model, whose parent mus always be a character. Tools communicate to other tools the player has equipped by setting attributes on the character. They can also check for other tools by indexing a table which holds all tools with an instance tagged with "Tool" to get its object.  
+	#### Weapon
+	> Files: [Weapon]
+	- This is the component for weapons, inherits from Tool. 
+	#### Shield
+	> Files: [Shield]
+	- This is the component for shields, inherits from Tool. 
+
 
 
