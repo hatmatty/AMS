@@ -1,0 +1,4846 @@
+<roblox version="4">
+  <Item class="Lighting" referent="0">
+    <Properties>
+      <string name="Name">Lighting</string>
+      <Color3 name="Ambient">
+        <R>0</R>
+        <G>0</G>
+        <B>0</B>
+      </Color3>
+      <float name="Brightness">2</float>
+      <bool name="GlobalShadows">true</bool>
+      <bool name="Outlines">false</bool>
+      <token name="Technology">1</token>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="1">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="ModuleScript" referent="2">
+      <Properties>
+        <string name="Name">Knit</string>
+        <string name="Source"><![CDATA[if game:GetService("RunService"):IsServer() then
+	return require(script.KnitServer)
+else
+  local KnitServer = script:FindFirstChild("KnitServer")
+	if KnitServer then
+		KnitServer:Destroy()
+	end
+	return require(script.KnitClient)
+end
+]]></string>
+      </Properties>
+      <Item class="ModuleScript" referent="3">
+        <Properties>
+          <string name="Name">KnitClient</string>
+          <string name="Source"><![CDATA[--!strict
+
+--[[
+
+	Knit.CreateController(controller): Controller
+	Knit.AddControllers(folder): Controller[]
+	Knit.AddControllersDeep(folder): Controller[]
+	Knit.GetService(serviceName): Service
+	Knit.GetController(controllerName): Controller
+	Knit.Start(): Promise<void>
+	Knit.OnStart(): Promise<void>
+
+--]]
+
+
+type ControllerDef = {
+	Name: string,
+	[any]: any,
+}
+
+type Controller = {
+	Name: string,
+	[any]: any,
+}
+
+type Service = {
+	[any]: any,
+}
+
+
+local KnitClient = {}
+
+KnitClient.Version = script.Parent:WaitForChild("Version").Value
+KnitClient.Player = game:GetService("Players").LocalPlayer
+KnitClient.Controllers = {} :: {[string]: Controller}
+KnitClient.Util = script.Parent:WaitForChild("Util")
+
+local Promise = require(KnitClient.Util.Promise)
+local Loader = require(KnitClient.Util.Loader)
+local Ser = require(KnitClient.Util.Ser)
+local ClientRemoteSignal = require(KnitClient.Util.Remote.ClientRemoteSignal)
+local ClientRemoteProperty = require(KnitClient.Util.Remote.ClientRemoteProperty)
+local TableUtil = require(KnitClient.Util.TableUtil)
+
+local services: {[string]: Service} = {}
+local servicesFolder = script.Parent:WaitForChild("Services")
+
+local started = false
+local startedComplete = false
+local onStartedComplete = Instance.new("BindableEvent")
+
+
+local function BuildService(serviceName: string, folder: Instance): Service
+	local service = {}
+	local rfFolder = folder:FindFirstChild("RF")
+	local reFolder = folder:FindFirstChild("RE")
+	local rpFolder = folder:FindFirstChild("RP")
+	if rfFolder then
+		for _,rf in ipairs(rfFolder:GetChildren()) do
+			if rf:IsA("RemoteFunction") then
+				local function StandardRemote(_self, ...)
+					return Ser.DeserializeArgsAndUnpack(rf:InvokeServer(Ser.SerializeArgsAndUnpack(...)))
+				end
+				local function PromiseRemote(_self, ...)
+					local args = Ser.SerializeArgs(...)
+					return Promise.new(function(resolve)
+						resolve(Ser.DeserializeArgsAndUnpack(rf:InvokeServer(table.unpack(args, 1, args.n))))
+					end)
+				end
+				service[rf.Name] = StandardRemote
+				service[rf.Name .. "Promise"] = PromiseRemote
+			end
+		end
+	end
+	if reFolder then
+		for _,re in ipairs(reFolder:GetChildren()) do
+			if re:IsA("RemoteEvent") then
+				service[re.Name] = ClientRemoteSignal.new(re)
+			end
+		end
+	end
+	if rpFolder then
+		for _,rp in ipairs(rpFolder:GetChildren()) do
+			if rp:IsA("ValueBase") or rp:IsA("RemoteEvent") then
+				service[rp.Name] = ClientRemoteProperty.new(rp)
+			end
+		end
+	end
+	services[serviceName] = service
+	return service
+end
+
+
+local function DoesControllerExist(controllerName: string): boolean
+	local controller: Controller? = KnitClient.Controllers[controllerName]
+	return controller ~= nil
+end
+
+
+function KnitClient.CreateController(controllerDef: ControllerDef): Controller
+	assert(type(controllerDef) == "table", "Controller must be a table; got " .. type(controllerDef))
+	assert(type(controllerDef.Name) == "string", "Controller.Name must be a string; got " .. type(controllerDef.Name))
+	assert(#controllerDef.Name > 0, "Controller.Name must be a non-empty string")
+	assert(not DoesControllerExist(controllerDef.Name), "Controller \"" .. controllerDef.Name .. "\" already exists")
+	local controller: Controller = TableUtil.Assign(controllerDef, {
+		_knit_is_controller = true;
+	})
+	KnitClient.Controllers[controller.Name] = controller
+	return controller
+end
+
+
+function KnitClient.AddControllers(folder: Instance): {any}
+	return Loader.LoadChildren(folder)
+end
+
+
+function KnitClient.AddControllersDeep(folder: Instance): {any}
+	return Loader.LoadDescendants(folder)
+end
+
+
+function KnitClient.GetService(serviceName: string): Service
+	assert(type(serviceName) == "string", "ServiceName must be a string; got " .. type(serviceName))
+	local folder: Instance? = servicesFolder:FindFirstChild(serviceName)
+	assert(folder ~= nil, "Could not find service \"" .. serviceName .. "\"")
+	return services[serviceName] or BuildService(serviceName, folder :: Instance)
+end
+
+
+function KnitClient.GetController(controllerName: string): Controller?
+	return KnitClient.Controllers[controllerName]
+end
+
+
+function KnitClient.Start()
+
+	if started then
+		return Promise.Reject("Knit already started")
+	end
+
+	started = true
+
+	local controllers = KnitClient.Controllers
+
+	return Promise.new(function(resolve)
+
+		-- Init:
+		local promisesStartControllers = {}
+		for _,controller in pairs(controllers) do
+			if type(controller.KnitInit) == "function" then
+				table.insert(promisesStartControllers, Promise.new(function(r)
+					controller:KnitInit()
+					r()
+				end))
+			end
+		end
+
+		resolve(Promise.All(promisesStartControllers))
+
+	end):Then(function()
+
+		-- Start:
+		for _,controller in pairs(controllers) do
+			if type(controller.KnitStart) == "function" then
+				task.spawn(controller.KnitStart, controller)
+			end
+		end
+
+		startedComplete = true
+		onStartedComplete:Fire()
+
+		task.defer(function()
+			onStartedComplete:Destroy()
+		end)
+
+	end)
+
+end
+
+
+function KnitClient.OnStart()
+	if startedComplete then
+		return Promise.Resolve()
+	else
+		return Promise.FromEvent(onStartedComplete.Event)
+	end
+end
+
+
+return KnitClient
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="4">
+        <Properties>
+          <string name="Name">KnitServer</string>
+          <string name="Source"><![CDATA[--!strict
+
+--[[
+
+	Knit.CreateService(service): Service
+	Knit.AddServices(folder): Service[]
+	Knit.AddServicesDeep(folder): Service[]
+	Knit.Start(): Promise<void>
+	Knit.OnStart(): Promise<void>
+
+--]]
+
+
+type ServiceDef = {
+	Name: string,
+	Client: {[any]: any}?,
+	[any]: any,
+}
+
+type Service = {
+	Name: string,
+	Client: ServiceClient,
+	_knit_is_service: boolean,
+	_knit_rf: {},
+	_knit_re: {},
+	_knit_rp: {},
+	_knit_rep_folder: Instance,
+	[any]: any,
+}
+
+type ServiceClient = {
+	Server: Service,
+	[any]: any,
+}
+
+
+local KnitServer = {}
+
+KnitServer.Version = script.Parent.Version.Value
+KnitServer.Services = {} :: {[string]: Service}
+KnitServer.Util = script.Parent.Util
+
+
+local knitRepServiceFolder = Instance.new("Folder")
+knitRepServiceFolder.Name = "Services"
+
+local Promise = require(KnitServer.Util.Promise)
+local Signal = require(KnitServer.Util.Signal)
+local Loader = require(KnitServer.Util.Loader)
+local Ser = require(KnitServer.Util.Ser)
+local RemoteSignal = require(KnitServer.Util.Remote.RemoteSignal)
+local RemoteProperty = require(KnitServer.Util.Remote.RemoteProperty)
+local TableUtil = require(KnitServer.Util.TableUtil)
+
+local started = false
+local startedComplete = false
+local onStartedComplete = Instance.new("BindableEvent")
+
+
+local function CreateRepFolder(serviceName: string): Instance
+	local folder = Instance.new("Folder")
+	folder.Name = serviceName
+	return folder
+end
+
+
+local function GetFolderOrCreate(parent: Instance, name: string): Instance
+	local f = parent:FindFirstChild(name)
+	if not f then
+		f = Instance.new("Folder")
+		f.Name = name
+		f.Parent = parent
+	end
+	return f
+end
+
+
+local function AddToRepFolder(service: Service, remoteObj: Instance, folderOverride: string?)
+	if folderOverride then
+		remoteObj.Parent = GetFolderOrCreate(service._knit_rep_folder, folderOverride)
+	elseif remoteObj:IsA("RemoteFunction") then
+		remoteObj.Parent = GetFolderOrCreate(service._knit_rep_folder, "RF")
+	elseif remoteObj:IsA("RemoteEvent") then
+		remoteObj.Parent = GetFolderOrCreate(service._knit_rep_folder, "RE")
+	elseif remoteObj:IsA("ValueBase") then
+		remoteObj.Parent = GetFolderOrCreate(service._knit_rep_folder, "RP")
+	else
+		error("Invalid rep object: " .. remoteObj.ClassName)
+	end
+	if not service._knit_rep_folder.Parent then
+		service._knit_rep_folder.Parent = knitRepServiceFolder
+	end
+end
+
+
+local function DoesServiceExist(serviceName: string): boolean
+	local service: Service? = KnitServer.Services[serviceName]
+	return service ~= nil
+end
+
+
+function KnitServer.IsService(object: any): boolean
+	return type(object) == "table" and object._knit_is_service == true
+end
+
+
+function KnitServer.CreateService(serviceDef: ServiceDef): Service
+	assert(type(serviceDef) == "table", "Service must be a table; got " .. type(serviceDef))
+	assert(type(serviceDef.Name) == "string", "Service.Name must be a string; got " .. type(serviceDef.Name))
+	assert(#serviceDef.Name > 0, "Service.Name must be a non-empty string")
+	assert(not DoesServiceExist(serviceDef.Name), "Service \"" .. serviceDef.Name .. "\" already exists")
+	local service: Service = TableUtil.Assign(serviceDef, {
+		_knit_is_service = true;
+		_knit_rf = {};
+		_knit_re = {};
+		_knit_rp = {};
+		_knit_rep_folder = CreateRepFolder(serviceDef.Name);
+	})
+	if type(service.Client) ~= "table" then
+		service.Client = {Server = service}
+	else
+		if service.Client.Server ~= service then
+			service.Client.Server = service
+		end
+	end
+	KnitServer.Services[service.Name] = service
+	return service
+end
+
+
+function KnitServer.AddServices(folder: Instance): {any}
+	return Loader.LoadChildren(folder)
+end
+
+
+function KnitServer.AddServicesDeep(folder: Instance): {any}
+	return Loader.LoadDescendants(folder)
+end
+
+
+function KnitServer.GetService(serviceName: string): Service
+	assert(type(serviceName) == "string", "ServiceName must be a string; got " .. type(serviceName))
+	return assert(KnitServer.Services[serviceName], "Could not find service \"" .. serviceName .. "\"") :: Service
+end
+
+
+function KnitServer.BindRemoteEvent(service: Service, eventName: string, remoteEvent)
+	assert(service._knit_re[eventName] == nil, "RemoteEvent \"" .. eventName .. "\" already exists")
+	local re = remoteEvent._remote
+	re.Name = eventName
+	service._knit_re[eventName] = re
+	AddToRepFolder(service, re)
+end
+
+
+function KnitServer.BindRemoteFunction(service: Service, funcName: string, func: (ServiceClient, ...any) -> ...any)
+	assert(service._knit_rf[funcName] == nil, "RemoteFunction \"" .. funcName .. "\" already exists")
+	local rf = Instance.new("RemoteFunction")
+	rf.Name = funcName
+	service._knit_rf[funcName] = rf
+	AddToRepFolder(service, rf)
+	rf.OnServerInvoke = function(...)
+		return Ser.SerializeArgsAndUnpack(func(service.Client, Ser.DeserializeArgsAndUnpack(...)))
+	end
+end
+
+
+function KnitServer.BindRemoteProperty(service: Service, propName: string, prop)
+	assert(service._knit_rp[propName] == nil, "RemoteProperty \"" .. propName .. "\" already exists")
+	prop._object.Name = propName
+	service._knit_rp[propName] = prop
+	AddToRepFolder(service, prop._object, "RP")
+end
+
+
+function KnitServer.Start()
+
+	if started then
+		return Promise.Reject("Knit already started")
+	end
+
+	started = true
+
+	local services = KnitServer.Services
+
+	return Promise.new(function(resolve)
+
+		-- Bind remotes:
+		for _,service in pairs(services) do
+			for k,v in pairs(service.Client) do
+				if type(v) == "function" then
+					KnitServer.BindRemoteFunction(service, k, v)
+				elseif RemoteSignal.Is(v) then
+					KnitServer.BindRemoteEvent(service, k, v)
+				elseif RemoteProperty.Is(v) then
+					KnitServer.BindRemoteProperty(service, k, v)
+				elseif Signal.Is(v) then
+					warn("Found Signal instead of RemoteSignal (Knit.Util.RemoteSignal). Please change to RemoteSignal. [" .. service.Name .. ".Client." .. k .. "]")
+				end
+			end
+		end
+
+		-- Init:
+		local promisesInitServices = {}
+		for _,service in pairs(services) do
+			if type(service.KnitInit) == "function" then
+				table.insert(promisesInitServices, Promise.new(function(r)
+					service:KnitInit()
+					r()
+				end))
+			end
+		end
+
+		resolve(Promise.All(promisesInitServices))
+
+	end):Then(function()
+
+		-- Start:
+		for _,service in pairs(services) do
+			if type(service.KnitStart) == "function" then
+				task.spawn(service.KnitStart, service)
+			end
+		end
+
+		startedComplete = true
+		onStartedComplete:Fire()
+
+		task.defer(function()
+			onStartedComplete:Destroy()
+		end)
+
+		-- Expose service remotes to everyone:
+		knitRepServiceFolder.Parent = script.Parent
+
+	end)
+
+end
+
+
+function KnitServer.OnStart()
+	if startedComplete then
+		return Promise.Resolve()
+	else
+		return Promise.FromEvent(onStartedComplete.Event)
+	end
+end
+
+
+return KnitServer
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="5">
+        <Properties>
+          <string name="Name">Util</string>
+        </Properties>
+        <Item class="ModuleScript" referent="6">
+          <Properties>
+            <string name="Name">Component</string>
+            <string name="Source"><![CDATA[-- Component
+-- Stephen Leitnick
+-- July 25, 2020
+
+--[[
+
+	Component.Auto(folder: Instance)
+		-> Create components automatically from descendant modules of this folder
+		-> Each module must have a '.Tag' string property
+		-> Each module optionally can have '.RenderPriority' number property
+
+	component = Component.FromTag(tag: string)
+		-> Retrieves an existing component from the tag name
+
+	Component.ObserveFromTag(tag: string, observer: (component: Component, janitor: Janitor) -> void): Janitor
+
+	component = Component.new(tag: string, class: table [, renderPriority: RenderPriority, requireComponents: {string}])
+		-> Creates a new component from the tag name, class module, and optional render priority
+
+	component:GetAll(): ComponentInstance[]
+	component:GetFromInstance(instance: Instance): ComponentInstance | nil
+	component:GetFromID(id: number): ComponentInstance | nil
+	component:Filter(filterFunc: (comp: ComponentInstance) -> boolean): ComponentInstance[]
+	component:WaitFor(instanceOrName: Instance | string [, timeout: number = 60]): Promise<ComponentInstance>
+	component:Observe(instance: Instance, observer: (component: ComponentInstance, janitor: Janitor) -> void): Janitor
+	component:Destroy()
+
+	component.Added(obj: ComponentInstance)
+	component.Removed(obj: ComponentInstance)
+
+	-----------------------------------------------------------------------
+
+	A component class must look something like this:
+
+		-- DEFINE
+		local MyComponent = {}
+		MyComponent.__index = MyComponent
+
+		-- CONSTRUCTOR
+		function MyComponent.new(instance)
+			local self = setmetatable({}, MyComponent)
+			return self
+		end
+
+		-- FIELDS AFTER CONSTRUCTOR COMPLETES
+		MyComponent.Instance: Instance
+
+		-- OPTIONAL LIFECYCLE HOOKS
+		function MyComponent:Init() end                     -> Called right after constructor
+		function MyComponent:Deinit() end                   -> Called right before deconstructor
+		function MyComponent:HeartbeatUpdate(dt) ... end    -> Updates every heartbeat
+		function MyComponent:SteppedUpdate(dt) ... end      -> Updates every physics step
+		function MyComponent:RenderUpdate(dt) ... end       -> Updates every render step
+
+		-- DESTRUCTOR
+		function MyComponent:Destroy()
+		end
+
+
+	A component is then registered like so:
+
+		local Component = require(Knit.Util.Component)
+		local MyComponent = require(somewhere.MyComponent)
+		local tag = "MyComponent"
+
+		local myComponent = Component.new(tag, MyComponent)
+
+
+	Components can be listened and queried:
+
+		myComponent.Added:Connect(function(instanceOfComponent)
+			-- New MyComponent constructed
+		end)
+
+		myComponent.Removed:Connect(function(instanceOfComponent)
+			-- New MyComponent deconstructed
+		end)
+
+--]]
+
+
+local Janitor = require(script.Parent.Janitor)
+local Signal = require(script.Parent.Signal)
+local Promise = require(script.Parent.Promise)
+local TableUtil = require(script.Parent.TableUtil)
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local IS_SERVER = RunService:IsServer()
+local DEFAULT_WAIT_FOR_TIMEOUT = 60
+local ATTRIBUTE_ID_NAME = "ComponentServerId"
+
+-- Components will only work on instances parented under these descendants:
+local DESCENDANT_WHITELIST = {workspace, Players}
+
+local Component = {}
+Component.__index = Component
+
+local componentsByTag = {}
+
+local componentByTagCreated = Signal.new()
+local componentByTagDestroyed = Signal.new()
+
+
+local function IsDescendantOfWhitelist(instance)
+	for _,v in ipairs(DESCENDANT_WHITELIST) do
+		if instance:IsDescendantOf(v) then
+			return true
+		end
+	end
+	return false
+end
+
+
+function Component.FromTag(tag)
+	return componentsByTag[tag]
+end
+
+
+function Component.ObserveFromTag(tag, observer)
+	local janitor = Janitor.new()
+	local observeJanitor = Janitor.new()
+	janitor:Add(observeJanitor)
+	local function OnCreated(component)
+		if component._tag == tag then
+			observer(component, observeJanitor)
+		end
+	end
+	local function OnDestroyed(component)
+		if component._tag == tag then
+			observeJanitor:Cleanup()
+		end
+	end
+	do
+		local component = Component.FromTag(tag)
+		if component then
+			task.spawn(OnCreated, component)
+		end
+	end
+	janitor:Add(componentByTagCreated:Connect(OnCreated))
+	janitor:Add(componentByTagDestroyed:Connect(OnDestroyed))
+	return janitor
+end
+
+
+function Component.Auto(folder)
+	local function Setup(moduleScript)
+		local m = require(moduleScript)
+		assert(type(m) == "table", "Expected table for component")
+		assert(type(m.Tag) == "string", "Expected .Tag property")
+		Component.new(m.Tag, m, m.RenderPriority, m.RequiredComponents)
+	end
+	for _,v in ipairs(folder:GetDescendants()) do
+		if v:IsA("ModuleScript") then
+			Setup(v)
+		end
+	end
+	folder.DescendantAdded:Connect(function(v)
+		if v:IsA("ModuleScript") then
+			Setup(v)
+		end
+	end)
+end
+
+
+function Component.new(tag, class, renderPriority, requireComponents)
+
+	assert(type(tag) == "string", "Argument #1 (tag) should be a string; got " .. type(tag))
+	assert(type(class) == "table", "Argument #2 (class) should be a table; got " .. type(class))
+	assert(type(class.new) == "function", "Class must contain a .new constructor function")
+	assert(type(class.Destroy) == "function", "Class must contain a :Destroy function")
+	assert(componentsByTag[tag] == nil, "Component already bound to this tag")
+
+	local self = setmetatable({}, Component)
+
+	self._janitor = Janitor.new()
+	self._lifecycleJanitor = Janitor.new()
+	self._tag = tag
+	self._class = class
+	self._objects = {}
+	self._instancesToObjects = {}
+	self._hasHeartbeatUpdate = (type(class.HeartbeatUpdate) == "function")
+	self._hasSteppedUpdate = (type(class.SteppedUpdate) == "function")
+	self._hasRenderUpdate = (type(class.RenderUpdate) == "function")
+	self._hasInit = (type(class.Init) == "function")
+	self._hasDeinit = (type(class.Deinit) == "function")
+	self._renderPriority = renderPriority or Enum.RenderPriority.Last.Value
+	self._requireComponents = requireComponents or {}
+	self._lifecycle = false
+	self._nextId = 0
+
+	self.Added = Signal.new(self._janitor)
+	self.Removed = Signal.new(self._janitor)
+
+	local observeJanitor = Janitor.new()
+	self._janitor:Add(observeJanitor)
+
+	local function ObserveTag()
+
+		local function HasRequiredComponents(instance)
+			for _,reqComp in ipairs(self._requireComponents) do
+				local comp = Component.FromTag(reqComp)
+				if comp:GetFromInstance(instance) == nil then
+					return false
+				end
+			end
+			return true
+		end
+
+		observeJanitor:Add(CollectionService:GetInstanceAddedSignal(tag):Connect(function(instance)
+			if IsDescendantOfWhitelist(instance) and HasRequiredComponents(instance) then
+				self:_instanceAdded(instance)
+			end
+		end))
+
+		observeJanitor:Add(CollectionService:GetInstanceRemovedSignal(tag):Connect(function(instance)
+			self:_instanceRemoved(instance)
+		end))
+
+		for _,reqComp in ipairs(self._requireComponents) do
+			local comp = Component.FromTag(reqComp)
+			observeJanitor:Add(comp.Added:Connect(function(obj)
+				if CollectionService:HasTag(obj.Instance, tag) and HasRequiredComponents(obj.Instance) then
+					self:_instanceAdded(obj.Instance)
+				end
+			end))
+			observeJanitor:Add(comp.Removed:Connect(function(obj)
+				if CollectionService:HasTag(obj.Instance, tag) then
+					self:_instanceRemoved(obj.Instance)
+				end
+			end))
+		end
+
+		observeJanitor:Add(function()
+			self:_stopLifecycle()
+			for instance in pairs(self._instancesToObjects) do
+				self:_instanceRemoved(instance)
+			end
+		end)
+
+		do
+			local b = Instance.new("BindableEvent")
+			for _,instance in ipairs(CollectionService:GetTagged(tag)) do
+				if IsDescendantOfWhitelist(instance) and HasRequiredComponents(instance) then
+					local c = b.Event:Connect(function()
+						self:_instanceAdded(instance)
+					end)
+					b:Fire()
+					c:Disconnect()
+				end
+			end
+			b:Destroy()
+		end
+
+	end
+
+	if #self._requireComponents == 0 then
+		ObserveTag()
+	else
+		-- Only observe tag when all required components are available:
+		local tagsReady = {}
+		local function Check()
+			for _,ready in pairs(tagsReady) do
+				if not ready then
+					return
+				end
+			end
+			ObserveTag()
+		end
+		local function Cleanup()
+			observeJanitor:Cleanup()
+		end
+		for _,requiredComponent in ipairs(self._requireComponents) do
+			tagsReady[requiredComponent] = false
+		end
+		for _,requiredComponent in ipairs(self._requireComponents) do
+			self._janitor:Add(Component.ObserveFromTag(requiredComponent, function(_component, janitor)
+				tagsReady[requiredComponent] = true
+				Check()
+				janitor:Add(function()
+					tagsReady[requiredComponent] = false
+					Cleanup()
+				end)
+			end))
+		end
+	end
+
+	componentsByTag[tag] = self
+	componentByTagCreated:Fire(self)
+	self._janitor:Add(function()
+		componentsByTag[tag] = nil
+		componentByTagDestroyed:Fire(self)
+	end)
+
+	return self
+
+end
+
+
+function Component:_startHeartbeatUpdate()
+	local all = self._objects
+	self._heartbeatUpdate = RunService.Heartbeat:Connect(function(dt)
+		for _,v in ipairs(all) do
+			v:HeartbeatUpdate(dt)
+		end
+	end)
+	self._lifecycleJanitor:Add(self._heartbeatUpdate)
+end
+
+
+function Component:_startSteppedUpdate()
+	local all = self._objects
+	self._steppedUpdate = RunService.Stepped:Connect(function(_, dt)
+		for _,v in ipairs(all) do
+			v:SteppedUpdate(dt)
+		end
+	end)
+	self._lifecycleJanitor:Add(self._steppedUpdate)
+end
+
+
+function Component:_startRenderUpdate()
+	local all = self._objects
+	self._renderName = (self._tag .. "RenderUpdate")
+	RunService:BindToRenderStep(self._renderName, self._renderPriority, function(dt)
+		for _,v in ipairs(all) do
+			v:RenderUpdate(dt)
+		end
+	end)
+	self._lifecycleJanitor:Add(function()
+		RunService:UnbindFromRenderStep(self._renderName)
+	end)
+end
+
+
+function Component:_startLifecycle()
+	self._lifecycle = true
+	if self._hasHeartbeatUpdate then
+		self:_startHeartbeatUpdate()
+	end
+	if self._hasSteppedUpdate then
+		self:_startSteppedUpdate()
+	end
+	if self._hasRenderUpdate then
+		self:_startRenderUpdate()
+	end
+end
+
+
+function Component:_stopLifecycle()
+	self._lifecycle = false
+	self._lifecycleJanitor:Cleanup()
+end
+
+
+function Component:_instanceAdded(instance)
+	if self._instancesToObjects[instance] then return end
+	if not self._lifecycle then
+		self:_startLifecycle()
+	end
+	self._nextId = (self._nextId + 1)
+	local id = (self._tag .. tostring(self._nextId))
+	if IS_SERVER then
+		instance:SetAttribute(ATTRIBUTE_ID_NAME, id)
+	end
+	local obj = self._class.new(instance)
+	obj.Instance = instance
+	obj._id = id
+	self._instancesToObjects[instance] = obj
+	table.insert(self._objects, obj)
+	if self._hasInit then
+		task.defer(function()
+			if self._instancesToObjects[instance] ~= obj then return end
+			obj:Init()
+		end)
+	end
+	self.Added:Fire(obj)
+	return obj
+end
+
+
+function Component:_instanceRemoved(instance)
+	if not self._instancesToObjects[instance] then return end
+	self._instancesToObjects[instance] = nil
+	for i,obj in ipairs(self._objects) do
+		if obj.Instance == instance then
+			if self._hasDeinit then
+				obj:Deinit()
+			end
+			if IS_SERVER and instance.Parent and instance:GetAttribute(ATTRIBUTE_ID_NAME) ~= nil then
+				instance:SetAttribute(ATTRIBUTE_ID_NAME, nil)
+			end
+			self.Removed:Fire(obj)
+			obj:Destroy()
+			obj._destroyed = true
+			TableUtil.FastRemove(self._objects, i)
+			break
+		end
+	end
+	if #self._objects == 0 and self._lifecycle then
+		self:_stopLifecycle()
+	end
+end
+
+
+function Component:GetAll()
+	return TableUtil.CopyShallow(self._objects)
+end
+
+
+function Component:GetFromInstance(instance)
+	return self._instancesToObjects[instance]
+end
+
+
+function Component:GetFromID(id)
+	for _,v in ipairs(self._objects) do
+		if v._id == id then
+			return v
+		end
+	end
+	return nil
+end
+
+
+function Component:Filter(filterFunc)
+	return TableUtil.Filter(self._objects, filterFunc)
+end
+
+
+function Component:WaitFor(instance, timeout)
+	local isName = (type(instance) == "string")
+	local function IsInstanceValid(obj)
+		return ((isName and obj.Instance.Name == instance) or ((not isName) and obj.Instance == instance))
+	end
+	for _,obj in ipairs(self._objects) do
+		if IsInstanceValid(obj) then
+			return Promise.Resolve(obj)
+		end
+	end
+	local lastObj = nil
+	return Promise.FromEvent(self.Added, function(obj)
+		lastObj = obj
+		return IsInstanceValid(obj)
+	end):Then(function()
+		return lastObj
+	end):Timeout(timeout or DEFAULT_WAIT_FOR_TIMEOUT)
+end
+
+
+function Component:Observe(instance, observer)
+	local janitor = Janitor.new()
+	local observeJanitor = Janitor.new()
+	janitor:Add(observeJanitor)
+	janitor:Add(self.Added:Connect(function(obj)
+		if obj.Instance == instance then
+			observer(obj, observeJanitor)
+		end
+	end))
+	janitor:Add(self.Removed:Connect(function(obj)
+		if obj.Instance == instance then
+			observeJanitor:Cleanup()
+		end
+	end))
+	for _,obj in ipairs(self._objects) do
+		if obj.Instance == instance then
+			task.spawn(observer, obj, observeJanitor)
+			break
+		end
+	end
+	return janitor
+end
+
+
+function Component:Destroy()
+	self._janitor:Destroy()
+end
+
+
+return Component
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="7">
+          <Properties>
+            <string name="Name">EnumList</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- EnumList
+-- Stephen Leitnick
+-- January 08, 2021
+
+--[[
+
+	enumList = EnumList.new(name: string, enums: string[])
+
+	enumList:Is(item)
+
+
+	Example:
+
+		direction = EnumList.new("Direction", {"Up", "Down", "Left", "Right"})
+		leftDir = direction.Left
+		print("IsDirection", direction:Is(leftDir))
+
+--]]
+
+
+type EnumNames = {string}
+
+local Symbol = require(script.Parent.Symbol)
+
+local EnumList = {}
+
+
+function EnumList.new(name: string, enums: EnumNames)
+	local scope = Symbol.new(name, nil)
+	local enumItems: {[string]: Symbol.Symbol} = {}
+	for _,enumName in ipairs(enums) do
+		enumItems[enumName] = Symbol.new(enumName, scope)
+	end
+	local self = setmetatable({
+		_scope = scope;
+	}, {
+		__index = function(_t, k)
+			if enumItems[k] then
+				return enumItems[k]
+			elseif EnumList[k] then
+				return EnumList[k]
+			else
+				error("Unknown " .. name .. ": " .. tostring(k), 2)
+			end
+		end;
+		__newindex = function()
+			error("Cannot add new " .. name, 2)
+		end;
+	})
+	return self
+end
+
+
+function EnumList:Is(obj: any): boolean
+	return Symbol.IsInScope(obj, self._scope)
+end
+
+
+export type EnumList = typeof(EnumList.new("", {""}))
+
+
+return EnumList
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="8">
+          <Properties>
+            <string name="Name">Janitor</string>
+            <string name="Source"><![CDATA[-- Janitor
+-- Original by Validark
+-- Modifications by pobammer
+-- roblox-ts support by OverHash and Validark
+-- LinkToInstance fixed by Elttob.
+
+local Promise = require(script.Parent.Promise)
+
+local IndicesReference = newproxy(true)
+getmetatable(IndicesReference).__tostring = function()
+	return "IndicesReference"
+end
+
+local LinkToInstanceIndex = newproxy(true)
+getmetatable(LinkToInstanceIndex).__tostring = function()
+	return "LinkToInstanceIndex"
+end
+
+local NOT_A_PROMISE = "Invalid argument #1 to 'Janitor:AddPromise' (Promise expected, got %s (%s))"
+local METHOD_NOT_FOUND_ERROR = "Object %s doesn't have method %s, are you sure you want to add it? Traceback: %s"
+
+local Janitor = {}
+Janitor.ClassName = "Janitor"
+Janitor.__index = {}
+
+Janitor.__index.CurrentlyCleaning = true
+Janitor.__index[IndicesReference] = nil
+
+local TypeDefaults = {
+	["function"] = true;
+	RBXScriptConnection = "Disconnect";
+}
+
+--[[**
+	Determines if the passed object is a Janitor.
+	@param [t:any] Object The object you are checking.
+	@returns [t:boolean] Whether or not the object is a Janitor.
+**--]]
+function Janitor.Is(Object: any): boolean
+	return type(Object) == "table" and getmetatable(Object) == Janitor
+end
+
+type StringOrTrue = string | boolean
+
+--[[**
+	Adds an `Object` to Janitor for later cleanup, where `MethodName` is the key of the method within `Object` which should be called at cleanup time. If the `MethodName` is `true` the `Object` itself will be called instead. If passed an index it will occupy a namespace which can be `Remove()`d or overwritten. Returns the `Object`.
+	@param [t:any] Object The object you want to clean up.
+	@param [t:string|true?] MethodName The name of the method that will be used to clean up. If not passed, it will first check if the object's type exists in TypeDefaults, and if that doesn't exist, it assumes `Destroy`.
+	@param [t:any?] Index The index that can be used to clean up the object manually.
+	@returns [t:any] The object that was passed as the first argument.
+**--]]
+function Janitor.__index:Add(Object: any, MethodName: StringOrTrue?, Index: any?): any
+	if Index then
+		self:Remove(Index)
+
+		local This = self[IndicesReference]
+		if not This then
+			This = {}
+			self[IndicesReference] = This
+		end
+
+		This[Index] = Object
+	end
+
+	MethodName = MethodName or TypeDefaults[typeof(Object)] or "Destroy"
+	if type(Object) ~= "function" and not Object[MethodName] then
+		warn(string.format(METHOD_NOT_FOUND_ERROR, tostring(Object), tostring(MethodName), debug.traceback(nil :: any, 2)))
+	end
+
+	self[Object] = MethodName
+	return Object
+end
+
+-- My version of Promise has PascalCase, but I converted it to use lowerCamelCase for this release since obviously that's important to do.
+
+--[[**
+	Adds a promise to the janitor. If the janitor is cleaned up and the promise is not completed, the promise will be cancelled.
+	@param [t:Promise] PromiseObject The promise you want to add to the janitor.
+	@returns [t:Promise]
+**--]]
+function Janitor.__index:AddPromise(PromiseObject)
+	if not Promise.is(PromiseObject) then
+		error(string.format(NOT_A_PROMISE, typeof(PromiseObject), tostring(PromiseObject)))
+	end
+
+	if PromiseObject:getStatus() == Promise.Status.Started then
+		local Id = newproxy(false)
+		local NewPromise = self:Add(Promise.resolve(PromiseObject), "cancel", Id)
+		NewPromise:finallyCall(self.Remove, self, Id)
+		return NewPromise
+	else
+		return PromiseObject
+	end
+end
+
+--[[**
+	Cleans up whatever `Object` was set to this namespace by the 3rd parameter of `:Add()`.
+	@param [t:any] Index The index you want to remove.
+	@returns [t:Janitor] The same janitor, for chaining reasons.
+**--]]
+function Janitor.__index:Remove(Index: any): Janitor
+	local This = self[IndicesReference]
+
+	if This then
+		local Object = This[Index]
+
+		if Object then
+			local MethodName = self[Object]
+
+			if MethodName then
+				if MethodName == true then
+					Object()
+				else
+					local ObjectMethod = Object[MethodName]
+					if ObjectMethod then
+						ObjectMethod(Object)
+					end
+				end
+
+				self[Object] = nil
+			end
+
+			This[Index] = nil
+		end
+	end
+
+	return self
+end
+
+--[[**
+	Gets whatever object is stored with the given index, if it exists. This was added since Maid allows getting the task using `__index`.
+	@param [t:any] Index The index that the object is stored under.
+	@returns [t:any?] This will return the object if it is found, but it won't return anything if it doesn't exist.
+**--]]
+function Janitor.__index:Get(Index: any): any?
+	local This = self[IndicesReference]
+	if This then
+		return This[Index]
+	else
+		return nil
+	end
+end
+
+--[[**
+	Calls each Object's `MethodName` (or calls the Object if `MethodName == true`) and removes them from the Janitor. Also clears the namespace. This function is also called when you call a Janitor Object (so it can be used as a destructor callback).
+	@returns [t:void]
+**--]]
+function Janitor.__index:Cleanup()
+	if not self.CurrentlyCleaning then
+		self.CurrentlyCleaning = nil
+		for Object, MethodName in next, self do
+			if Object == IndicesReference then
+				continue
+			end
+
+			if MethodName == true then
+				task.spawn(Object)
+			else
+				local ObjectMethod = Object[MethodName]
+				if ObjectMethod then
+					task.spawn(ObjectMethod, Object)
+				end
+			end
+
+			self[Object] = nil
+		end
+
+		local This = self[IndicesReference]
+		if This then
+			for Index in next, This do
+				This[Index] = nil
+			end
+
+			self[IndicesReference] = {}
+		end
+
+		self.CurrentlyCleaning = false
+	end
+end
+
+--[[**
+	Calls `:Cleanup()` and renders the Janitor unusable.
+	@returns [t:void]
+**--]]
+function Janitor.__index:Destroy()
+	self:Cleanup()
+	table.clear(self)
+	setmetatable(self, nil)
+end
+
+Janitor.__call = Janitor.__index.Cleanup
+
+--- Makes the Janitor clean up when the instance is destroyed
+-- @param Instance Instance The Instance the Janitor will wait for to be Destroyed
+-- @returns Disconnectable table to stop Janitor from being cleaned up upon Instance Destroy (automatically cleaned up by Janitor, btw)
+-- @author Corecii
+local Disconnect = {}
+Disconnect.Connected = true
+Disconnect.__index = Disconnect
+
+function Disconnect:Disconnect()
+	if self.Connected then
+		self.Connected = false
+		self.Connection:Disconnect()
+	end
+end
+
+function Disconnect._new(RBXScriptConnection: RBXScriptConnection)
+	return setmetatable({
+		Connection = RBXScriptConnection;
+	}, Disconnect)
+end
+
+function Disconnect:__tostring()
+	return "Disconnect<" .. tostring(self.Connected) .. ">"
+end
+
+type RbxScriptConnection = typeof(Disconnect._new(game:GetPropertyChangedSignal("ClassName"):Connect(function() end)))
+
+--[[**
+	"Links" this Janitor to an Instance, such that the Janitor will `Cleanup` when the Instance is `Destroyed()` and garbage collected. A Janitor may only be linked to one instance at a time, unless `AllowMultiple` is true. When called with a truthy `AllowMultiple` parameter, the Janitor will "link" the Instance without overwriting any previous links, and will also not be overwritable. When called with a falsy `AllowMultiple` parameter, the Janitor will overwrite the previous link which was also called with a falsy `AllowMultiple` parameter, if applicable.
+	@param [t:Instance] Object The instance you want to link the Janitor to.
+	@param [t:boolean?] AllowMultiple Whether or not to allow multiple links on the same Janitor.
+	@returns [t:RbxScriptConnection] A pseudo RBXScriptConnection that can be disconnected to prevent the cleanup of LinkToInstance.
+**--]]
+function Janitor.__index:LinkToInstance(Object: Instance, AllowMultiple: boolean?): RbxScriptConnection
+	local Connection
+	local IndexToUse = AllowMultiple and newproxy(false) or LinkToInstanceIndex
+	local IsNilParented = Object.Parent == nil
+	local ManualDisconnect = setmetatable({}, Disconnect)
+
+	local function ChangedFunction(_DoNotUse, NewParent)
+		if ManualDisconnect.Connected then
+			_DoNotUse = nil
+			IsNilParented = NewParent == nil
+
+			if IsNilParented then
+				task.defer(function()
+					if not ManualDisconnect.Connected then
+						return
+					elseif not Connection.Connected then
+						self:Cleanup()
+					else
+						while IsNilParented and Connection.Connected and ManualDisconnect.Connected do
+							task.wait()
+						end
+
+						if ManualDisconnect.Connected and IsNilParented then
+							self:Cleanup()
+						end
+					end
+				end)
+			end
+		end
+	end
+
+	Connection = Object.AncestryChanged:Connect(ChangedFunction)
+	ManualDisconnect.Connection = Connection
+
+	if IsNilParented then
+		ChangedFunction(nil, Object.Parent)
+	end
+
+	Object = nil :: any
+	return self:Add(ManualDisconnect, "Disconnect", IndexToUse)
+end
+
+--[[**
+	Links several instances to a janitor, which is then returned.
+	@param [t:...Instance] ... All the instances you want linked.
+	@returns [t:Janitor] A new janitor that can be used to manually disconnect all LinkToInstances.
+**--]]
+function Janitor.__index:LinkToInstances(...: Instance): Janitor
+	local ManualCleanup = Janitor.new()
+	for _, Object in ipairs({...}) do
+		ManualCleanup:Add(self:LinkToInstance(Object, true), "Disconnect")
+	end
+
+	return ManualCleanup
+end
+
+--[[**
+	Instantiates a new Janitor object.
+	@returns [t:Janitor]
+**--]]
+function Janitor.new()
+	return setmetatable({
+		CurrentlyCleaning = false;
+		[IndicesReference] = nil;
+	}, Janitor)
+end
+
+export type Janitor = typeof(Janitor.new())
+return Janitor
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="9">
+          <Properties>
+            <string name="Name">Loader</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- Loader
+-- Stephen Leitnick
+-- January 10, 2021
+
+--[[
+
+	Loads all ModuleScripts within the given parent.
+
+	Loader.LoadChildren(parent: Instance): module[]
+	Loader.LoadDescendants(parent: Instance): module[]
+
+--]]
+
+
+local Loader = {}
+
+type Module = {}
+type Modules = {Module}
+
+
+function Loader.LoadChildren(parent: Instance): Modules
+	local modules: Modules = {}
+	for _,child in ipairs(parent:GetChildren()) do
+		if child:IsA("ModuleScript") then
+			local m = require(child)
+			table.insert(modules, m)
+		end
+	end
+	return modules
+end
+
+
+function Loader.LoadDescendants(parent: Instance): Modules
+	local modules: Modules = {}
+	for _,descendant in ipairs(parent:GetDescendants()) do
+		if descendant:IsA("ModuleScript") then
+			local m = require(descendant)
+			table.insert(modules, m)
+		end
+	end
+	return modules
+end
+
+
+return Loader
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="10">
+          <Properties>
+            <string name="Name">Option</string>
+            <string name="Source"><![CDATA[-- Option
+-- Stephen Leitnick
+-- August 28, 2020
+
+--[[
+
+	MatchTable {
+		Some: (value: any) -> any
+		None: () -> any
+	}
+
+	CONSTRUCTORS:
+
+		Option.Some(anyNonNilValue): Option<any>
+		Option.Wrap(anyValue): Option<any>
+
+
+	STATIC FIELDS:
+
+		Option.None: Option<None>
+
+
+	STATIC METHODS:
+
+		Option.Is(obj): boolean
+
+
+	METHODS:
+
+		opt:Match(): (matches: MatchTable) -> any
+		opt:IsSome(): boolean
+		opt:IsNone(): boolean
+		opt:Unwrap(): any
+		opt:Expect(errMsg: string): any
+		opt:ExpectNone(errMsg: string): void
+		opt:UnwrapOr(default: any): any
+		opt:UnwrapOrElse(default: () -> any): any
+		opt:And(opt2: Option<any>): Option<any>
+		opt:AndThen(predicate: (unwrapped: any) -> Option<any>): Option<any>
+		opt:Or(opt2: Option<any>): Option<any>
+		opt:OrElse(orElseFunc: () -> Option<any>): Option<any>
+		opt:XOr(opt2: Option<any>): Option<any>
+		opt:Contains(value: any): boolean
+
+	--------------------------------------------------------------------
+
+	Options are useful for handling nil-value cases. Any time that an
+	operation might return nil, it is useful to instead return an
+	Option, which will indicate that the value might be nil, and should
+	be explicitly checked before using the value. This will help
+	prevent common bugs caused by nil values that can fail silently.
+
+
+	Example:
+
+	local result1 = Option.Some(32)
+	local result2 = Option.Some(nil)
+	local result3 = Option.Some("Hi")
+	local result4 = Option.Some(nil)
+	local result5 = Option.None
+
+	-- Use 'Match' to match if the value is Some or None:
+	result1:Match {
+		Some = function(value) print(value) end;
+		None = function() print("No value") end;
+	}
+
+	-- Raw check:
+	if result2:IsSome() then
+		local value = result2:Unwrap() -- Explicitly call Unwrap
+		print("Value of result2:", value)
+	end
+
+	if result3:IsNone() then
+		print("No result for result3")
+	end
+
+	-- Bad, will throw error bc result4 is none:
+	local value = result4:Unwrap()
+
+--]]
+
+
+local CLASSNAME = "Option"
+
+local Option = {}
+Option.__index = Option
+
+
+function Option._new(value)
+	local self = setmetatable({
+		ClassName = CLASSNAME;
+		_v = value;
+		_s = (value ~= nil);
+	}, Option)
+	return self
+end
+
+
+function Option.Some(value)
+	assert(value ~= nil, "Option.Some() value cannot be nil")
+	return Option._new(value)
+end
+
+
+function Option.Wrap(value)
+	if value == nil then
+		return Option.None
+	else
+		return Option.Some(value)
+	end
+end
+
+
+function Option.Is(obj)
+	return type(obj) == "table" and getmetatable(obj) == Option
+end
+
+
+function Option.Assert(obj)
+	assert(Option.Is(obj), "Result was not of type Option")
+end
+
+
+function Option.Deserialize(data) -- type data = {ClassName: string, Value: any}
+	assert(type(data) == "table" and data.ClassName == CLASSNAME, "Invalid data for deserializing Option")
+	return data.Value == nil and Option.None or Option.Some(data.Value)
+end
+
+
+function Option:Serialize()
+	return {
+		ClassName = self.ClassName;
+		Value = self._v;
+	}
+end
+
+
+function Option:Match(matches)
+	local onSome = matches.Some
+	local onNone = matches.None
+	assert(type(onSome) == "function", "Missing 'Some' match")
+	assert(type(onNone) == "function", "Missing 'None' match")
+	if self:IsSome() then
+		return onSome(self:Unwrap())
+	else
+		return onNone()
+	end
+end
+
+
+function Option:IsSome()
+	return self._s
+end
+
+
+function Option:IsNone()
+	return (not self._s)
+end
+
+
+function Option:Expect(msg)
+	assert(self:IsSome(), msg)
+	return self._v
+end
+
+
+function Option:ExpectNone(msg)
+	assert(self:IsNone(), msg)
+end
+
+
+function Option:Unwrap()
+	return self:Expect("Cannot unwrap option of None type")
+end
+
+
+function Option:UnwrapOr(default)
+	if self:IsSome() then
+		return self:Unwrap()
+	else
+		return default
+	end
+end
+
+
+function Option:UnwrapOrElse(defaultFunc)
+	if self:IsSome() then
+		return self:Unwrap()
+	else
+		return defaultFunc()
+	end
+end
+
+
+function Option:And(optB)
+	if self:IsSome() then
+		return optB
+	else
+		return Option.None
+	end
+end
+
+
+function Option:AndThen(andThenFunc)
+	if self:IsSome() then
+		local result = andThenFunc(self:Unwrap())
+		Option.Assert(result)
+		return result
+	else
+		return Option.None
+	end
+end
+
+
+function Option:Or(optB)
+	if self:IsSome() then
+		return self
+	else
+		return optB
+	end
+end
+
+
+function Option:OrElse(orElseFunc)
+	if self:IsSome() then
+		return self
+	else
+		local result = orElseFunc()
+		Option.Assert(result)
+		return result
+	end
+end
+
+
+function Option:XOr(optB)
+	local someOptA = self:IsSome()
+	local someOptB = optB:IsSome()
+	if someOptA == someOptB then
+		return Option.None
+	elseif someOptA then
+		return self
+	else
+		return optB
+	end
+end
+
+
+function Option:Filter(predicate)
+	if self:IsNone() or not predicate(self._v) then
+		return Option.None
+	else
+		return self
+	end
+end
+
+
+function Option:Contains(value)
+	return self:IsSome() and self._v == value
+end
+
+
+function Option:__tostring()
+	if self:IsSome() then
+		return ("Option<" .. typeof(self._v) .. ">")
+	else
+		return "Option<None>"
+	end
+end
+
+
+function Option:__eq(opt)
+	if Option.Is(opt) then
+		if self:IsSome() and opt:IsSome() then
+			return (self:Unwrap() == opt:Unwrap())
+		elseif self:IsNone() and opt:IsNone() then
+			return true
+		end
+	end
+	return false
+end
+
+
+Option.None = Option._new()
+
+
+return Option
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="11">
+          <Properties>
+            <string name="Name">Promise</string>
+            <string name="Source"><![CDATA[--[[
+	An implementation of Promises similar to Promise/A+.
+]]
+
+local ERROR_NON_PROMISE_IN_LIST = "Non-promise value passed into %s at index %s"
+local ERROR_NON_LIST = "Please pass a list of promises to %s"
+local ERROR_NON_FUNCTION = "Please pass a handler function to %s!"
+local MODE_KEY_METATABLE = {__mode = "k"}
+
+--[[
+	Creates an enum dictionary with some metamethods to prevent common mistakes.
+]]
+local function makeEnum(enumName, members)
+	local enum = {}
+
+	for _, memberName in ipairs(members) do
+		enum[memberName] = memberName
+	end
+
+	return setmetatable(enum, {
+		__index = function(_, k)
+			error(string.format("%s is not in %s!", k, enumName), 2)
+		end,
+		__newindex = function()
+			error(string.format("Creating new members in %s is not allowed!", enumName), 2)
+		end,
+	})
+end
+
+--[[
+	An object to represent runtime errors that occur during execution.
+	Promises that experience an error like this will be rejected with
+	an instance of this object.
+]]
+local Error do
+	Error = {
+		Kind = makeEnum("Promise.Error.Kind", {
+			"ExecutionError",
+			"AlreadyCancelled",
+			"NotResolvedInTime",
+			"TimedOut",
+		}),
+	}
+	Error.__index = Error
+
+	function Error.new(options, parent)
+		options = options or {}
+		return setmetatable({
+			error = tostring(options.error) or "[This error has no error text.]",
+			trace = options.trace,
+			context = options.context,
+			kind = options.kind,
+			parent = parent,
+			createdTick = os.clock(),
+			createdTrace = debug.traceback(),
+		}, Error)
+	end
+
+	function Error.is(anything)
+		if type(anything) == "table" then
+			local metatable = getmetatable(anything)
+
+			if type(metatable) == "table" then
+				return rawget(anything, "error") ~= nil and type(rawget(metatable, "extend")) == "function"
+			end
+		end
+
+		return false
+	end
+
+	function Error.isKind(anything, kind)
+		assert(kind ~= nil, "Argument #2 to Promise.Error.isKind must not be nil")
+
+		return Error.is(anything) and anything.kind == kind
+	end
+
+	function Error:extend(options)
+		options = options or {}
+
+		options.kind = options.kind or self.kind
+
+		return Error.new(options, self)
+	end
+
+	function Error:getErrorChain()
+		local runtimeErrors = { self }
+
+		while runtimeErrors[#runtimeErrors].parent do
+			table.insert(runtimeErrors, runtimeErrors[#runtimeErrors].parent)
+		end
+
+		return runtimeErrors
+	end
+
+	function Error:__tostring()
+		local errorStrings = {
+			string.format("-- Promise.Error(%s) --", self.kind or "?"),
+		}
+
+		for _, runtimeError in ipairs(self:getErrorChain()) do
+			table.insert(errorStrings, table.concat({
+				runtimeError.trace or runtimeError.error,
+				runtimeError.context,
+			}, "\n"))
+		end
+
+		return table.concat(errorStrings, "\n")
+	end
+end
+
+--[[
+	Packs a number of arguments into a table and returns its length.
+
+	Used to cajole varargs without dropping sparse values.
+]]
+local function pack(...)
+	return select("#", ...), { ... }
+end
+
+--[[
+	Returns first value (success), and packs all following values.
+]]
+local function packResult(success, ...)
+	return success, select("#", ...), { ... }
+end
+
+
+local function makeErrorHandler(traceback)
+	assert(traceback ~= nil, "No traceback")
+
+	return function(err)
+		-- If the error object is already a table, forward it directly.
+		-- Should we extend the error here and add our own trace?
+
+		if type(err) == "table" then
+			return err
+		end
+
+		return Error.new({
+			error = err,
+			kind = Error.Kind.ExecutionError,
+			trace = debug.traceback(tostring(err), 2),
+			context = "Promise created at:\n\n" .. traceback,
+		})
+	end
+end
+
+--[[
+	Calls a Promise executor with error handling.
+]]
+local function runExecutor(traceback, callback, ...)
+	return packResult(xpcall(callback, makeErrorHandler(traceback), ...))
+end
+
+--[[
+	Creates a function that invokes a callback with correct error handling and
+	resolution mechanisms.
+]]
+local function createAdvancer(traceback, callback, resolve, reject)
+	return function(...)
+		local ok, resultLength, result = runExecutor(traceback, callback, ...)
+
+		if ok then
+			resolve(unpack(result, 1, resultLength))
+		else
+			reject(result[1])
+		end
+	end
+end
+
+local function isEmpty(t)
+	return next(t) == nil
+end
+
+local Promise = {
+	Error = Error,
+	Status = makeEnum("Promise.Status", {"Started", "Resolved", "Rejected", "Cancelled"}),
+	_getTime = os.clock,
+	_timeEvent = game:GetService("RunService").Heartbeat,
+}
+Promise.prototype = {}
+Promise.__index = Promise.prototype
+
+--[[
+	Constructs a new Promise with the given initializing callback.
+
+	This is generally only called when directly wrapping a non-promise API into
+	a promise-based version.
+
+	The callback will receive 'resolve' and 'reject' methods, used to start
+	invoking the promise chain.
+
+	Second parameter, parent, is used internally for tracking the "parent" in a
+	promise chain. External code shouldn't need to worry about this.
+]]
+function Promise._new(traceback, callback, parent)
+	if parent ~= nil and not Promise.is(parent) then
+		error("Argument #2 to Promise.new must be a promise or nil", 2)
+	end
+
+	local self = {
+		-- Used to locate where a promise was created
+		_source = traceback,
+
+		_status = Promise.Status.Started,
+
+		-- A table containing a list of all results, whether success or failure.
+		-- Only valid if _status is set to something besides Started
+		_values = nil,
+
+		-- Lua doesn't like sparse arrays very much, so we explicitly store the
+		-- length of _values to handle middle nils.
+		_valuesLength = -1,
+
+		-- Tracks if this Promise has no error observers..
+		_unhandledRejection = true,
+
+		-- Queues representing functions we should invoke when we update!
+		_queuedResolve = {},
+		_queuedReject = {},
+		_queuedFinally = {},
+
+		-- The function to run when/if this promise is cancelled.
+		_cancellationHook = nil,
+
+		-- The "parent" of this promise in a promise chain. Required for
+		-- cancellation propagation upstream.
+		_parent = parent,
+
+		-- Consumers are Promises that have chained onto this one.
+		-- We track them for cancellation propagation downstream.
+		_consumers = setmetatable({}, MODE_KEY_METATABLE),
+	}
+
+	if parent and parent._status == Promise.Status.Started then
+		parent._consumers[self] = true
+	end
+
+	setmetatable(self, Promise)
+
+	local function resolve(...)
+		self:_resolve(...)
+	end
+
+	local function reject(...)
+		self:_reject(...)
+	end
+
+	local function onCancel(cancellationHook)
+		if cancellationHook then
+			if self._status == Promise.Status.Cancelled then
+				cancellationHook()
+			else
+				self._cancellationHook = cancellationHook
+			end
+		end
+
+		return self._status == Promise.Status.Cancelled
+	end
+
+	coroutine.wrap(function()
+		local ok, _, result = runExecutor(
+			self._source,
+			callback,
+			resolve,
+			reject,
+			onCancel
+		)
+
+		if not ok then
+			reject(result[1])
+		end
+	end)()
+
+	return self
+end
+
+function Promise.new(executor)
+	return Promise._new(debug.traceback(nil, 2), executor)
+end
+
+function Promise:__tostring()
+	return string.format("Promise(%s)", self:getStatus())
+end
+
+--[[
+	Promise.new, except pcall on a new thread is automatic.
+]]
+function Promise.defer(callback)
+	local traceback = debug.traceback(nil, 2)
+	local promise
+	promise = Promise._new(traceback, function(resolve, reject, onCancel)
+		local connection
+		connection = Promise._timeEvent:Connect(function()
+			connection:Disconnect()
+			local ok, _, result = runExecutor(traceback, callback, resolve, reject, onCancel)
+
+			if not ok then
+				reject(result[1])
+			end
+		end)
+	end)
+
+	return promise
+end
+Promise.Defer = Promise.defer
+
+-- Backwards compatibility
+Promise.async = Promise.defer
+Promise.Async = Promise.defer
+
+--[[
+	Create a promise that represents the immediately resolved value.
+]]
+function Promise.resolve(...)
+	local length, values = pack(...)
+	return Promise._new(debug.traceback(nil, 2), function(resolve)
+		resolve(unpack(values, 1, length))
+	end)
+end
+Promise.Resolve = Promise.resolve
+
+--[[
+	Create a promise that represents the immediately rejected value.
+]]
+function Promise.reject(...)
+	local length, values = pack(...)
+	return Promise._new(debug.traceback(nil, 2), function(_, reject)
+		reject(unpack(values, 1, length))
+	end)
+end
+Promise.Reject = Promise.reject
+
+--[[
+	Runs a non-promise-returning function as a Promise with the
+  given arguments.
+]]
+function Promise._try(traceback, callback, ...)
+	local valuesLength, values = pack(...)
+
+	return Promise._new(traceback, function(resolve)
+		resolve(callback(unpack(values, 1, valuesLength)))
+	end)
+end
+
+--[[
+	Begins a Promise chain, turning synchronous errors into rejections.
+]]
+function Promise.try(...)
+	return Promise._try(debug.traceback(nil, 2), ...)
+end
+Promise.Try = Promise.try
+
+--[[
+	Returns a new promise that:
+		* is resolved when all input promises resolve
+		* is rejected if ANY input promises reject
+]]
+function Promise._all(traceback, promises, amount)
+	if type(promises) ~= "table" then
+		error(string.format(ERROR_NON_LIST, "Promise.all"), 3)
+	end
+
+	-- We need to check that each value is a promise here so that we can produce
+	-- a proper error rather than a rejected promise with our error.
+	for i, promise in pairs(promises) do
+		if not Promise.is(promise) then
+			error(string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.all", tostring(i)), 3)
+		end
+	end
+
+	-- If there are no values then return an already resolved promise.
+	if #promises == 0 or amount == 0 then
+		return Promise.resolve({})
+	end
+
+	return Promise._new(traceback, function(resolve, reject, onCancel)
+		-- An array to contain our resolved values from the given promises.
+		local resolvedValues = {}
+		local newPromises = {}
+
+		-- Keep a count of resolved promises because just checking the resolved
+		-- values length wouldn't account for promises that resolve with nil.
+		local resolvedCount = 0
+		local rejectedCount = 0
+		local done = false
+
+		local function cancel()
+			for _, promise in ipairs(newPromises) do
+				promise:cancel()
+			end
+		end
+
+		-- Called when a single value is resolved and resolves if all are done.
+		local function resolveOne(i, ...)
+			if done then
+				return
+			end
+
+			resolvedCount = resolvedCount + 1
+
+			if amount == nil then
+				resolvedValues[i] = ...
+			else
+				resolvedValues[resolvedCount] = ...
+			end
+
+			if resolvedCount >= (amount or #promises) then
+				done = true
+				resolve(resolvedValues)
+				cancel()
+			end
+		end
+
+		onCancel(cancel)
+
+		-- We can assume the values inside `promises` are all promises since we
+		-- checked above.
+		for i, promise in ipairs(promises) do
+			newPromises[i] = promise:andThen(
+				function(...)
+					resolveOne(i, ...)
+				end,
+				function(...)
+					rejectedCount = rejectedCount + 1
+
+					if amount == nil or #promises - rejectedCount < amount then
+						cancel()
+						done = true
+
+						reject(...)
+					end
+				end
+			)
+		end
+
+		if done then
+			cancel()
+		end
+	end)
+end
+
+function Promise.all(promises)
+	return Promise._all(debug.traceback(nil, 2), promises)
+end
+Promise.All = Promise.all
+
+function Promise.some(promises, amount)
+	assert(type(amount) == "number", "Bad argument #2 to Promise.some: must be a number")
+
+	return Promise._all(debug.traceback(nil, 2), promises, amount)
+end
+Promise.Some = Promise.some
+
+function Promise.any(promises)
+	return Promise._all(debug.traceback(nil, 2), promises, 1):andThen(function(values)
+		return values[1]
+	end)
+end
+Promise.Any = Promise.any
+
+function Promise.allSettled(promises)
+	if type(promises) ~= "table" then
+		error(string.format(ERROR_NON_LIST, "Promise.allSettled"), 2)
+	end
+
+	-- We need to check that each value is a promise here so that we can produce
+	-- a proper error rather than a rejected promise with our error.
+	for i, promise in pairs(promises) do
+		if not Promise.is(promise) then
+			error(string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.allSettled", tostring(i)), 2)
+		end
+	end
+
+	-- If there are no values then return an already resolved promise.
+	if #promises == 0 then
+		return Promise.resolve({})
+	end
+
+	return Promise._new(debug.traceback(nil, 2), function(resolve, _, onCancel)
+		-- An array to contain our resolved values from the given promises.
+		local fates = {}
+		local newPromises = {}
+
+		-- Keep a count of resolved promises because just checking the resolved
+		-- values length wouldn't account for promises that resolve with nil.
+		local finishedCount = 0
+
+		-- Called when a single value is resolved and resolves if all are done.
+		local function resolveOne(i, ...)
+			finishedCount = finishedCount + 1
+
+			fates[i] = ...
+
+			if finishedCount >= #promises then
+				resolve(fates)
+			end
+		end
+
+		onCancel(function()
+			for _, promise in ipairs(newPromises) do
+				promise:cancel()
+			end
+		end)
+
+		-- We can assume the values inside `promises` are all promises since we
+		-- checked above.
+		for i, promise in ipairs(promises) do
+			newPromises[i] = promise:finally(
+				function(...)
+					resolveOne(i, ...)
+				end
+			)
+		end
+	end)
+end
+Promise.AllSettled = Promise.allSettled
+
+--[[
+	Races a set of Promises and returns the first one that resolves,
+	cancelling the others.
+]]
+function Promise.race(promises)
+	assert(type(promises) == "table", string.format(ERROR_NON_LIST, "Promise.race"))
+
+	for i, promise in pairs(promises) do
+		assert(Promise.is(promise), string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.race", tostring(i)))
+	end
+
+	return Promise._new(debug.traceback(nil, 2), function(resolve, reject, onCancel)
+		local newPromises = {}
+		local finished = false
+
+		local function cancel()
+			for _, promise in ipairs(newPromises) do
+				promise:cancel()
+			end
+		end
+
+		local function finalize(callback)
+			return function (...)
+				cancel()
+				finished = true
+				return callback(...)
+			end
+		end
+
+		if onCancel(finalize(reject)) then
+			return
+		end
+
+		for i, promise in ipairs(promises) do
+			newPromises[i] = promise:andThen(finalize(resolve), finalize(reject))
+		end
+
+		if finished then
+			cancel()
+		end
+	end)
+end
+Promise.Race = Promise.race
+
+--[[
+	Iterates serially over the given an array of values, calling the predicate callback on each before continuing.
+	If the predicate returns a Promise, we wait for that Promise to resolve before continuing to the next item
+	in the array. If the Promise the predicate returns rejects, the Promise from Promise.each is also rejected with
+	the same value.
+
+	Returns a Promise containing an array of the return values from the predicate for each item in the original list.
+]]
+function Promise.each(list, predicate)
+	assert(type(list) == "table", string.format(ERROR_NON_LIST, "Promise.each"))
+	assert(type(predicate) == "function", string.format(ERROR_NON_FUNCTION, "Promise.each"))
+
+	return Promise._new(debug.traceback(nil, 2), function(resolve, reject, onCancel)
+		local results = {}
+		local promisesToCancel = {}
+
+		local cancelled = false
+
+		local function cancel()
+			for _, promiseToCancel in ipairs(promisesToCancel) do
+				promiseToCancel:cancel()
+			end
+		end
+
+		onCancel(function()
+			cancelled = true
+
+			cancel()
+		end)
+
+		-- We need to preprocess the list of values and look for Promises.
+		-- If we find some, we must register our andThen calls now, so that those Promises have a consumer
+		-- from us registered. If we don't do this, those Promises might get cancelled by something else
+		-- before we get to them in the series because it's not possible to tell that we plan to use it
+		-- unless we indicate it here.
+
+		local preprocessedList = {}
+
+		for index, value in ipairs(list) do
+			if Promise.is(value) then
+				if value:getStatus() == Promise.Status.Cancelled then
+					cancel()
+					return reject(Error.new({
+						error = "Promise is cancelled",
+						kind = Error.Kind.AlreadyCancelled,
+						context = string.format(
+							"The Promise that was part of the array at index %d passed into Promise.each was already cancelled when Promise.each began.\n\nThat Promise was created at:\n\n%s",
+							index,
+							value._source
+						),
+					}))
+				elseif value:getStatus() == Promise.Status.Rejected then
+					cancel()
+					return reject(select(2, value:await()))
+				end
+
+				-- Chain a new Promise from this one so we only cancel ours
+				local ourPromise = value:andThen(function(...)
+					return ...
+				end)
+
+				table.insert(promisesToCancel, ourPromise)
+				preprocessedList[index] = ourPromise
+			else
+				preprocessedList[index] = value
+			end
+		end
+
+		for index, value in ipairs(preprocessedList) do
+			if Promise.is(value) then
+				local success
+				success, value = value:await()
+
+				if not success then
+					cancel()
+					return reject(value)
+				end
+			end
+
+			if cancelled then
+				return
+			end
+
+			local predicatePromise = Promise.resolve(predicate(value, index))
+
+			table.insert(promisesToCancel, predicatePromise)
+
+			local success, result = predicatePromise:await()
+
+			if not success then
+				cancel()
+				return reject(result)
+			end
+
+			results[index] = result
+		end
+
+		resolve(results)
+	end)
+end
+Promise.Each = Promise.each
+
+--[[
+	Is the given object a Promise instance?
+]]
+function Promise.is(object)
+	if type(object) ~= "table" then
+		return false
+	end
+
+	local objectMetatable = getmetatable(object)
+
+	if objectMetatable == Promise then
+		-- The Promise came from this library.
+		return true
+	elseif objectMetatable == nil then
+		-- No metatable, but we should still chain onto tables with andThen methods
+		return type(object.andThen) == "function"
+	elseif
+		type(objectMetatable) == "table"
+		and type(rawget(objectMetatable, "__index")) == "table"
+		and type(rawget(rawget(objectMetatable, "__index"), "andThen")) == "function"
+	then
+		-- Maybe this came from a different or older Promise library.
+		return true
+	end
+
+	return false
+end
+Promise.Is = Promise.is
+
+--[[
+	Converts a yielding function into a Promise-returning one.
+]]
+function Promise.promisify(callback)
+	return function(...)
+		return Promise._try(debug.traceback(nil, 2), callback, ...)
+	end
+end
+Promise.Promisify = Promise.promisify
+
+--[[
+	Creates a Promise that resolves after given number of seconds.
+]]
+do
+	-- uses a sorted doubly linked list (queue) to achieve O(1) remove operations and O(n) for insert
+
+	-- the initial node in the linked list
+	local first
+	local connection
+
+	function Promise.delay(seconds)
+		assert(type(seconds) == "number", "Bad argument #1 to Promise.delay, must be a number.")
+		-- If seconds is -INF, INF, NaN, or less than 1 / 60, assume seconds is 1 / 60.
+		-- This mirrors the behavior of wait()
+		if not (seconds >= 1 / 60) or seconds == math.huge then
+			seconds = 1 / 60
+		end
+
+		return Promise._new(debug.traceback(nil, 2), function(resolve, _, onCancel)
+			local startTime = Promise._getTime()
+			local endTime = startTime + seconds
+
+			local node = {
+				resolve = resolve,
+				startTime = startTime,
+				endTime = endTime,
+			}
+
+			if connection == nil then -- first is nil when connection is nil
+				first = node
+				connection = Promise._timeEvent:Connect(function()
+					local threadStart = Promise._getTime()
+
+					while first ~= nil and first.endTime < threadStart do
+						local current = first
+						first = current.next
+
+						if first == nil then
+							connection:Disconnect()
+							connection = nil
+						else
+							first.previous = nil
+						end
+
+						current.resolve(Promise._getTime() - current.startTime)
+					end
+				end)
+			else -- first is non-nil
+				if first.endTime < endTime then -- if `node` should be placed after `first`
+					-- we will insert `node` between `current` and `next`
+					-- (i.e. after `current` if `next` is nil)
+					local current = first
+					local next = current.next
+
+					while next ~= nil and next.endTime < endTime do
+						current = next
+						next = current.next
+					end
+
+					-- `current` must be non-nil, but `next` could be `nil` (i.e. last item in list)
+					current.next = node
+					node.previous = current
+
+					if next ~= nil then
+						node.next = next
+						next.previous = node
+					end
+				else
+					-- set `node` to `first`
+					node.next = first
+					first.previous = node
+					first = node
+				end
+			end
+
+			onCancel(function()
+				-- remove node from queue
+				local next = node.next
+
+				if first == node then
+					if next == nil then -- if `node` is the first and last
+						connection:Disconnect()
+						connection = nil
+					else -- if `node` is `first` and not the last
+						next.previous = nil
+					end
+					first = next
+				else
+					local previous = node.previous
+					-- since `node` is not `first`, then we know `previous` is non-nil
+					previous.next = next
+
+					if next ~= nil then
+						next.previous = previous
+					end
+				end
+			end)
+		end)
+	end
+	Promise.Delay = Promise.delay
+end
+
+--[[
+	Rejects the promise after `seconds` seconds.
+]]
+function Promise.prototype:timeout(seconds, rejectionValue)
+	local traceback = debug.traceback(nil, 2)
+
+	return Promise.race({
+		Promise.delay(seconds):andThen(function()
+			return Promise.reject(rejectionValue == nil and Error.new({
+				kind = Error.Kind.TimedOut,
+				error = "Timed out",
+				context = string.format(
+					"Timeout of %d seconds exceeded.\n:timeout() called at:\n\n%s",
+					seconds,
+					traceback
+				),
+			}) or rejectionValue)
+		end),
+		self,
+	})
+end
+Promise.prototype.Timeout = Promise.prototype.timeout
+
+function Promise.prototype:getStatus()
+	return self._status
+end
+Promise.prototype.GetStatus = Promise.prototype.getStatus
+
+--[[
+	Creates a new promise that receives the result of this promise.
+
+	The given callbacks are invoked depending on that result.
+]]
+function Promise.prototype:_andThen(traceback, successHandler, failureHandler)
+	self._unhandledRejection = false
+
+	-- Create a new promise to follow this part of the chain
+	return Promise._new(traceback, function(resolve, reject)
+		-- Our default callbacks just pass values onto the next promise.
+		-- This lets success and failure cascade correctly!
+
+		local successCallback = resolve
+		if successHandler then
+			successCallback = createAdvancer(
+				traceback,
+				successHandler,
+				resolve,
+				reject
+			)
+		end
+
+		local failureCallback = reject
+		if failureHandler then
+			failureCallback = createAdvancer(
+				traceback,
+				failureHandler,
+				resolve,
+				reject
+			)
+		end
+
+		if self._status == Promise.Status.Started then
+			-- If we haven't resolved yet, put ourselves into the queue
+			table.insert(self._queuedResolve, successCallback)
+			table.insert(self._queuedReject, failureCallback)
+		elseif self._status == Promise.Status.Resolved then
+			-- This promise has already resolved! Trigger success immediately.
+			successCallback(unpack(self._values, 1, self._valuesLength))
+		elseif self._status == Promise.Status.Rejected then
+			-- This promise died a terrible death! Trigger failure immediately.
+			failureCallback(unpack(self._values, 1, self._valuesLength))
+		elseif self._status == Promise.Status.Cancelled then
+			-- We don't want to call the success handler or the failure handler,
+			-- we just reject this promise outright.
+			reject(Error.new({
+				error = "Promise is cancelled",
+				kind = Error.Kind.AlreadyCancelled,
+				context = "Promise created at\n\n" .. traceback,
+			}))
+		end
+	end, self)
+end
+
+function Promise.prototype:andThen(successHandler, failureHandler)
+	assert(
+		successHandler == nil or type(successHandler) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:andThen")
+	)
+	assert(
+		failureHandler == nil or type(failureHandler) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:andThen")
+	)
+
+	return self:_andThen(debug.traceback(nil, 2), successHandler, failureHandler)
+end
+Promise.prototype.AndThen = Promise.prototype.andThen
+Promise.prototype.Then = Promise.prototype.andThen
+
+--[[
+	Used to catch any errors that may have occurred in the promise.
+]]
+function Promise.prototype:catch(failureCallback)
+	assert(
+		failureCallback == nil or type(failureCallback) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:catch")
+	)
+	return self:_andThen(debug.traceback(nil, 2), nil, failureCallback)
+end
+Promise.prototype.Catch = Promise.prototype.catch
+
+--[[
+	Like andThen, but the value passed into the handler is also the
+	value returned from the handler.
+]]
+function Promise.prototype:tap(tapCallback)
+	assert(type(tapCallback) == "function", string.format(ERROR_NON_FUNCTION, "Promise:tap"))
+	return self:_andThen(debug.traceback(nil, 2), function(...)
+		local callbackReturn = tapCallback(...)
+
+		if Promise.is(callbackReturn) then
+			local length, values = pack(...)
+			return callbackReturn:andThen(function()
+				return unpack(values, 1, length)
+			end)
+		end
+
+		return ...
+	end)
+end
+Promise.prototype.Tap = Promise.prototype.tap
+
+--[[
+	Calls a callback on `andThen` with specific arguments.
+]]
+function Promise.prototype:andThenCall(callback, ...)
+	assert(type(callback) == "function", string.format(ERROR_NON_FUNCTION, "Promise:andThenCall"))
+	local length, values = pack(...)
+	return self:_andThen(debug.traceback(nil, 2), function()
+		return callback(unpack(values, 1, length))
+	end)
+end
+Promise.prototype.AndThenCall = Promise.prototype.andThenCall
+Promise.prototype.ThenCall = Promise.prototype.andThenCall
+
+--[[
+	Shorthand for an andThen handler that returns the given value.
+]]
+function Promise.prototype:andThenReturn(...)
+	local length, values = pack(...)
+	return self:_andThen(debug.traceback(nil, 2), function()
+		return unpack(values, 1, length)
+	end)
+end
+Promise.prototype.AndThenReturn = Promise.prototype.andThenReturn
+Promise.prototype.ThenReturn = Promise.prototype.andThenReturn
+
+--[[
+	Cancels the promise, disallowing it from rejecting or resolving, and calls
+	the cancellation hook if provided.
+]]
+function Promise.prototype:cancel()
+	if self._status ~= Promise.Status.Started then
+		return
+	end
+
+	self._status = Promise.Status.Cancelled
+
+	if self._cancellationHook then
+		self._cancellationHook()
+	end
+
+	if self._parent then
+		self._parent:_consumerCancelled(self)
+	end
+
+	for child in pairs(self._consumers) do
+		child:cancel()
+	end
+
+	self:_finalize()
+end
+Promise.prototype.Cancel = Promise.prototype.cancel
+
+--[[
+	Used to decrease the number of consumers by 1, and if there are no more,
+	cancel this promise.
+]]
+function Promise.prototype:_consumerCancelled(consumer)
+	if self._status ~= Promise.Status.Started then
+		return
+	end
+
+	self._consumers[consumer] = nil
+
+	if next(self._consumers) == nil then
+		self:cancel()
+	end
+end
+
+--[[
+	Used to set a handler for when the promise resolves, rejects, or is
+	cancelled. Returns a new promise chained from this promise.
+]]
+function Promise.prototype:_finally(traceback, finallyHandler, onlyOk)
+	if not onlyOk then
+		self._unhandledRejection = false
+	end
+
+	-- Return a promise chained off of this promise
+	return Promise._new(traceback, function(resolve, reject)
+		local finallyCallback = resolve
+		if finallyHandler then
+			finallyCallback = createAdvancer(
+				traceback,
+				finallyHandler,
+				resolve,
+				reject
+			)
+		end
+
+		if onlyOk then
+			local callback = finallyCallback
+			finallyCallback = function(...)
+				if self._status == Promise.Status.Rejected then
+					return resolve(self)
+				end
+
+				return callback(...)
+			end
+		end
+
+		if self._status == Promise.Status.Started then
+			-- The promise is not settled, so queue this.
+			table.insert(self._queuedFinally, finallyCallback)
+		else
+			-- The promise already settled or was cancelled, run the callback now.
+			finallyCallback(self._status)
+		end
+	end, self)
+end
+
+function Promise.prototype:finally(finallyHandler)
+	assert(
+		finallyHandler == nil or type(finallyHandler) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:finally")
+	)
+	return self:_finally(debug.traceback(nil, 2), finallyHandler)
+end
+Promise.prototype.Finally = Promise.prototype.finally
+
+--[[
+	Calls a callback on `finally` with specific arguments.
+]]
+function Promise.prototype:finallyCall(callback, ...)
+	assert(type(callback) == "function", string.format(ERROR_NON_FUNCTION, "Promise:finallyCall"))
+	local length, values = pack(...)
+	return self:_finally(debug.traceback(nil, 2), function()
+		return callback(unpack(values, 1, length))
+	end)
+end
+Promise.prototype.FinallyCall = Promise.prototype.finallyCall
+
+--[[
+	Shorthand for a finally handler that returns the given value.
+]]
+function Promise.prototype:finallyReturn(...)
+	local length, values = pack(...)
+	return self:_finally(debug.traceback(nil, 2), function()
+		return unpack(values, 1, length)
+	end)
+end
+Promise.prototype.FinallyReturn = Promise.prototype.finallyReturn
+
+--[[
+	Similar to finally, except rejections are propagated through it.
+]]
+function Promise.prototype:done(finallyHandler)
+	assert(
+		finallyHandler == nil or type(finallyHandler) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:done")
+	)
+	return self:_finally(debug.traceback(nil, 2), finallyHandler, true)
+end
+Promise.prototype.Done = Promise.prototype.done
+
+--[[
+	Calls a callback on `done` with specific arguments.
+]]
+function Promise.prototype:doneCall(callback, ...)
+	assert(type(callback) == "function", string.format(ERROR_NON_FUNCTION, "Promise:doneCall"))
+	local length, values = pack(...)
+	return self:_finally(debug.traceback(nil, 2), function()
+		return callback(unpack(values, 1, length))
+	end, true)
+end
+Promise.prototype.DoneCall = Promise.prototype.doneCall
+
+--[[
+	Shorthand for a done handler that returns the given value.
+]]
+function Promise.prototype:doneReturn(...)
+	local length, values = pack(...)
+	return self:_finally(debug.traceback(nil, 2), function()
+		return unpack(values, 1, length)
+	end, true)
+end
+Promise.prototype.DoneReturn = Promise.prototype.doneReturn
+
+--[[
+	Yield until the promise is completed.
+
+	This matches the execution model of normal Roblox functions.
+]]
+function Promise.prototype:awaitStatus()
+	self._unhandledRejection = false
+
+	if self._status == Promise.Status.Started then
+		local bindable = Instance.new("BindableEvent")
+
+		self:finally(function()
+			bindable:Fire()
+		end)
+
+		bindable.Event:Wait()
+		bindable:Destroy()
+	end
+
+	if self._status == Promise.Status.Resolved then
+		return self._status, unpack(self._values, 1, self._valuesLength)
+	elseif self._status == Promise.Status.Rejected then
+		return self._status, unpack(self._values, 1, self._valuesLength)
+	end
+
+	return self._status
+end
+Promise.prototype.AwaitStatus = Promise.prototype.awaitStatus
+
+local function awaitHelper(status, ...)
+	return status == Promise.Status.Resolved, ...
+end
+
+--[[
+	Calls awaitStatus internally, returns (isResolved, values...)
+]]
+function Promise.prototype:await()
+	return awaitHelper(self:awaitStatus())
+end
+Promise.prototype.Await = Promise.prototype.await
+
+local function expectHelper(status, ...)
+	if status ~= Promise.Status.Resolved then
+		error((...) == nil and "Expected Promise rejected with no value." or (...), 3)
+	end
+
+	return ...
+end
+
+--[[
+	Calls await and only returns if the Promise resolves.
+	Throws if the Promise rejects or gets cancelled.
+]]
+function Promise.prototype:expect()
+	return expectHelper(self:awaitStatus())
+end
+Promise.prototype.Expect = Promise.prototype.expect
+
+-- Backwards compatibility
+Promise.prototype.awaitValue = Promise.prototype.expect
+Promise.prototype.AwaitValue = Promise.prototype.expect
+
+--[[
+	Intended for use in tests.
+
+	Similar to await(), but instead of yielding if the promise is unresolved,
+	_unwrap will throw. This indicates an assumption that a promise has
+	resolved.
+]]
+function Promise.prototype:_unwrap()
+	if self._status == Promise.Status.Started then
+		error("Promise has not resolved or rejected.", 2)
+	end
+
+	local success = self._status == Promise.Status.Resolved
+
+	return success, unpack(self._values, 1, self._valuesLength)
+end
+
+function Promise.prototype:_resolve(...)
+	if self._status ~= Promise.Status.Started then
+		if Promise.is((...)) then
+			(...):_consumerCancelled(self)
+		end
+		return
+	end
+
+	-- If the resolved value was a Promise, we chain onto it!
+	if Promise.is((...)) then
+		-- Without this warning, arguments sometimes mysteriously disappear
+		if select("#", ...) > 1 then
+			local message = string.format(
+				"When returning a Promise from andThen, extra arguments are " ..
+				"discarded! See:\n\n%s",
+				self._source
+			)
+			warn(message)
+		end
+
+		local chainedPromise = ...
+
+		local promise = chainedPromise:andThen(
+			function(...)
+				self:_resolve(...)
+			end,
+			function(...)
+				local maybeRuntimeError = chainedPromise._values[1]
+
+				-- Backwards compatibility < v2
+				if chainedPromise._error then
+					maybeRuntimeError = Error.new({
+						error = chainedPromise._error,
+						kind = Error.Kind.ExecutionError,
+						context = "[No stack trace available as this Promise originated from an older version of the Promise library (< v2)]",
+					})
+				end
+
+				if Error.isKind(maybeRuntimeError, Error.Kind.ExecutionError) then
+					return self:_reject(maybeRuntimeError:extend({
+						error = "This Promise was chained to a Promise that errored.",
+						trace = "",
+						context = string.format(
+							"The Promise at:\n\n%s\n...Rejected because it was chained to the following Promise, which encountered an error:\n",
+							self._source
+						),
+					}))
+				end
+
+				self:_reject(...)
+			end
+		)
+
+		if promise._status == Promise.Status.Cancelled then
+			self:cancel()
+		elseif promise._status == Promise.Status.Started then
+			-- Adopt ourselves into promise for cancellation propagation.
+			self._parent = promise
+			promise._consumers[self] = true
+		end
+
+		return
+	end
+
+	self._status = Promise.Status.Resolved
+	self._valuesLength, self._values = pack(...)
+
+	-- We assume that these callbacks will not throw errors.
+	for _, callback in ipairs(self._queuedResolve) do
+		coroutine.wrap(callback)(...)
+	end
+
+	self:_finalize()
+end
+
+function Promise.prototype:_reject(...)
+	if self._status ~= Promise.Status.Started then
+		return
+	end
+
+	self._status = Promise.Status.Rejected
+	self._valuesLength, self._values = pack(...)
+
+	-- If there are any rejection handlers, call those!
+	if not isEmpty(self._queuedReject) then
+		-- We assume that these callbacks will not throw errors.
+		for _, callback in ipairs(self._queuedReject) do
+			coroutine.wrap(callback)(...)
+		end
+	else
+		-- At this point, no one was able to observe the error.
+		-- An error handler might still be attached if the error occurred
+		-- synchronously. We'll wait one tick, and if there are still no
+		-- observers, then we should put a message in the console.
+
+		local err = tostring((...))
+
+		coroutine.wrap(function()
+			Promise._timeEvent:Wait()
+
+			-- Someone observed the error, hooray!
+			if not self._unhandledRejection then
+				return
+			end
+
+			-- Build a reasonable message
+			local message = string.format(
+				"Unhandled Promise rejection:\n\n%s\n\n%s",
+				err,
+				self._source
+			)
+
+			if Promise.TEST then
+				-- Don't spam output when we're running tests.
+				return
+			end
+
+			warn(message)
+		end)()
+	end
+
+	self:_finalize()
+end
+
+--[[
+	Calls any :finally handlers. We need this to be a separate method and
+	queue because we must call all of the finally callbacks upon a success,
+	failure, *and* cancellation.
+]]
+function Promise.prototype:_finalize()
+	for _, callback in ipairs(self._queuedFinally) do
+		-- Purposefully not passing values to callbacks here, as it could be the
+		-- resolved values, or rejected errors. If the developer needs the values,
+		-- they should use :andThen or :catch explicitly.
+		coroutine.wrap(callback)(self._status)
+	end
+
+	self._queuedFinally = nil
+	self._queuedReject = nil
+	self._queuedResolve = nil
+
+	-- Clear references to other Promises to allow gc
+	if not Promise.TEST then
+		self._parent = nil
+		self._consumers = nil
+	end
+end
+
+--[[
+	Chains a Promise from this one that is resolved if this Promise is
+	resolved, and rejected if it is not resolved.
+]]
+function Promise.prototype:now(rejectionValue)
+	local traceback = debug.traceback(nil, 2)
+	if self:getStatus() == Promise.Status.Resolved then
+		return self:_andThen(traceback, function(...)
+			return ...
+		end)
+	else
+		return Promise.reject(rejectionValue == nil and Error.new({
+			kind = Error.Kind.NotResolvedInTime,
+			error = "This Promise was not resolved in time for :now()",
+			context = ":now() was called at:\n\n" .. traceback,
+		}) or rejectionValue)
+	end
+end
+Promise.prototype.Now = Promise.prototype.now
+
+--[[
+	Retries a Promise-returning callback N times until it succeeds.
+]]
+function Promise.retry(callback, times, ...)
+	assert(type(callback) == "function", "Parameter #1 to Promise.retry must be a function")
+	assert(type(times) == "number", "Parameter #2 to Promise.retry must be a number")
+
+	local args, length = {...}, select("#", ...)
+
+	return Promise.resolve(callback(...)):catch(function(...)
+		if times > 0 then
+			return Promise.retry(callback, times - 1, unpack(args, 1, length))
+		else
+			return Promise.reject(...)
+		end
+	end)
+end
+Promise.prototype.Retry = Promise.prototype.retry
+
+--[[
+	Converts an event into a Promise with an optional predicate
+]]
+function Promise.fromEvent(event, predicate)
+	predicate = predicate or function()
+		return true
+	end
+
+	return Promise._new(debug.traceback(nil, 2), function(resolve, _reject, onCancel)
+		local connection
+		local shouldDisconnect = false
+
+		local function disconnect()
+			connection:Disconnect()
+			connection = nil
+		end
+
+		-- We use shouldDisconnect because if the callback given to Connect is called before
+		-- Connect returns, connection will still be nil. This happens with events that queue up
+		-- events when there's nothing connected, such as RemoteEvents
+
+		connection = event:Connect(function(...)
+			local callbackValue = predicate(...)
+
+			if callbackValue == true then
+				resolve(...)
+
+				if connection then
+					disconnect()
+				else
+					shouldDisconnect = true
+				end
+			elseif type(callbackValue) ~= "boolean" then
+				error("Promise.fromEvent predicate should always return a boolean")
+			end
+		end)
+
+		if shouldDisconnect and connection then
+			return disconnect()
+		end
+
+		onCancel(function()
+			disconnect()
+		end)
+	end)
+end
+Promise.FromEvent = Promise.fromEvent
+
+return Promise
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="12">
+          <Properties>
+            <string name="Name">Remote</string>
+          </Properties>
+          <Item class="ModuleScript" referent="13">
+            <Properties>
+              <string name="Name">ClientRemoteProperty</string>
+              <string name="Source"><![CDATA[-- ClientRemoteProperty
+-- Stephen Leitnick
+-- January 07, 2021
+
+--[[
+
+	remoteProperty = ClientRemoteProperty.new(valueObject: Instance)
+
+	remoteProperty:Get(): any
+	remoteProperty:Destroy(): void
+
+	remoteProperty.Changed(newValue: any): Connection
+
+--]]
+
+
+local IS_SERVER = game:GetService("RunService"):IsServer()
+local Signal = require(script.Parent.Parent.Signal)
+
+local ClientRemoteProperty = {}
+ClientRemoteProperty.__index = ClientRemoteProperty
+
+
+function ClientRemoteProperty.new(object)
+
+	assert(not IS_SERVER, "ClientRemoteProperty can only be created on the client")
+
+	local self = setmetatable({
+		_object = object;
+		_value = nil;
+		_isTable = object:IsA("RemoteEvent");
+	}, ClientRemoteProperty)
+
+	local function SetValue(v)
+		self._value = v
+	end
+
+	if self._isTable then
+		self.Changed = Signal.new()
+		self._change = object.OnClientEvent:Connect(function(tbl)
+			SetValue(tbl)
+			self.Changed:Fire(tbl)
+		end)
+		SetValue(object.TableRequest:InvokeServer())
+	else
+		SetValue(object.Value)
+		self.Changed = object.Changed
+		self._change = object.Changed:Connect(SetValue)
+	end
+
+	return self
+
+end
+
+
+function ClientRemoteProperty:Get()
+	return self._value
+end
+
+
+function ClientRemoteProperty:Destroy()
+	self._change:Disconnect()
+	if self._isTable then
+		self.Changed:Destroy()
+	end
+end
+
+
+return ClientRemoteProperty
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="14">
+            <Properties>
+              <string name="Name">ClientRemoteSignal</string>
+              <string name="Source"><![CDATA[-- ClientRemoteSignal
+-- Stephen Leitnick
+-- January 07, 2021
+
+--[[
+
+	remoteSignal = ClientRemoteSignal.new(remoteEvent: RemoteEvent)
+
+	remoteSignal:Connect(handler: (...args: any)): Connection
+	remoteSignal:Fire(...args: any): void
+	remoteSignal:Wait(): (...any)
+	remoteSignal:Destroy(): void
+
+--]]
+
+
+local IS_SERVER = game:GetService("RunService"):IsServer()
+
+local Ser = require(script.Parent.Parent.Ser)
+
+--------------------------------------------------------------
+-- Connection
+
+local Connection = {}
+Connection.__index = Connection
+
+function Connection.new(event, connection)
+	local self = setmetatable({
+		_conn = connection;
+		_event = event;
+		Connected = true;
+	}, Connection)
+	return self
+end
+
+function Connection:IsConnected()
+	if self._conn then
+		return self._conn.Connected
+	end
+	return false
+end
+
+function Connection:Disconnect()
+	if self._conn then
+		self._conn:Disconnect()
+		self._conn = nil
+	end
+	if not self._event then return end
+	self.Connected = false
+	local connections = self._event._connections
+	for i,c in ipairs(connections) do
+		if c == self then
+			connections[i] = connections[#connections]
+			connections[#connections] = nil
+			break
+		end
+	end
+	self._event = nil
+end
+
+Connection.Destroy = Connection.Disconnect
+
+-- End Connection
+--------------------------------------------------------------
+-- ClientRemoteSignal
+
+local ClientRemoteSignal = {}
+ClientRemoteSignal.__index = ClientRemoteSignal
+
+
+function ClientRemoteSignal.Is(object)
+	return type(object) == "table" and getmetatable(object) == ClientRemoteSignal
+end
+
+
+function ClientRemoteSignal.new(remoteEvent)
+	assert(not IS_SERVER, "ClientRemoteSignal can only be created on the client")
+	assert(typeof(remoteEvent) == "Instance", "Argument #1 (RemoteEvent) expected Instance; got " .. typeof(remoteEvent))
+	assert(remoteEvent:IsA("RemoteEvent"), "Argument #1 (RemoteEvent) expected RemoteEvent; got" .. remoteEvent.ClassName)
+	local self = setmetatable({
+		_remote = remoteEvent;
+		_connections = {};
+	}, ClientRemoteSignal)
+	return self
+end
+
+
+function ClientRemoteSignal:Fire(...)
+	self._remote:FireServer(Ser.SerializeArgsAndUnpack(...))
+end
+
+
+function ClientRemoteSignal:Wait()
+	return Ser.DeserializeArgsAndUnpack(self._remote.OnClientEvent:Wait())
+end
+
+
+function ClientRemoteSignal:Connect(handler)
+	local connection = Connection.new(self, self._remote.OnClientEvent:Connect(function(...)
+		handler(Ser.DeserializeArgsAndUnpack(...))
+	end))
+	table.insert(self._connections, connection)
+	return connection
+end
+
+
+function ClientRemoteSignal:Destroy()
+	for _,c in ipairs(self._connections) do
+		if c._conn then
+			c._conn:Disconnect()
+		end
+	end
+	self._connections = nil
+	self._remote = nil
+end
+
+
+return ClientRemoteSignal
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="15">
+            <Properties>
+              <string name="Name">RemoteProperty</string>
+              <string name="Source"><![CDATA[-- RemoteProperty
+-- Stephen Leitnick
+-- January 07, 2021
+
+--[[
+
+	remoteProperty = RemoteProperty.new(value: any [, overrideClass: string])
+
+	remoteProperty:Get(): any
+	remoteProperty:Set(value: any): void
+	remoteProperty:Replicate(): void   [Only for table values]
+	remoteProperty:Destroy(): void
+
+	remoteProperty.Changed(newValue: any): Connection
+
+--]]
+
+
+local Signal = require(script.Parent.Parent.Signal)
+
+local IS_SERVER = game:GetService("RunService"):IsServer()
+
+local typeClassMap = {
+	boolean = "BoolValue";
+	string = "StringValue";
+	table = "RemoteEvent";
+	CFrame = "CFrameValue";
+	Color3 = "Color3Value";
+	BrickColor = "BrickColorValue";
+	number = "NumberValue";
+	Instance = "ObjectValue";
+	Ray = "RayValue";
+	Vector3 = "Vector3Value";
+	["nil"] = "ObjectValue";
+}
+
+
+local RemoteProperty = {}
+RemoteProperty.__index = RemoteProperty
+
+
+function RemoteProperty.Is(object)
+	return type(object) == "table" and getmetatable(object) == RemoteProperty
+end
+
+
+function RemoteProperty.new(value, overrideClass)
+
+	assert(IS_SERVER, "RemoteProperty can only be created on the server")
+
+	if overrideClass ~= nil then
+		assert(type(overrideClass) == "string", "OverrideClass must be a string; got " .. type(overrideClass))
+		assert(overrideClass:match("Value$"), "OverrideClass must be of super type ValueBase (e.g. IntValue); got " .. overrideClass)
+	end
+
+	local t = typeof(value)
+	local class = overrideClass or typeClassMap[t]
+	assert(class, "RemoteProperty does not support type \"" .. t .. "\"")
+
+	local self = setmetatable({
+		_value = value;
+		_type = t;
+		_isTable = (t == "table");
+		_object = Instance.new(class);
+	}, RemoteProperty)
+
+	if self._isTable then
+		local req = Instance.new("RemoteFunction")
+		req.Name = "TableRequest"
+		req.Parent = self._object
+		function req.OnServerInvoke(_player)
+			return self._value
+		end
+		self.Changed = Signal.new()
+	else
+		self.Changed = self._object.Changed
+	end
+
+	self:Set(value)
+
+	return self
+
+end
+
+
+function RemoteProperty:Replicate()
+	if self._isTable then
+		self:Set(self._value)
+	end
+end
+
+
+function RemoteProperty:Set(value)
+	if self._isTable then
+		self._object:FireAllClients(value)
+		self.Changed:Fire(value)
+	else
+		self._object.Value = value
+	end
+	self._value = value
+end
+
+
+function RemoteProperty:Get()
+	return self._value
+end
+
+
+function RemoteProperty:Destroy()
+	self._object:Destroy()
+end
+
+
+return RemoteProperty
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="16">
+            <Properties>
+              <string name="Name">RemoteSignal</string>
+              <string name="Source"><![CDATA[-- RemoteSignal
+-- Stephen Leitnick
+-- January 07, 2021
+
+--[[
+
+	remoteSignal = RemoteSignal.new()
+
+	remoteSignal:Connect(handler: (player: Player, ...args: any) -> void): RBXScriptConnection
+	remoteSignal:Fire(player: Player, ...args: any): void
+	remoteSignal:FireAll(...args: any): void
+	remoteSignal:FireExcept(player: Player, ...args: any): void
+	remoteSignal:Wait(): (...any)
+	remoteSignal:Destroy(): void
+
+--]]
+
+
+local IS_SERVER = game:GetService("RunService"):IsServer()
+
+local Players = game:GetService("Players")
+local Ser = require(script.Parent.Parent.Ser)
+
+local RemoteSignal = {}
+RemoteSignal.__index = RemoteSignal
+
+
+function RemoteSignal.Is(object)
+	return type(object) == "table" and getmetatable(object) == RemoteSignal
+end
+
+
+function RemoteSignal.new()
+	assert(IS_SERVER, "RemoteSignal can only be created on the server")
+	local self = setmetatable({
+		_remote = Instance.new("RemoteEvent");
+	}, RemoteSignal)
+	return self
+end
+
+
+function RemoteSignal:Fire(player, ...)
+	self._remote:FireClient(player, Ser.SerializeArgsAndUnpack(...))
+end
+
+
+function RemoteSignal:FireAll(...)
+	self._remote:FireAllClients(Ser.SerializeArgsAndUnpack(...))
+end
+
+
+function RemoteSignal:FireExcept(player, ...)
+	local args = Ser.SerializeArgs(...)
+	for _,plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			self._remote:FireClient(plr, Ser.UnpackArgs(args))
+		end
+	end
+end
+
+
+function RemoteSignal:Wait()
+	return self._remote.OnServerEvent:Wait()
+end
+
+
+function RemoteSignal:Connect(handler)
+	return self._remote.OnServerEvent:Connect(function(player, ...)
+		handler(player, Ser.DeserializeArgsAndUnpack(...))
+	end)
+end
+
+
+function RemoteSignal:Destroy()
+	self._remote:Destroy()
+	self._remote = nil
+end
+
+
+return RemoteSignal
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="ModuleScript" referent="17">
+          <Properties>
+            <string name="Name">Ser</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- Ser
+-- Stephen Leitnick
+-- August 28, 2020
+
+--[[
+
+	Ser is a serialization/deserialization utility module that is used
+	by Knit to automatically serialize/deserialize values passing
+	through remote functions and remote events.
+
+
+	Ser.Classes = {
+		[ClassName] = {
+			Serialize = (value) -> serializedValue
+			Deserialize = (value) => deserializedValue
+		}
+	}
+
+	Ser.SerializeArgs(...)            -> table
+	Ser.SerializeArgsAndUnpack(...)   -> Tuple
+	Ser.DeserializeArgs(...)          -> table
+	Ser.DeserializeArgsAndUnpack(...) -> Tuple
+	Ser.Serialize(value: any)         -> any
+	Ser.Deserialize(value: any)       -> any
+	Ser.UnpackArgs(args: table)       -> Tuple
+
+--]]
+
+
+type Args = {
+	n: number,
+	[any]: any,
+}
+
+
+local Option = require(script.Parent.Option)
+
+local Ser = {}
+
+Ser.Classes = {
+	Option = {
+		Serialize = function(opt) return opt:Serialize() end;
+		Deserialize = Option.Deserialize;
+	};
+}
+
+
+function Ser.SerializeArgs(...: any): Args
+	local args = table.pack(...)
+	for i,arg in ipairs(args) do
+		if type(arg) == "table" then
+			local ser = Ser.Classes[arg.ClassName]
+			if ser then
+				args[i] = ser.Serialize(arg)
+			end
+		end
+	end
+	return args
+end
+
+
+function Ser.SerializeArgsAndUnpack(...: any): ...any
+	local args = Ser.SerializeArgs(...)
+	return table.unpack(args, 1, args.n)
+end
+
+
+function Ser.DeserializeArgs(...: any): Args
+	local args = table.pack(...)
+	for i,arg in ipairs(args) do
+		if type(arg) == "table" then
+			local ser = Ser.Classes[arg.ClassName]
+			if ser then
+				args[i] = ser.Deserialize(arg)
+			end
+		end
+	end
+	return args
+end
+
+
+function Ser.DeserializeArgsAndUnpack(...: any): ...any
+	local args = Ser.DeserializeArgs(...)
+	return table.unpack(args, 1, args.n)
+end
+
+
+function Ser.Serialize(value: any): any
+	if type(value) == "table" then
+		local ser = Ser.Classes[value.ClassName]
+		if ser then
+			value = ser.Serialize(value)
+		end
+	end
+	return value
+end
+
+
+function Ser.Deserialize(value: any): any
+	if type(value) == "table" then
+		local ser = Ser.Classes[value.ClassName]
+		if ser then
+			value = ser.Deserialize(value)
+		end
+	end
+	return value
+end
+
+
+function Ser.UnpackArgs(args: Args): ...any
+	return table.unpack(args, 1, args.n)
+end
+
+
+return Ser
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="18">
+          <Properties>
+            <string name="Name">Signal</string>
+            <string name="Source"><![CDATA[--------------------------------------------------------------------------------
+--               Batched Yield-Safe Signal Implementation                     --
+-- This is a Signal class which has effectively identical behavior to a       --
+-- normal RBXScriptSignal, with the only difference being a couple extra      --
+-- stack frames at the bottom of the stack trace when an error is thrown.     --
+-- This implementation caches runner coroutines, so the ability to yield in   --
+-- the signal handlers comes at minimal extra cost over a naive signal        --
+-- implementation that either always or never spawns a thread.                --
+--                                                                            --
+-- API:                                                                       --
+--   local Signal = require(THIS MODULE)                                      --
+--   local sig = Signal.new()                                                 --
+--   local connection = sig:Connect(function(arg1, arg2, ...) ... end)        --
+--   sig:Fire(arg1, arg2, ...)                                                --
+--   connection:Disconnect()                                                  --
+--   sig:DisconnectAll()                                                      --
+--   local arg1, arg2, ... = sig:Wait()                                       --
+--                                                                            --
+-- Licence:                                                                   --
+--   Licenced under the MIT licence.                                          --
+--                                                                            --
+-- Authors:                                                                   --
+--   stravant - July 31st, 2021 - Created the file.                           --
+--   sleitnick - August 3rd, 2021 - Modified for Knit.                        --
+--------------------------------------------------------------------------------
+
+local Promise = require(script.Parent.Promise)
+
+-- The currently idle thread to run the next handler on
+local freeRunnerThread = nil
+
+-- Function which acquires the currently idle handler runner thread, runs the
+-- function fn on it, and then releases the thread, returning it to being the
+-- currently idle one.
+-- If there was a currently idle runner thread already, that's okay, that old
+-- one will just get thrown and eventually GCed.
+local function acquireRunnerThreadAndCallEventHandler(fn, ...)
+	local acquiredRunnerThread = freeRunnerThread
+	freeRunnerThread = nil
+	fn(...)
+	-- The handler finished running, this runner thread is free again.
+	freeRunnerThread = acquiredRunnerThread
+end
+
+-- Coroutine runner that we create coroutines of. The coroutine can be 
+-- repeatedly resumed with functions to run followed by the argument to run
+-- them with.
+local function runEventHandlerInFreeThread(...)
+	acquireRunnerThreadAndCallEventHandler(...)
+	while true do
+		acquireRunnerThreadAndCallEventHandler(coroutine.yield())
+	end
+end
+
+
+-- Connection class
+local Connection = {}
+Connection.__index = Connection
+
+
+function Connection.new(signal, fn)
+	return setmetatable({
+		_connected = true,
+		_signal = signal,
+		_fn = fn,
+		_next = false,
+	}, Connection)
+end
+
+
+function Connection:Disconnect()
+	if not self._connected then return end
+	self._connected = false
+
+	-- Unhook the node, but DON'T clear it. That way any fire calls that are
+	-- currently sitting on this node will be able to iterate forwards off of
+	-- it, but any subsequent fire calls will not hit it, and it will be GCed
+	-- when no more fire calls are sitting on it.
+	if self._signal._handlerListHead == self then
+		self._signal._handlerListHead = self._next
+	else
+		local prev = self._signal._handlerListHead
+		while prev and prev._next ~= self do
+			prev = prev._next
+		end
+		if prev then
+			prev._next = self._next
+		end
+	end
+end
+
+Connection.Destroy = Connection.Disconnect
+
+-- Make Connection strict
+setmetatable(Connection, {
+	__index = function(_tb, key)
+		error(("Attempt to get Connection::%s (not a valid member)"):format(tostring(key)), 2)
+	end,
+	__newindex = function(_tb, key, _value)
+		error(("Attempt to set Connection::%s (not a valid member)"):format(tostring(key)), 2)
+	end
+})
+
+
+-- Signal class
+local Signal = {}
+Signal.__index = Signal
+
+
+function Signal.new(janitor)
+	local self = setmetatable({
+		_handlerListHead = false,
+		_proxyHandler = nil,
+	}, Signal)
+	if janitor then
+		janitor:Add(self)
+	end
+	return self
+end
+
+
+function Signal.Wrap(rbxScriptSignal, janitor)
+	assert(typeof(rbxScriptSignal) == "RBXScriptSignal", "Argument #1 to Signal.Wrap must be a RBXScriptSignal; got " .. typeof(rbxScriptSignal))
+	local signal = Signal.new(janitor)
+	signal._proxyHandler = rbxScriptSignal:Connect(function(...)
+		signal:Fire(...)
+	end)
+	return signal
+end
+
+
+function Signal.Is(obj)
+	return type(obj) == "table" and getmetatable(obj) == Signal
+end
+
+
+function Signal:Connect(fn)
+	local connection = Connection.new(self, fn)
+	if self._handlerListHead then
+		connection._next = self._handlerListHead
+		self._handlerListHead = connection
+	else
+		self._handlerListHead = connection
+	end
+	return connection
+end
+
+
+function Signal:GetConnections()
+	local items = {}
+	local item = self._handlerListHead
+	while item do
+		table.insert(items, item)
+		item = item._next
+	end
+	return items
+end
+
+
+-- Disconnect all handlers. Since we use a linked list it suffices to clear the
+-- reference to the head handler.
+function Signal:DisconnectAll()
+	self._handlerListHead = false
+end
+
+
+-- Signal:Fire(...) implemented by running the handler functions on the
+-- coRunnerThread, and any time the resulting thread yielded without returning
+-- to us, that means that it yielded to the Roblox scheduler and has been taken
+-- over by Roblox scheduling, meaning we have to make a new coroutine runner.
+function Signal:Fire(...)
+	local item = self._handlerListHead
+	while item do
+		if item._connected then
+			if not freeRunnerThread then
+				freeRunnerThread = coroutine.create(runEventHandlerInFreeThread)
+			end
+			task.spawn(freeRunnerThread, item._fn, ...)
+		end
+		item = item._next
+	end
+end
+
+
+-- Similar to Signal:Fire(...), but uses deferred. It does not reuse the
+-- same coroutine like Fire.
+function Signal:FireDeferred(...)
+	local item = self._handlerListHead
+	while item do
+		task.defer(item._fn, ...)
+		item = item._next
+	end
+end
+
+
+-- Implement Signal:Wait() in terms of a temporary connection using
+-- a Signal:Connect() which disconnects itself.
+function Signal:Wait()
+	local waitingCoroutine = coroutine.running()
+	local cn
+	cn = self:Connect(function(...)
+		cn:Disconnect()
+		task.spawn(waitingCoroutine, ...)
+	end)
+	return coroutine.yield()
+end
+
+
+-- Resolve a promise once the signal is fired once
+function Signal:Promise(predicate)
+	return Promise.FromEvent(self, predicate)
+end
+
+
+function Signal:Destroy()
+	self:DisconnectAll()
+	local proxyHandler = rawget(self, "_proxyHandler")
+	if proxyHandler then
+		proxyHandler:Disconnect()
+	end
+end
+
+
+-- Make signal strict
+setmetatable(Signal, {
+	__index = function(_tb, key)
+		error(("Attempt to get Signal::%s (not a valid member)"):format(tostring(key)), 2)
+	end,
+	__newindex = function(_tb, key, _value)
+		error(("Attempt to set Signal::%s (not a valid member)"):format(tostring(key)), 2)
+	end
+})
+
+return Signal
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="19">
+          <Properties>
+            <string name="Name">Streamable</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- Streamable
+-- Stephen Leitnick
+-- March 03, 2021
+
+--[[
+
+	streamable = Streamable.new(parent: Instance, childName: string)
+
+	streamable:Observe(handler: (child: Instance, janitor: Janitor) -> void): Connection
+	streamable:Destroy()
+
+--]]
+
+type StreamableWithInstance = {
+	Instance: Instance?,
+	[any]: any,
+}
+
+local Janitor = require(script.Parent.Janitor)
+local Signal = require(script.Parent.Signal)
+
+
+local Streamable = {}
+Streamable.__index = Streamable
+
+
+function Streamable.new(parent: Instance, childName: string)
+
+	local self: StreamableWithInstance = {}
+	setmetatable(self, Streamable)
+
+	self._janitor = Janitor.new()
+	self._shown = Signal.new(self._janitor)
+	self._shownJanitor = Janitor.new()
+	self._janitor:Add(self._shownJanitor)
+
+	self.Instance = parent:FindFirstChild(childName)
+
+	local function OnInstanceSet()
+		local instance = self.Instance
+		if typeof(instance) == "Instance" then
+			self._shown:Fire(instance, self._shownJanitor)
+			self._shownJanitor:Add(instance:GetPropertyChangedSignal("Parent"):Connect(function()
+				if not instance.Parent then
+					self._shownJanitor:Cleanup()
+				end
+			end))
+			self._shownJanitor:Add(function()
+				if self.Instance == instance then
+					self.Instance = nil
+				end
+			end)
+		end
+	end
+
+	local function OnChildAdded(child: Instance)
+		if child.Name == childName and not self.Instance then
+			self.Instance = child
+			OnInstanceSet()
+		end
+	end
+
+	self._janitor:Add(parent.ChildAdded:Connect(OnChildAdded))
+	if self.Instance then
+		OnInstanceSet()
+	end
+
+	return self
+
+end
+
+
+function Streamable:Observe(handler)
+	if self.Instance then
+		task.spawn(handler, self.Instance, self._shownJanitor)
+	end
+	return self._shown:Connect(handler)
+end
+
+
+function Streamable:Destroy()
+	self._janitor:Destroy()
+end
+
+
+export type Streamable = typeof(Streamable.new(workspace, "X"))
+
+
+return Streamable
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="20">
+          <Properties>
+            <string name="Name">StreamableUtil</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- StreamableUtil
+-- Stephen Leitnick
+-- March 03, 2021
+
+--[[
+
+	StreamableUtil.Compound(observers: {Observer}, handler: ({[child: string]: Instance}, janitor: Janitor) -> void): Janitor
+
+	Example:
+
+		local streamable1 = Streamable.new(someModel, "SomeChild")
+		local streamable2 = Streamable.new(anotherModel, "AnotherChild")
+
+		StreamableUtil.Compound({S1 = streamable1, S2 = streamable2}, function(streamables, janitor)
+			local someChild = streamables.S1.Instance
+			local anotherChild = streamables.S2.Instance
+			janitor:Add(function()
+				-- Cleanup
+			end)
+		end)
+
+--]]
+
+
+local Janitor = require(script.Parent.Janitor)
+local _Streamable = require(script.Parent.Streamable)
+
+
+type Streamables = {_Streamable.Streamable}
+type CompoundHandler = (Streamables, any) -> nil
+
+
+local StreamableUtil = {}
+
+
+function StreamableUtil.Compound(streamables: Streamables, handler: CompoundHandler)
+	local compoundJanitor = Janitor.new()
+	local observeAllJanitor = Janitor.new()
+	local allAvailable = false
+	local function Check()
+		if allAvailable then return end
+		for _,streamable in pairs(streamables) do
+			if not streamable.Instance then
+				return
+			end
+		end
+		allAvailable = true
+		handler(streamables, observeAllJanitor)
+	end
+	local function Cleanup()
+		if not allAvailable then return end
+		allAvailable = false
+		observeAllJanitor:Cleanup()
+	end
+	for _,streamable in pairs(streamables) do
+		compoundJanitor:Add(streamable:Observe(function(_child, janitor)
+			Check()
+			janitor:Add(Cleanup)
+		end))
+	end
+	compoundJanitor:Add(Cleanup)
+	return compoundJanitor
+end
+
+
+return StreamableUtil
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="21">
+          <Properties>
+            <string name="Name">Symbol</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- Symbol
+-- Stephen Leitnick
+-- December 27, 2020
+
+--[[
+
+	symbol = Symbol.new(id: string [, scope: Symbol])
+
+	Symbol.Is(obj: any): boolean
+	Symbol.IsInScope(obj: any, scope: Symbol): boolean
+
+--]]
+
+
+local CLASSNAME = "Symbol"
+
+local Symbol = {}
+Symbol.__index = Symbol
+
+
+function Symbol.new(id: any, scope: any)
+	assert(id ~= nil, "Symbol ID cannot be nil")
+	if scope ~= nil then
+		assert(Symbol.Is(scope), "Scope must be a Symbol or nil")
+	end
+	local self = setmetatable({
+		ClassName = CLASSNAME;
+		_id = id;
+		_scope = scope;
+	}, Symbol)
+	return self
+end
+
+
+function Symbol.Is(obj: any): boolean
+	return type(obj) == "table" and getmetatable(obj) == Symbol
+end
+
+
+function Symbol.IsInScope(obj: any, scope: Symbol): boolean
+	return Symbol.Is(obj) and obj._scope == scope
+end
+
+
+function Symbol:__tostring()
+	return ("Symbol<%s>"):format(self._id)
+end
+
+
+export type Symbol = typeof(Symbol.new("Test", nil))
+
+
+return Symbol
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="22">
+          <Properties>
+            <string name="Name">TableUtil</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- TableUtil
+-- Stephen Leitnick
+-- September 13, 2017
+
+--[[
+
+	TableUtil.Copy(tbl: table): table
+	TableUtil.CopyShallow(tbl: table): table
+	TableUtil.Sync(tbl: table, template: table): void
+	TableUtil.FastRemove(tbl: table, index: number): void
+	TableUtil.FastRemoveFirstValue(tbl: table, value: any): (boolean, number)
+	TableUtil.Map(tbl: table, callback: (value: any) -> any): table
+	TableUtil.Filter(tbl: table, callback: (value: any) -> boolean): table
+	TableUtil.Reduce(tbl: table, callback: (accum: any, value: any) -> any [, initialValue: any]): any
+	TableUtil.Assign(target: table, ...sources: table): table
+	TableUtil.Extend(tbl: table, extension: table): table
+	TableUtil.Reverse(tbl: table): table
+	TableUtil.Shuffle(tbl: table [, rng: Random]): table
+	TableUtil.Sample(tbl: table, sampleSize: number, [, rng: Random]): table
+	TableUtil.Flat(tbl: table [, maxDepth: number = 1]): table
+	TableUtil.FlatMap(tbl: callback: (value: any) -> table): table
+	TableUtil.Keys(tbl: table): table
+	TableUtil.Find(tbl: table, callback: (value: any) -> boolean): (any, number)
+	TableUtil.Every(tbl: table, callback: (value: any) -> boolean): boolean
+	TableUtil.Some(tbl: table, callback: (value: any) -> boolean): boolean
+	TableUtil.Truncate(tbl: table, length: number): table
+	TableUtil.Zip(...table): ((table, any) -> (any, any), table, any)
+	TableUtil.IsEmpty(tbl: table): boolean
+	TableUtil.EncodeJSON(tbl: table): string
+	TableUtil.DecodeJSON(json: string): table
+
+--]]
+
+
+type Table = {any}
+type MapPredicate = (any, any, Table) -> any
+type FilterPredicate = (any, any, Table) -> boolean
+type ReducePredicate = (number, any, any, Table) -> number
+type FindCallback = (any, any, Table) -> boolean
+type IteratorFunc = (t: Table, k: any) -> (any, any)
+
+local TableUtil = {}
+
+local HttpService = game:GetService("HttpService")
+local rng = Random.new()
+
+
+local function CopyTable(t: Table): Table
+	assert(type(t) == "table", "First argument must be a table")
+	local function Copy(tbl)
+		local tCopy = table.create(#tbl)
+		for k,v in pairs(tbl) do
+			if type(v) == "table" then
+				tCopy[k] = Copy(v)
+			else
+				tCopy[k] = v
+			end
+		end
+		return tCopy
+	end
+	return Copy(t)
+end
+
+
+local function CopyTableShallow(t: Table): Table
+	local tCopy = table.create(#t)
+	if #t > 0 then
+		table.move(t, 1, #t, 1, tCopy)
+	else
+		for k,v in pairs(t) do tCopy[k] = v end
+	end
+	return tCopy
+end
+
+
+local function Sync(srcTbl: Table, templateTbl: Table): Table
+
+	assert(type(srcTbl) == "table", "First argument must be a table")
+	assert(type(templateTbl) == "table", "Second argument must be a table")
+
+	local tbl = CopyTableShallow(srcTbl)
+
+	-- If 'tbl' has something 'templateTbl' doesn't, then remove it from 'tbl'
+	-- If 'tbl' has something of a different type than 'templateTbl', copy from 'templateTbl'
+	-- If 'templateTbl' has something 'tbl' doesn't, then add it to 'tbl'
+	for k,v in pairs(tbl) do
+
+		local vTemplate = templateTbl[k]
+
+		-- Remove keys not within template:
+		if vTemplate == nil then
+			tbl[k] = nil
+
+		-- Synchronize data types:
+		elseif type(v) ~= type(vTemplate) then
+			if type(vTemplate) == "table" then
+				tbl[k] = CopyTable(vTemplate)
+			else
+				tbl[k] = vTemplate
+			end
+
+		-- Synchronize sub-tables:
+		elseif type(v) == "table" then
+			tbl[k] = Sync(v, vTemplate)
+		end
+
+	end
+
+	-- Add any missing keys:
+	for k,vTemplate in pairs(templateTbl) do
+
+		local v = tbl[k]
+
+		if v == nil then
+			if type(vTemplate) == "table" then
+				tbl[k] = CopyTable(vTemplate)
+			else
+				tbl[k] = vTemplate
+			end
+		end
+
+	end
+
+	return tbl
+
+end
+
+
+local function FastRemove(t: Table, i: number)
+	local n = #t
+	t[i] = t[n]
+	t[n] = nil
+end
+
+
+local function FastRemoveFirstValue(t: Table, v: any): (boolean, number?)
+	local index: number? = table.find(t, v)
+	if index then
+		FastRemove(t, index)
+		return true, index
+	end
+	return false, nil
+end
+
+local function Map(t: Table, f: MapPredicate): Table
+	assert(type(t) == "table", "First argument must be a table")
+	assert(type(f) == "function", "Second argument must be a function")
+	local newT = table.create(#t)
+	for k,v in pairs(t) do
+		newT[k] = f(v, k, t)
+	end
+	return newT
+end
+
+
+local function Filter(t: Table, f: FilterPredicate): Table
+	assert(type(t) == "table", "First argument must be a table")
+	assert(type(f) == "function", "Second argument must be a function")
+	local newT = table.create(#t)
+	if #t > 0 then
+		local n = 0
+		for i,v in ipairs(t) do
+			if f(v, i, t) then
+				n += 1
+				newT[n] = v
+			end
+		end
+	else
+		for k,v in pairs(t) do
+			if f(v, k, t) then
+				newT[k] = v
+			end
+		end
+	end
+	return newT
+end
+
+
+local function Reduce(t: Table, f: ReducePredicate, init: any?): any
+	assert(type(t) == "table", "First argument must be a table")
+	assert(type(f) == "function", "Second argument must be a function")
+	local result = init
+	if #t > 0 then
+		local start = 1
+		if init == nil then
+			result = t[1]
+			start = 2
+		end
+		for i = start,#t do
+			result = f(result, t[i], i, t)
+		end
+	else
+		local start = nil
+		if init == nil then
+			result = next(t)
+			start = result
+		end
+		for k,v in next,t,start do
+			result = f(result, v, k, t)
+		end
+	end
+	return result
+end
+
+
+local function Assign(target: Table, ...: Table): Table
+	local tbl = CopyTableShallow(target)
+	for _,src in ipairs({...}) do
+		for k,v in pairs(src) do
+			tbl[k] = v
+		end
+	end
+	return tbl
+end
+
+
+local function Extend(target: Table, extension: Table): Table
+	local tbl = CopyTableShallow(target)
+	for _,v in ipairs(extension) do
+		table.insert(tbl, v)
+	end
+	return tbl
+end
+
+
+local function Reverse(tbl: Table): Table
+	local n = #tbl
+	local tblRev = table.create(n)
+	for i = 1,n do
+		tblRev[i] = tbl[n - i + 1]
+	end
+	return tblRev
+end
+
+
+local function Shuffle(tbl: Table, rngOverride: Random?): Table
+	assert(type(tbl) == "table", "First argument must be a table")
+	local shuffled = CopyTableShallow(tbl)
+	local random = rngOverride or rng
+	for i = #tbl, 2, -1 do
+		local j = random:NextInteger(1, i)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	end
+	return shuffled
+end
+
+
+local function Sample(tbl: Table, size: number, rngOverride: Random?): Table
+	assert(type(tbl) == "table", "First argument must be a table")
+	assert(type(size) == "number", "Second argument must be a number")
+	local shuffled = CopyTableShallow(tbl)
+	local sample = table.create(size)
+	local random = rngOverride or rng
+	local len = #tbl
+	size = math.clamp(size, 1, len)
+	for i = 1,size do
+		local j = random:NextInteger(i, len)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	end
+	table.move(shuffled, 1, size, 1, sample)
+	return sample
+end
+
+
+local function Flat(tbl: Table, depth: number?): Table
+	local maxDepth: number = depth or 1
+	local flatTbl = table.create(#tbl)
+	local function Scan(t: Table, d: number)
+		for _,v in ipairs(t) do
+			if type(v) == "table" and d < maxDepth then
+				Scan(v, d + 1)
+			else
+				table.insert(flatTbl, v)
+			end
+		end
+	end
+	Scan(tbl, 0)
+	return flatTbl
+end
+
+
+local function FlatMap(tbl: Table, callback: MapPredicate): Table
+	return Flat(Map(tbl, callback))
+end
+
+
+local function Keys(tbl: Table): Table
+	local keys = table.create(#tbl)
+	for k in pairs(tbl) do
+		table.insert(keys, k)
+	end
+	return keys
+end
+
+
+local function Find(tbl: Table, callback: FindCallback): (any?, any?)
+	for k,v in pairs(tbl) do
+		if callback(v, k, tbl) then
+			return v, k
+		end
+	end
+	return nil, nil
+end
+
+
+local function Every(tbl: Table, callback: FindCallback): boolean
+	for k,v in pairs(tbl) do
+		if not callback(v, k, tbl) then
+			return false
+		end
+	end
+	return true
+end
+
+
+local function Some(tbl: Table, callback: FindCallback): boolean
+	for k,v in pairs(tbl) do
+		if callback(v, k, tbl) then
+			return true
+		end
+	end
+	return false
+end
+
+
+local function Truncate(tbl: Table, len: number): Table
+	return table.move(tbl, 1, len, 1, table.create(len))
+end
+
+
+local function Zip(...): (IteratorFunc, Table, any)
+	assert(select("#", ...) > 0, "Must supply at least 1 table")
+	local function ZipIteratorArray(all: Table, k: number)
+		k += 1
+		local values = {}
+		for i,t in ipairs(all) do
+			local v = t[k]
+			if v ~= nil then
+				values[i] = v
+			else
+				return nil, nil
+			end
+		end
+		return k, values
+	end
+	local function ZipIteratorMap(all: Table, k: any)
+		local values = {}
+		for i,t in ipairs(all) do
+			local v = next(t, k)
+			if v ~= nil then
+				values[i] = v
+			else
+				return nil, nil
+			end
+		end
+		return k, values
+	end
+	local all = {...}
+	if #all[1] > 0 then
+		return ZipIteratorArray, all, 0
+	else
+		return ZipIteratorMap, all, nil
+	end
+end
+
+
+local function IsEmpty(tbl)
+	return next(tbl) == nil
+end
+
+
+local function EncodeJSON(tbl: any): string
+	return HttpService:JSONEncode(tbl)
+end
+
+
+local function DecodeJSON(str: string): any
+	return HttpService:JSONDecode(str)
+end
+
+
+TableUtil.Copy = CopyTable
+TableUtil.CopyShallow = CopyTableShallow
+TableUtil.Sync = Sync
+TableUtil.FastRemove = FastRemove
+TableUtil.FastRemoveFirstValue = FastRemoveFirstValue
+TableUtil.Map = Map
+TableUtil.Filter = Filter
+TableUtil.Reduce = Reduce
+TableUtil.Assign = Assign
+TableUtil.Extend = Extend
+TableUtil.Reverse = Reverse
+TableUtil.Shuffle = Shuffle
+TableUtil.Sample = Sample
+TableUtil.Flat = Flat
+TableUtil.FlatMap = FlatMap
+TableUtil.Keys = Keys
+TableUtil.Find = Find
+TableUtil.Every = Every
+TableUtil.Some = Some
+TableUtil.Truncate = Truncate
+TableUtil.Zip = Zip
+TableUtil.IsEmpty = IsEmpty
+TableUtil.EncodeJSON = EncodeJSON
+TableUtil.DecodeJSON = DecodeJSON
+
+return TableUtil
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="23">
+          <Properties>
+            <string name="Name">Timer</string>
+            <string name="Source"><![CDATA[-- Timer
+-- Stephen Leitnick
+-- July 28, 2021
+
+--[[
+
+	timer = Timer.new(interval: number [, janitor: Janitor])
+	connection = Timer.Simple(interval: number, callback: () -> void [, updateSignal: Signal = Heartbeat, timeFunc: () -> number = time])
+
+	timer.Tick: Signal
+	timer.Interval: number
+	timer.UpdateSignal: Signal
+	timer.TimeFunction: () -> number
+	timer.AllowDrift: boolean
+
+	timer:Start()
+	timer:StartNow()
+	timer:Stop()
+	timer:Destroy()
+
+	------------------------------------
+
+	local timer = Timer.new(2)
+	timer.Tick:Connect(function()
+		print("Tock")
+	end)
+	timer:Start()
+
+	Timer.Simple(2, function()
+		print("Tock")
+	end)
+
+--]]
+
+
+type CallbackFunc = () -> nil
+type TimeFunc = () -> number
+
+local Signal = require(script.Parent.Signal)
+
+local RunService = game:GetService("RunService")
+
+
+local Timer = {}
+Timer.__index = Timer
+
+
+function Timer.new(interval: number, janitor)
+	assert(type(interval) == "number", "Argument #1 to Timer.new must be a number; got " .. type(interval))
+	assert(interval >= 0, "Argument #1 to Timer.new must be greater or equal to 0; got " .. tostring(interval))
+	local self = setmetatable({}, Timer)
+	self._runHandle = nil
+	self.Interval = interval
+	self.UpdateSignal = RunService.Heartbeat
+	self.TimeFunction = time
+	self.AllowDrift = true
+	self.Tick = Signal.new()
+	if janitor then
+		janitor:Add(self)
+	end
+	return self
+end
+
+
+function Timer.Simple(interval: number, callback: CallbackFunc, startNow: boolean?, updateSignal: RBXScriptSignal?, timeFunc: TimeFunc?)
+	local update = updateSignal or RunService.Heartbeat
+	local t = timeFunc or time
+	local nextTick = t() + interval
+	if startNow then
+		task.defer(callback)
+	end
+	return update:Connect(function()
+		local now = t()
+		if now >= nextTick then
+			nextTick = now + interval
+			task.defer(callback)
+		end
+	end)
+end
+
+
+function Timer.Is(obj: any): boolean
+	return type(obj) == "table" and getmetatable(obj) == Timer
+end
+
+
+function Timer:_startTimer()
+	local t = self.TimeFunction
+	local nextTick = t() + self.Interval
+	self._runHandle = self.UpdateSignal:Connect(function()
+		local now = t()
+		if now >= nextTick then
+			nextTick = now + self.Interval
+			self.Tick:Fire()
+		end
+	end)
+end
+
+
+function Timer:_startTimerNoDrift()
+	assert(self.Interval > 0, "Interval must be greater than 0 when AllowDrift is set to false")
+	local t = self.TimeFunction
+	local n = 1
+	local start = t()
+	local nextTick = start + self.Interval
+	self._runHandle = self.UpdateSignal:Connect(function()
+		local now = t()
+		while now >= nextTick do
+			n += 1
+			nextTick = start + (self.Interval * n)
+			self.Tick:Fire()
+		end
+	end)
+end
+
+
+function Timer:Start()
+	if self._runHandle then return end
+	if self.AllowDrift then
+		self:_startTimer()
+	else
+		self:_startTimerNoDrift()
+	end
+end
+
+
+function Timer:StartNow()
+	if self._runHandle then return end
+	self.Tick:Fire()
+	self:Start()
+end
+
+
+function Timer:Stop()
+	if not self._runHandle then return end
+	self._runHandle:Disconnect()
+	self._runHandle = nil
+end
+
+
+function Timer:Destroy()
+	self.Tick:Destroy()
+	self:Stop()
+end
+
+
+return Timer
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="StringValue" referent="24">
+        <Properties>
+          <string name="Name">Version</string>
+          <string name="Value">0.0.22-alpha</string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="25">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Folder" referent="26">
+      <Properties>
+        <string name="Name">Components</string>
+      </Properties>
+    </Item>
+    <Item class="Folder" referent="27">
+      <Properties>
+        <string name="Name">Modules</string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="28">
+      <Properties>
+        <string name="Name">ServerRuntime</string>
+        <string name="Source"><![CDATA[local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local Promise = Knit.Util.Promise
+local Component = Knit.Util.Component
+
+function Knit.OnComponentsLoaded()
+    if Knit.ComponentsLoaded then
+        return Promise.resolve()
+    end
+    return Promise.new(function(resolve)
+        local heartbeat
+        heartbeat = game:GetService("RunService").Heartbeat:Connect(function()
+            if Knit.ComponentsLoaded then
+                heartbeat:Disconnect()
+                resolve()
+            end
+        end)
+    end)
+end 
+
+Knit.AddServices(script.Parent.Services)
+
+Knit.Start():Then(function()
+    Component.Auto(script.Parent.Components)
+    Knit.ComponentsLoaded = true
+end):Catch(warn)
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Folder" referent="29">
+      <Properties>
+        <string name="Name">Services</string>
+      </Properties>
+    </Item>
+  </Item>
+  <Item class="SoundService" referent="30">
+    <Properties>
+      <string name="Name">SoundService</string>
+      <bool name="RespectFilteringEnabled">true</bool>
+    </Properties>
+  </Item>
+  <Item class="StarterPlayer" referent="31">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="32">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="Script" referent="33">
+        <Properties>
+          <string name="Name">ClientRuntime</string>
+          <string name="Source"><![CDATA[local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local Promise = Knit.Util.Promise
+local Component = Knit.Util.Component
+
+function Knit.OnComponentsLoaded()
+    if Knit.ComponentsLoaded then
+        return Promise.resolve()
+    end
+    return Promise.new(function(resolve)
+        local heartbeat
+        heartbeat = game:GetService("RunService").Heartbeat:Connect(function()
+            if Knit.ComponentsLoaded then
+                heartbeat:Disconnect()
+                resolve()
+            end
+        end)
+    end)
+end 
+
+Knit.AddControllers(script.Parent.Controllers)
+
+Knit.Start():Then(function()
+    Component.Auto(script.Parent.Components)
+    Knit.ComponentsLoaded = true
+end):Catch(warn)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="34">
+        <Properties>
+          <string name="Name">Components</string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="35">
+        <Properties>
+          <string name="Name">Controllers</string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="36">
+        <Properties>
+          <string name="Name">Modules</string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="Workspace" referent="37">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <bool name="FilteringEnabled">true</bool>
+    </Properties>
+    <Item class="Part" referent="38">
+      <Properties>
+        <string name="Name">Baseplate</string>
+        <bool name="Anchored">true</bool>
+        <Color3uint8 name="Color3uint8">6446690</Color3uint8>
+        <bool name="Locked">true</bool>
+        <Vector3 name="Position">
+          <X>0</X>
+          <Y>-10</Y>
+          <Z>0</Z>
+        </Vector3>
+        <Vector3 name="size">
+          <X>512</X>
+          <Y>20</Y>
+          <Z>512</Z>
+        </Vector3>
+      </Properties>
+    </Item>
+  </Item>
+</roblox>
