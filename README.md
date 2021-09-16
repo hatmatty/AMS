@@ -15,11 +15,17 @@ AET plans to change this by introducing a combat system which has almost no init
 ## Game Components
 ### Config
 > Files: [Config]
-- This is where you can edit gametype (R15/R6), and enable or disable various toggleable game componnets. 
-### Camera Manager
+- This is where you can edit gametype (such as R15/R6), and enable or disable various toggleable game componnets. 
+### Camera
+> Files: [CameraController]
+- Managed various cameras such as the first person and spring camera and ensures that they do not have to directly interact with each other. 
+#### First Person Camera
+> Toggleable, Files: [FirstPerson]
+- Manages the creation and destruction of a first person camera on the player.
 #### Spring Camera
-> Toggleable, Files: [SpringController]
-- Players will be using a camera which uses the spring module to stimulate the motion of the camera being pushed away as the player moves faster and then drawn in when they decrease in movemenmt speed. Works well with sprinting as you get to see the spring in action. 
+> Toggleable, Files: [Spring]
+- Manages the creation and destruction of a spring camera on the player. Utilizes spring module. 
+
 ### Sprinting 
 > Toggleable, Files: [SprintingService, SprintingController]
 - Player should be able to toggle sprinting across the map. Sprinting will not have to interact with many modules of the game allowing it to easily be disabled and enabled by game devs. When sprinting your camera will use a spring 
