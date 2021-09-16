@@ -13,8 +13,11 @@ For far too long the ancient genre has not been able to come to widespread adopt
 AET plans to change this by introducing a combat system which has almost no initial learning curve yet retains depth and is open sourced and easily customizable. Below you'll find some of planned features which we hope will set apart this system from others and lead it to widespread adoption.
 
 ## Game Components
+### Config
+> Files: {Config}
+- This is where you can edit gametype (R15/R6), and enable or disable various toggleable game componnets. 
 ### Spring Camera
-> Toggleable, Files: {SpringController}
+> Toggleable, Files: {SpringController.client}
 - Players will be using a camera which uses the spring module to stimulate the motion of the camera being pushed away as the player moves faster and then drawn in when they decrease in movemenmt speed. Works well with sprinting as you get to see the spring in action. 
 ### Sprinting 
 > Toggleable, Files: {SprintingService, SprintingController}
