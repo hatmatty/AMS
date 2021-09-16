@@ -32,7 +32,7 @@ AET plans to change this by introducing a combat system which has almost no init
 
 ### BodyRotater | Low priority 
 > Toggleable, Files: [BodyRotaterService, BodyRotaterController]
-> - Tracks camera rotation and rotates the body accordingly. This is what allows for the directional combat however it can be completely disabled.
+- Tracks camera rotation and rotates the body accordingly. This is what allows for the directional combat however it can be completely disabled.
 
 ### Sprinting 
 > Toggleable, Files: [SprintingService, SprintingController]
