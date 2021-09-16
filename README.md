@@ -34,6 +34,4 @@ AET plans to change this by introducing a combat system which has almost no init
 > Toggleable, Files: [SprintingService, SprintingController]
 - Player should be able to toggle sprinting across the map. Sprinting will not have to interact with many modules of the game allowing it to easily be disabled and enabled by game devs. 
 
-### First Person
-
 
