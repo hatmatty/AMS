@@ -30,7 +30,7 @@ AET plans to change this by introducing a combat system which has almost no init
 	> Toggleable, Files: [Spring]
 	- Manages the creation and destruction of a spring camera on the player. Utilizes spring module. 
 
-### BodyRotater | Low priority 
+### BodyRotater
 > Toggleable, Files: [BodyRotaterService, BodyRotaterController]
 - Tracks camera rotation and rotates the body accordingly. This is what allows for the directional combat however it can be completely disabled.
 
