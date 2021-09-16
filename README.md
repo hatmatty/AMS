@@ -12,10 +12,13 @@ For far too long the ancient genre has not been able to come to widespread adopt
 
 AET plans to change this by introducing a combat system which has almost no initial learning curve yet retains depth and is open sourced and easily customizable. Below you'll find some of planned features which we hope will set apart this system from others and lead it to widespread adoption.
 
-## Game Mechanics 
+## Planning Game Mechanics 
+### Spring Camera
+> Toggleable 
+- Players will be using a camera which uses the spring module to stimulate the motion of the camera being pushed away as the player moves faster and then drawn in when they decrease in movemenmt speed. Works well with sprinting as you get to see the spring in action. 
+### Sprinting 
+> Toggleable
+- Player should be able to toggle sprinting across the map. Sprinting will not have to interact with many modules of the game allowing it to easily be disabled and enabled by game devs. When sprinting your camera will use a spring 
+### First Person
 
-## Script Planning
-### Test 
-- Hey, here is feature1 description a short description
-### Test 
-- Hey, here is feature1 description a short description
+
