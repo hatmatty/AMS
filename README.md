@@ -1,6 +1,8 @@
 # AET
 > *Ancient Era Tech*
 
+![alt text](Logo.png)
+
 ## Purpose
 
 For far too long the ancient genre has not been able to come to widespread adoption of a new technology. We believe this is because new ancient genre technologies contain some of the following:
@@ -11,8 +13,6 @@ For far too long the ancient genre has not been able to come to widespread adopt
 3. not being open sourced
 
 AET plans to change this by introducing a combat system which has almost no initial learning curve yet retains depth and is open sourced and easily customizable. Below you'll find some of planned features which we hope will set apart this system from others and lead it to widespread adoption.
-
-
 
 ## Game Components
 
