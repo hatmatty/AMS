@@ -30,7 +30,7 @@ AET plans to change this by introducing a combat system which has almost no init
 	> Toggleable, Files: [Spring]
 	- Manages the creation and destruction of a spring camera on the player. Utilizes spring module. 
 
-### BodyRotater | Low priority 
+### BodyRotator
 > Toggleable, Files: [BodyRotaterService, BodyRotaterController]
 - Tracks camera rotation and rotates the body accordingly. This is what allows for the directional combat however it can be completely disabled.
 
@@ -43,7 +43,7 @@ AET plans to change this by introducing a combat system which has almost no init
 - There tool service handles the giving of tools (weapons, shields, etc) to players. This system is diverse and flexible, allowing for the creation of spears, bow & arrows, etc. 
 	#### Tool
 	> Files: [Tool]
-	- This is a component which attaches to the a tool model, whose parent mus always be a character. Tools communicate to other tools the player has equipped by setting attributes on the character. They can also check for other tools by indexing a table which holds all tools with an instance tagged with "Tool" to get its object.  
+	- This is a component which attaches to the a tool model, whose parent must always be a character. Tools communicate to other tools the player has equipped by setting attributes on the character. They can also check for other tools by indexing a table which holds all tools with an instance tagged with "Tool" to get its object.  
 	#### Weapon
 	> Files: [Weapon]
 	- This is the component for weapons, inherits from Tool. 
