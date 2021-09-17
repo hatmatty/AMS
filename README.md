@@ -1,7 +1,7 @@
-# AET
-> *Ancient Era Tech*
 
-![alt text](Logo.png)
+
+## ![alt text](GithubLogo.png)
+> *Ancient Era Tech*
 
 ## Purpose
 
