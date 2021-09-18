@@ -17,7 +17,7 @@ function Knit.OnComponentsLoaded()
     end)
 end 
 
-Knit.AddControllers(script.Parent.Controllers)
+Knit.AddControllers(script.Parent:WaitForChild("Controllers"))
 
 Knit.Start():Then(function()
     Component.Auto(script.Parent.Components)

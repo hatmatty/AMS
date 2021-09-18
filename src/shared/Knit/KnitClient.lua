@@ -17,7 +17,7 @@ type ControllerDef = {
 	Name: string,
 	[any]: any,
 }
-
+---@diagnostic disable-next-line: redefined-type
 type Controller = {
 	Name: string,
 	[any]: any,
