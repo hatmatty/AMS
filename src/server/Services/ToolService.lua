@@ -51,14 +51,14 @@ end
 
 
 function ToolService:ManagePlayer(player)
-    --if player.Character then self:AddTool(player.Character) end
+    if player.Character then self:AddTool(player.Character) end
     player.CharacterAppearanceLoaded:Connect(function(character) self:AddTool(character, "Test") end)
 end
 
 
 function ToolService:AddTool(character: Model, toolName: string)
     local model = ToolModels:FindFirstChild(toolName):Clone()
-    model.Parent = workspace
+    model.Parent = character
     CollectionService:AddTag(model, "Tool")
 end
 
