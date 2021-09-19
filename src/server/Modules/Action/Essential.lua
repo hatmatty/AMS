@@ -1,3 +1,4 @@
+local ContextActionService = game:GetService("ContextActionService")
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
 local Janitor = require(Knit.Util.Janitor)
 local Action = require(script.Parent)
@@ -9,10 +10,10 @@ Essential.__index = Essential
 function Essential.GetAvaliableInputs(tool) : table
     local avaliableInputs = {
         [tool.State == "Holstered"] = {
-            [Enum.KeyCode.One] = {Name = "Equip"}
+            {Name = "Equip", inputTypes = {Enum.KeyCode.One}}
         },
         [tool.State == "Equipped"] = {
-            [Enum.KeyCode.One] = {Name = "Holster"}
+            {Name = "Holster", inputTypes = {Enum.KeyCode.One}}
         }
     }
     return avaliableInputs[true] or {}
@@ -46,7 +47,6 @@ function StartSetup(Action, calledBy)
     local tool = Action.PrimaryTool
     local model = tool.Instance
 
-    local character = tool.Character
     local upperTorso = tool.Character.UpperTorso
     local bodyAttach = model.BodyAttach
     
@@ -58,46 +58,48 @@ function StartSetup(Action, calledBy)
     tool.PlayerJanitor:Add(Motor6D)
     
     Action.Motor6D = Motor6D
-    Action.Animation = Helper.playAnim(character, tool.Config.Animations.Holster, {Looped = true})
     
-    tool.State = "Holstered"
-    Action:Destroy()
+    tool:QueueAction(Essential.Holster:Clone(), Action)
+    Action:Finish()
 end
 
--- action cannot be stopped/destroyed... Action:Destroy() is only called to fire the destroy signal
-function StopSetup(Action, calledBy) end
-function DestroySetup(Action, calledBy) end
+function CancelSetup(Action, calledBy) 
+    local tool = Action.PrimaryTool
+    local upperTorso = tool.Character.UpperTorso
 
-Essential.Setup = Action.new("Setup", StartSetup, StopSetup, DestroySetup)
+    if Action.Motor6D then Action.Motor6D:Destroy()
+    else upperTorso:WaitForChild(tool.Instance.Name .. "Grip"):Destroy() end 
+end
+
+Essential.Setup = Action.new("Setup", StartSetup, CancelSetup)
+
+function createPlayAnimStartFunction(name)
+    return function(Action, calledBy)
+        local tool = Action.PrimaryTool
+        local character = tool.Character
+
+        if tool.BaseAnimation then tool.EquipAnimation:Stop() end
+
+        if tool.Config.Animations["Init" .. name] then
+            tool.BaseAnimation = Helper.playAnim(character, tool.Config.Animations["Init" .. name])
+            tool.BaseAnimation.Stopped:wait()
+            if not tool.Character then return end -- tool is not active
+        end
+        tool.BaseAnimation = Helper.playAnim(character, tool.Config.Animations[name], {Looped = true})
+        tool.State = name .. "ed"
+
+        Action:Finish()
+    end
+end
 
 -- Holster Action
-function StartHolster(Action, calledBy)
-    
-end
+StartHolster = createPlayAnimStartFunction("Holster")
 
-function StopHolster(Action, calledBy)
-
-end
-
-function DestroyHolster(Action, calledBy)
-
-end
-
-Essential.Holster = Action.new("Holster", StartHolster, StopHolster, DestroyHolster)
+Essential.Holster = Action.new("Holster", StartHolster)
 
 -- Equip Action
-function StartEquip(Action, calledBy)
-    
-end
+StartEquip = createPlayAnimStartFunction("Equip")
 
-function StopEquip(Action, calledBy)
-
-end
-
-function DestroyEquip(Action, calledBy)
-
-end
-
-Essential.Equip = Action.new("Equip", StartEquip, StopEquip, DestroyEquip)
+Essential.Equip = Action.new("Equip", StartEquip)
 
 return Essential

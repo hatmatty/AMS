@@ -73,27 +73,27 @@
 			<Properties>
 				<BinaryString name="AttributesSerialize"></BinaryString>
 				<CoordinateFrame name="CFrame">
-					<X>-211.638809</X>
-					<Y>11.031765</Y>
-					<Z>27.7953415</Z>
-					<R00>-0.554173112</R00>
-					<R01>0.559924722</R01>
-					<R02>-0.615935445</R02>
-					<R10>1.49011612e-08</R10>
-					<R11>0.739950061</R11>
-					<R12>0.672661841</R12>
-					<R20>0.832401514</R20>
-					<R21>0.372771114</R21>
-					<R22>-0.410060346</R22>
+					<X>-245.016739</X>
+					<Y>3.19919562</Y>
+					<Z>-30.5619202</Z>
+					<R00>-0.854124665</R00>
+					<R01>0.0782699585</R01>
+					<R02>-0.514144719</R02>
+					<R10>-7.4505806e-09</R10>
+					<R11>0.988610089</R11>
+					<R12>0.150499403</R12>
+					<R20>0.520068288</R20>
+					<R21>0.128545254</R21>
+					<R22>-0.844396293</R22>
 				</CoordinateFrame>
 				<Ref name="CameraSubject">null</Ref>
 				<token name="CameraType">0</token>
 				<float name="FieldOfView">70</float>
 				<token name="FieldOfViewMode">0</token>
 				<CoordinateFrame name="Focus">
-					<X>-210.406937</X>
-					<Y>9.68643951</Y>
-					<Z>28.6154633</Z>
+					<X>-243.988449</X>
+					<Y>2.8981967</Y>
+					<Z>-28.873127</Z>
 					<R00>1</R00>
 					<R01>0</R01>
 					<R02>0</R02>
@@ -2490,6 +2490,47 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 						</Vector3>
 					</Properties>
 				</Item>
+				<Item class="Motor6D" referent="RBX5e66158129684af391ffcd6fcd44878a">
+					<Properties>
+						<BinaryString name="AttributesSerialize"></BinaryString>
+						<CoordinateFrame name="C0">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<CoordinateFrame name="C1">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<float name="DesiredAngle">0</float>
+						<bool name="Enabled">true</bool>
+						<float name="MaxVelocity">0</float>
+						<string name="Name">Motor6D</string>
+						<Ref name="Part0">RBX354a360877e946ee914c955d69382fd9</Ref>
+						<Ref name="Part1">RBXe03bf501f608458296575295af1d31bc</Ref>
+						<int64 name="SourceAssetId">-1</int64>
+						<BinaryString name="Tags"></BinaryString>
+					</Properties>
+				</Item>
 			</Item>
 			<Item class="MeshPart" referent="RBXfdc986b723004ba7b6ac19f9626c08b8">
 				<Properties>
@@ -4850,6 +4891,591 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 					</Item>
 				</Item>
 			</Item>
+			<Item class="Model" referent="RBX2d62fa34822442129add4bb4f3a30e87">
+				<Properties>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<token name="LevelOfDetail">0</token>
+					<CoordinateFrame name="ModelMeshCFrame">
+						<X>0</X>
+						<Y>0</Y>
+						<Z>0</Z>
+						<R00>1</R00>
+						<R01>0</R01>
+						<R02>0</R02>
+						<R10>0</R10>
+						<R11>1</R11>
+						<R12>0</R12>
+						<R20>0</R20>
+						<R21>0</R21>
+						<R22>1</R22>
+					</CoordinateFrame>
+					<SharedString name="ModelMeshData">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+					<Vector3 name="ModelMeshSize">
+						<X>0</X>
+						<Y>0</Y>
+						<Z>0</Z>
+					</Vector3>
+					<string name="Name">Test</string>
+					<bool name="NeedsPivotMigration">false</bool>
+					<Ref name="PrimaryPart">null</Ref>
+					<int64 name="SourceAssetId">-1</int64>
+					<BinaryString name="Tags"></BinaryString>
+					<OptionalCoordinateFrame name="WorldPivotData">
+						<CFrame>
+							<X>-230.205948</X>
+							<Y>4.50221968</Y>
+							<Z>-18.5429859</Z>
+							<R00>-1</R00>
+							<R01>-2.41675798e-06</R01>
+							<R02>-4.47035617e-08</R02>
+							<R10>-2.41675798e-06</R10>
+							<R11>1</R11>
+							<R12>1.95578693e-07</R12>
+							<R20>4.47030892e-08</R20>
+							<R21>1.95578792e-07</R21>
+							<R22>-1</R22>
+						</CFrame>
+					</OptionalCoordinateFrame>
+				</Properties>
+				<Item class="UnionOperation" referent="RBX0bd3e82c7b2c4608b8266ca384d256bb">
+					<Properties>
+						<bool name="Anchored">false</bool>
+						<Content name="AssetId"><url>https://www.roblox.com//asset/?id=616535101</url></Content>
+						<BinaryString name="AttributesSerialize"></BinaryString>
+						<float name="BackParamA">-0.5</float>
+						<float name="BackParamB">0.5</float>
+						<token name="BackSurface">0</token>
+						<token name="BackSurfaceInput">0</token>
+						<float name="BottomParamA">-0.5</float>
+						<float name="BottomParamB">0.5</float>
+						<token name="BottomSurface">0</token>
+						<token name="BottomSurfaceInput">0</token>
+						<CoordinateFrame name="CFrame">
+							<X>-235.047684</X>
+							<Y>5.13981676</Y>
+							<Z>-20.5287533</Z>
+							<R00>-1.62152639e-06</R00>
+							<R01>-1</R01>
+							<R02>-2.79702044e-06</R02>
+							<R10>1.00000012</R10>
+							<R11>-1.62150286e-06</R11>
+							<R12>-8.91089439e-06</R12>
+							<R20>8.7916851e-06</R20>
+							<R21>-2.79703522e-06</R21>
+							<R22>1.00000036</R22>
+						</CoordinateFrame>
+						<bool name="CanCollide">true</bool>
+						<bool name="CanQuery">true</bool>
+						<bool name="CanTouch">true</bool>
+						<bool name="CastShadow">true</bool>
+						<BinaryString name="ChildData"></BinaryString>
+						<SharedString name="ChildData2">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+						<int name="CollisionGroupId">0</int>
+						<Color3uint8 name="Color3uint8">4284702562</Color3uint8>
+						<PhysicalProperties name="CustomPhysicalProperties">
+							<CustomPhysics>false</CustomPhysics>
+						</PhysicalProperties>
+						<token name="FormFactor">0</token>
+						<float name="FrontParamA">-0.5</float>
+						<float name="FrontParamB">0.5</float>
+						<token name="FrontSurface">0</token>
+						<token name="FrontSurfaceInput">0</token>
+						<Vector3 name="InitialSize">
+							<X>2.80006218</X>
+							<Y>0.0307459515</Y>
+							<Z>0.365213543</Z>
+						</Vector3>
+						<BinaryString name="LODData"></BinaryString>
+						<float name="LeftParamA">-0.5</float>
+						<float name="LeftParamB">0.5</float>
+						<token name="LeftSurface">0</token>
+						<token name="LeftSurfaceInput">0</token>
+						<bool name="Locked">false</bool>
+						<bool name="Massless">true</bool>
+						<token name="Material">272</token>
+						<Ref name="MaterialVariant">null</Ref>
+						<BinaryString name="MeshData"></BinaryString>
+						<SharedString name="MeshData2">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+						<string name="Name">Blade</string>
+						<SharedString name="PhysicalConfigData">4alqyfbNPzvjWvssHUVMhw==</SharedString>
+						<BinaryString name="PhysicsData"></BinaryString>
+						<CoordinateFrame name="PivotOffset">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<float name="Reflectance">0.25</float>
+						<token name="RenderFidelity">1</token>
+						<float name="RightParamA">-0.5</float>
+						<float name="RightParamB">0.5</float>
+						<token name="RightSurface">0</token>
+						<token name="RightSurfaceInput">0</token>
+						<int name="RootPriority">0</int>
+						<Vector3 name="RotVelocity">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+						</Vector3>
+						<float name="SmoothingAngle">0</float>
+						<int64 name="SourceAssetId">-1</int64>
+						<BinaryString name="Tags"></BinaryString>
+						<float name="TopParamA">-0.5</float>
+						<float name="TopParamB">0.5</float>
+						<token name="TopSurface">0</token>
+						<token name="TopSurfaceInput">0</token>
+						<float name="Transparency">0</float>
+						<bool name="UsePartColor">true</bool>
+						<Vector3 name="Velocity">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+						</Vector3>
+						<Vector3 name="size">
+							<X>2.80006433</X>
+							<Y>0.0307459533</Y>
+							<Z>0.365213811</Z>
+						</Vector3>
+					</Properties>
+				</Item>
+				<Item class="UnionOperation" referent="RBXe33c2dcf25734879b9b9d9630c1f23a4">
+					<Properties>
+						<bool name="Anchored">false</bool>
+						<Content name="AssetId"><url>https://www.roblox.com//asset/?id=616535105</url></Content>
+						<BinaryString name="AttributesSerialize"></BinaryString>
+						<float name="BackParamA">-0.5</float>
+						<float name="BackParamB">0.5</float>
+						<token name="BackSurface">0</token>
+						<token name="BackSurfaceInput">0</token>
+						<float name="BottomParamA">-0.5</float>
+						<float name="BottomParamB">0.5</float>
+						<token name="BottomSurface">0</token>
+						<token name="BottomSurfaceInput">0</token>
+						<CoordinateFrame name="CFrame">
+							<X>-235.050995</X>
+							<Y>3.13805056</Y>
+							<Z>-20.5337048</Z>
+							<R00>-1.49021826e-08</R00>
+							<R01>6.75209549e-07</R01>
+							<R02>1</R02>
+							<R10>0.173646763</R10>
+							<R11>0.984808624</R11>
+							<R12>-6.62360947e-07</R12>
+							<R20>-0.984809041</R20>
+							<R21>0.173646599</R21>
+							<R22>-1.31923315e-07</R22>
+						</CoordinateFrame>
+						<bool name="CanCollide">true</bool>
+						<bool name="CanQuery">true</bool>
+						<bool name="CanTouch">true</bool>
+						<bool name="CastShadow">true</bool>
+						<BinaryString name="ChildData"></BinaryString>
+						<SharedString name="ChildData2">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+						<int name="CollisionGroupId">0</int>
+						<Color3uint8 name="Color3uint8">4291275896</Color3uint8>
+						<PhysicalProperties name="CustomPhysicalProperties">
+							<CustomPhysics>false</CustomPhysics>
+						</PhysicalProperties>
+						<token name="FormFactor">0</token>
+						<float name="FrontParamA">-0.5</float>
+						<float name="FrontParamB">0.5</float>
+						<token name="FrontSurface">0</token>
+						<token name="FrontSurfaceInput">0</token>
+						<Vector3 name="InitialSize">
+							<X>0.562749267</X>
+							<Y>1.26573467</Y>
+							<Z>0.147644073</Z>
+						</Vector3>
+						<BinaryString name="LODData"></BinaryString>
+						<float name="LeftParamA">-0.5</float>
+						<float name="LeftParamB">0.5</float>
+						<token name="LeftSurface">0</token>
+						<token name="LeftSurfaceInput">0</token>
+						<bool name="Locked">false</bool>
+						<bool name="Massless">true</bool>
+						<token name="Material">272</token>
+						<Ref name="MaterialVariant">null</Ref>
+						<BinaryString name="MeshData"></BinaryString>
+						<SharedString name="MeshData2">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+						<string name="Name">Handle2</string>
+						<SharedString name="PhysicalConfigData">XDAnmIGUuHcLCH0X3uq+mA==</SharedString>
+						<BinaryString name="PhysicsData"></BinaryString>
+						<CoordinateFrame name="PivotOffset">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<float name="Reflectance">0</float>
+						<token name="RenderFidelity">1</token>
+						<float name="RightParamA">-0.5</float>
+						<float name="RightParamB">0.5</float>
+						<token name="RightSurface">0</token>
+						<token name="RightSurfaceInput">0</token>
+						<int name="RootPriority">0</int>
+						<Vector3 name="RotVelocity">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+						</Vector3>
+						<float name="SmoothingAngle">0</float>
+						<int64 name="SourceAssetId">-1</int64>
+						<BinaryString name="Tags"></BinaryString>
+						<float name="TopParamA">-0.5</float>
+						<float name="TopParamB">0.5</float>
+						<token name="TopSurface">0</token>
+						<token name="TopSurfaceInput">0</token>
+						<float name="Transparency">0</float>
+						<bool name="UsePartColor">true</bool>
+						<Vector3 name="Velocity">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+						</Vector3>
+						<Vector3 name="size">
+							<X>0.562749267</X>
+							<Y>1.26573467</Y>
+							<Z>0.147644073</Z>
+						</Vector3>
+					</Properties>
+				</Item>
+				<Item class="UnionOperation" referent="RBXcacb75a554514bba93a2a9065acf8807">
+					<Properties>
+						<bool name="Anchored">false</bool>
+						<Content name="AssetId"><url>http://www.roblox.com//asset/?id=267388510</url></Content>
+						<BinaryString name="AttributesSerialize"></BinaryString>
+						<float name="BackParamA">-0.5</float>
+						<float name="BackParamB">0.5</float>
+						<token name="BackSurface">0</token>
+						<token name="BackSurfaceInput">0</token>
+						<float name="BottomParamA">-0.5</float>
+						<float name="BottomParamB">0.5</float>
+						<token name="BottomSurface">0</token>
+						<token name="BottomSurfaceInput">0</token>
+						<CoordinateFrame name="CFrame">
+							<X>-235.050323</X>
+							<Y>3.20257998</Y>
+							<Z>-20.4254227</Z>
+							<R00>0.669127464</R00>
+							<R01>-0.743147671</R01>
+							<R02>4.65901621e-06</R02>
+							<R10>1.59442425e-06</R10>
+							<R11>-4.80562449e-06</R11>
+							<R12>-1.00000048</R12>
+							<R20>0.743148506</R20>
+							<R21>0.66912806</R21>
+							<R22>-1.7285347e-06</R22>
+						</CoordinateFrame>
+						<bool name="CanCollide">true</bool>
+						<bool name="CanQuery">true</bool>
+						<bool name="CanTouch">true</bool>
+						<bool name="CastShadow">true</bool>
+						<BinaryString name="ChildData"></BinaryString>
+						<SharedString name="ChildData2">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+						<int name="CollisionGroupId">0</int>
+						<Color3uint8 name="Color3uint8">4284107842</Color3uint8>
+						<PhysicalProperties name="CustomPhysicalProperties">
+							<CustomPhysics>false</CustomPhysics>
+						</PhysicalProperties>
+						<token name="FormFactor">0</token>
+						<float name="FrontParamA">-0.5</float>
+						<float name="FrontParamB">0.5</float>
+						<token name="FrontSurface">0</token>
+						<token name="FrontSurfaceInput">0</token>
+						<Vector3 name="InitialSize">
+							<X>0.13625893</X>
+							<Y>0.138389796</Y>
+							<Z>0.452626556</Z>
+						</Vector3>
+						<BinaryString name="LODData"></BinaryString>
+						<float name="LeftParamA">-0.5</float>
+						<float name="LeftParamB">0.5</float>
+						<token name="LeftSurface">0</token>
+						<token name="LeftSurfaceInput">0</token>
+						<bool name="Locked">false</bool>
+						<bool name="Massless">true</bool>
+						<token name="Material">512</token>
+						<Ref name="MaterialVariant">null</Ref>
+						<BinaryString name="MeshData"></BinaryString>
+						<SharedString name="MeshData2">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+						<string name="Name">Handle1</string>
+						<SharedString name="PhysicalConfigData">fJSzk9zJwSCKzNXY8vBxhA==</SharedString>
+						<BinaryString name="PhysicsData"></BinaryString>
+						<CoordinateFrame name="PivotOffset">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<float name="Reflectance">0</float>
+						<token name="RenderFidelity">1</token>
+						<float name="RightParamA">-0.5</float>
+						<float name="RightParamB">0.5</float>
+						<token name="RightSurface">0</token>
+						<token name="RightSurfaceInput">0</token>
+						<int name="RootPriority">0</int>
+						<Vector3 name="RotVelocity">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+						</Vector3>
+						<float name="SmoothingAngle">0</float>
+						<int64 name="SourceAssetId">-1</int64>
+						<BinaryString name="Tags"></BinaryString>
+						<float name="TopParamA">-0.5</float>
+						<float name="TopParamB">0.5</float>
+						<token name="TopSurface">0</token>
+						<token name="TopSurfaceInput">0</token>
+						<float name="Transparency">0</float>
+						<bool name="UsePartColor">true</bool>
+						<Vector3 name="Velocity">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+						</Vector3>
+						<Vector3 name="size">
+							<X>0.170474455</X>
+							<Y>0.173140302</Y>
+							<Z>0.566278815</Z>
+						</Vector3>
+					</Properties>
+				</Item>
+				<Item class="Part" referent="RBXe03bf501f608458296575295af1d31bc">
+					<Properties>
+						<bool name="Anchored">false</bool>
+						<BinaryString name="AttributesSerialize"></BinaryString>
+						<float name="BackParamA">-0.5</float>
+						<float name="BackParamB">0.5</float>
+						<token name="BackSurface">0</token>
+						<token name="BackSurfaceInput">0</token>
+						<float name="BottomParamA">-0.5</float>
+						<float name="BottomParamB">0.5</float>
+						<token name="BottomSurface">0</token>
+						<token name="BottomSurfaceInput">0</token>
+						<CoordinateFrame name="CFrame">
+							<X>-235.047455</X>
+							<Y>3.19998312</Y>
+							<Z>-20.4182129</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<bool name="CanCollide">true</bool>
+						<bool name="CanQuery">true</bool>
+						<bool name="CanTouch">true</bool>
+						<bool name="CastShadow">true</bool>
+						<int name="CollisionGroupId">0</int>
+						<Color3uint8 name="Color3uint8">4288914085</Color3uint8>
+						<PhysicalProperties name="CustomPhysicalProperties">
+							<CustomPhysics>false</CustomPhysics>
+						</PhysicalProperties>
+						<float name="FrontParamA">-0.5</float>
+						<float name="FrontParamB">0.5</float>
+						<token name="FrontSurface">0</token>
+						<token name="FrontSurfaceInput">0</token>
+						<float name="LeftParamA">-0.5</float>
+						<float name="LeftParamB">0.5</float>
+						<token name="LeftSurface">0</token>
+						<token name="LeftSurfaceInput">0</token>
+						<bool name="Locked">false</bool>
+						<bool name="Massless">true</bool>
+						<token name="Material">256</token>
+						<Ref name="MaterialVariant">null</Ref>
+						<string name="Name">BodyAttach</string>
+						<CoordinateFrame name="PivotOffset">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<float name="Reflectance">0</float>
+						<float name="RightParamA">-0.5</float>
+						<float name="RightParamB">0.5</float>
+						<token name="RightSurface">0</token>
+						<token name="RightSurfaceInput">0</token>
+						<int name="RootPriority">0</int>
+						<Vector3 name="RotVelocity">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+						</Vector3>
+						<int64 name="SourceAssetId">-1</int64>
+						<BinaryString name="Tags"></BinaryString>
+						<float name="TopParamA">-0.5</float>
+						<float name="TopParamB">0.5</float>
+						<token name="TopSurface">0</token>
+						<token name="TopSurfaceInput">0</token>
+						<float name="Transparency">1</float>
+						<Vector3 name="Velocity">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+						</Vector3>
+						<token name="formFactorRaw">1</token>
+						<token name="shape">1</token>
+						<Vector3 name="size">
+							<X>0.188422859</X>
+							<Y>0.706855774</Y>
+							<Z>0.192185968</Z>
+						</Vector3>
+					</Properties>
+					<Item class="Weld" referent="RBX8f08fc9715f14114b92c621691929463">
+						<Properties>
+							<BinaryString name="AttributesSerialize"></BinaryString>
+							<CoordinateFrame name="C0">
+								<X>-0.00354003906</X>
+								<Y>-0.0619325638</Y>
+								<Z>-0.115491867</Z>
+								<R00>-1.49021826e-08</R00>
+								<R01>6.75209549e-07</R01>
+								<R02>1</R02>
+								<R10>0.173646763</R10>
+								<R11>0.984808624</R11>
+								<R12>-6.62360947e-07</R12>
+								<R20>-0.984809041</R20>
+								<R21>0.173646599</R21>
+								<R22>-1.31923315e-07</R22>
+							</CoordinateFrame>
+							<CoordinateFrame name="C1">
+								<X>0</X>
+								<Y>0</Y>
+								<Z>0</Z>
+								<R00>1</R00>
+								<R01>0</R01>
+								<R02>0</R02>
+								<R10>0</R10>
+								<R11>1</R11>
+								<R12>0</R12>
+								<R20>0</R20>
+								<R21>0</R21>
+								<R22>1</R22>
+							</CoordinateFrame>
+							<bool name="Enabled">true</bool>
+							<string name="Name">Handle2</string>
+							<Ref name="Part0">RBXe03bf501f608458296575295af1d31bc</Ref>
+							<Ref name="Part1">RBXe33c2dcf25734879b9b9d9630c1f23a4</Ref>
+							<int64 name="SourceAssetId">-1</int64>
+							<BinaryString name="Tags"></BinaryString>
+						</Properties>
+					</Item>
+					<Item class="Weld" referent="RBXaf6befcf0c634e9d9163933855b89a24">
+						<Properties>
+							<BinaryString name="AttributesSerialize"></BinaryString>
+							<CoordinateFrame name="C0">
+								<X>-0.00286865234</X>
+								<Y>0.00259685516</Y>
+								<Z>-0.00720977783</Z>
+								<R00>0.669127464</R00>
+								<R01>-0.743147671</R01>
+								<R02>4.65901621e-06</R02>
+								<R10>1.59442425e-06</R10>
+								<R11>-4.80562449e-06</R11>
+								<R12>-1.00000048</R12>
+								<R20>0.743148506</R20>
+								<R21>0.66912806</R21>
+								<R22>-1.7285347e-06</R22>
+							</CoordinateFrame>
+							<CoordinateFrame name="C1">
+								<X>0</X>
+								<Y>0</Y>
+								<Z>0</Z>
+								<R00>1</R00>
+								<R01>0</R01>
+								<R02>0</R02>
+								<R10>0</R10>
+								<R11>1</R11>
+								<R12>0</R12>
+								<R20>0</R20>
+								<R21>0</R21>
+								<R22>1</R22>
+							</CoordinateFrame>
+							<bool name="Enabled">true</bool>
+							<string name="Name">Handle1</string>
+							<Ref name="Part0">RBXe03bf501f608458296575295af1d31bc</Ref>
+							<Ref name="Part1">RBXcacb75a554514bba93a2a9065acf8807</Ref>
+							<int64 name="SourceAssetId">-1</int64>
+							<BinaryString name="Tags"></BinaryString>
+						</Properties>
+					</Item>
+					<Item class="Weld" referent="RBX9fc6913f11f84a408b7b35af99bcfb38">
+						<Properties>
+							<BinaryString name="AttributesSerialize"></BinaryString>
+							<CoordinateFrame name="C0">
+								<X>-0.000228881836</X>
+								<Y>1.93983364</Y>
+								<Z>-0.11054039</Z>
+								<R00>-1.62152639e-06</R00>
+								<R01>-1</R01>
+								<R02>-2.79702044e-06</R02>
+								<R10>1.00000012</R10>
+								<R11>-1.62150286e-06</R11>
+								<R12>-8.91089439e-06</R12>
+								<R20>8.7916851e-06</R20>
+								<R21>-2.79703522e-06</R21>
+								<R22>1.00000036</R22>
+							</CoordinateFrame>
+							<CoordinateFrame name="C1">
+								<X>0</X>
+								<Y>0</Y>
+								<Z>0</Z>
+								<R00>1</R00>
+								<R01>0</R01>
+								<R02>0</R02>
+								<R10>0</R10>
+								<R11>1</R11>
+								<R12>0</R12>
+								<R20>0</R20>
+								<R21>0</R21>
+								<R22>1</R22>
+							</CoordinateFrame>
+							<bool name="Enabled">true</bool>
+							<string name="Name">Blade</string>
+							<Ref name="Part0">RBXe03bf501f608458296575295af1d31bc</Ref>
+							<Ref name="Part1">RBX0bd3e82c7b2c4608b8266ca384d256bb</Ref>
+							<int64 name="SourceAssetId">-1</int64>
+							<BinaryString name="Tags"></BinaryString>
+						</Properties>
+					</Item>
+				</Item>
+			</Item>
 		</Item>
 	</Item>
 	<Item class="SoundService" referent="30">
@@ -5399,7 +6025,6 @@ function Tool.new(instance)
 
     self.Name = self.Config.Name
     self.ActionPack = require(Actions:FindFirstChild(self.Config.ActionPack))
-    print(self.ActionPack)
 
     -- then find the appropriate module which contains the actions for the tool
 
@@ -5411,7 +6036,6 @@ end
 
 
 function Tool:Init()
-    print(self.ActionPack)
     local player = Players:GetPlayerFromCharacter(self.Instance.Parent)
 
     if player then self:CharacterSetup(player)
@@ -5419,14 +6043,38 @@ function Tool:Init()
     else self:Destroy() end
 end
 
-
 function Tool:CharacterSetup(player: Player) -- setup tool for usage as a child of a character
+    self.PlayerJanitor = Janitor.new() 
+    self._janitor:Add(self.PlayerJanitor)
+
+    self.StateChanged = Signal.new()
+    self.PlayerJanitor:Add(self.StateChanged)
+
     self.Player = player
     self.Character = self.Instance.Parent
-    
-    self:Input(Enum.UserInputState.None)
+
+    self:ManageSiblings()
+    self:ManageInputs()
+
+    self.Actions = {}
+    self:Input(Enum.UserInputState.None,Enum.UserInputState.None)
 end
 
+function Tool:ManageInputs()
+    self.Inputs = {}
+    self.StateChanged:Connect(function()
+        local updatedInputs = self.ActionPack.GetAvaliableInputs(self)
+    end)
+end
+
+function Tool:ManageSiblings()
+    -- WIP!!
+    self.Siblings = {}
+end
+
+function Tool:CharacterDestroy()
+    self.PlayerJanitor:Destroy()
+end
 
 function Tool.handleInput() -- DNT (do not trust) : recieved by client
     Tool.ToolInput:Connect(function(player: Player, toolModel: Model, actionName, inputState: Enum, inputObject: Enum )
@@ -5440,30 +6088,46 @@ end
 
 
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
+    if #self.Actions > 0 then return end -- queued actions need to finish!
     local Action = self.ActionPack.Input(self, inputState, inputObject)
 
     if Action then
-        if self.ToolSiblings then
-            for _,tool in pairs(self.ToolSiblings) do
+        if self.Siblings then
+            for _,tool in pairs(self.Siblings) do
                 if tool:ShouldBlock(Action) then return end -- sibling does not want this action made!
             end
         end
         self:AddAction(Action)
+        Action:Start(self)
     end
 end
 
+function Tool:QueueAction(Action, ActionCaller)
+    if ActionCaller.State == "Finished" then
+        Action:Start(self)
+    else
+        self.PlayerJanitor:Add(ActionCaller.Finished:Connect(function()
+            Action:Start(self)
+        end))
+    end
+    self:AddAction(Action)
+end
 
 function Tool:AddAction(Action)
-    if not self.Actions then self.Actions = {} end
-
+    Action:SetPrimaryTool(self)
     table.insert(self.Actions, Action)
-    Action:Start(self)
-
-    local DestroyedConnection
-    DestroyedConnection = Action.Destroyed:Connect(function()
+    
+    local FinishedConnection
+    FinishedConnection = Action.Finished:Connect(function()
         table.remove(self.Actions,table.find(self.Actions, Action))
-        DestroyedConnection:Disconnect()
+        FinishedConnection:Disconnect()
     end)
+    self.PlayerJanitor:Add(FinishedConnection)
+end
+
+function Tool:ChangeState(state)
+    self.State = state
+    self.StateChanged:Fire()
 end
 
 
@@ -5502,30 +6166,33 @@ local Action = {}
 Action.__index = Action
 
 
-function Action.new(name, start, stop, destroy)
+function Action.new(name, start, cancel, finish)
     local self = setmetatable({}, Action)
     self._janitor = Janitor.new()
 
     self.Started = Signal.new()
-    self.Stopped = Signal.new()
-    self.Destroyed = Signal.new()
+    self.Cancelled = Signal.new()
+    self.Finished = Signal.new()
 
     self._janitor:Add(self.Started)
-    self._janitor:Add(self.Stopped)
-    self._janitor:Add(self.Destroyed)
+    self._janitor:Add(self.Cancelled)
+    self._janitor:Add(self.Finished)
     
     self.Name = name
-    self._startFunc = start
-    self._stopFunc = stop
-    self._destroyFunc = destroy
+    -- functions
+    self._Start = start
+    self._Cancel = cancel
+    self._Finish = finish
+
+    self.State = "Created"
 
     return self
 end
 
 function Action:Clone()
-    local Action = Action.new(self.Name, self._startFunc, self._stopFunc, self._destroyFunc)
-    Action:SetPrimaryTool(self.PrimaryTool)
-    return Action
+    local ClonedAction = Action.new(self.Name, self._Start, self._Cancel, self._Finish)
+    ClonedAction:SetPrimaryTool(self.PrimaryTool)
+    return ClonedAction
 end
 
 function Action:SetPrimaryTool(tool: Tool)
@@ -5533,22 +6200,23 @@ function Action:SetPrimaryTool(tool: Tool)
 end
 
 function Action:Start(caller: Tool) -- caller : the object which calls :stop on this action can be tracked as it will pass itself as the first argument, usually a tool
-    self.Status = "Started"
+    self.State = "Started"
+    self._Start(self, caller)
     self.Started:Fire()
-    self._startFunc(self, caller)
 end
 
-function Action:Stop(caller: Tool) 
-    self.Status = "Stopped"
-    self.Stopped:Fire()
-    self._stopFunc(self, caller)
+function Action:Cancel(caller: Tool) 
+    self.State = "Cancelled"
+    if self._Cancel then self._Cancel(self, caller) end
+    self.Cancelled:Fire()
 end
 
-function Action:Destroy(caller: Tool)
-    self.Status = "Destroyed"
-    self.Destroyed:Fire()
-    self._destroyFunc(self, caller)
+function Action:Finish(caller: Tool)
+    self.State = "Finished"
+    if self._Finish then self._Finish(self, caller) end
+    self.Finished:Fire()
     self._janitor:Destroy()
+    print("Fired")
 end
 
 
@@ -5566,15 +6234,32 @@ return Action]]></ProtectedString>
 local Janitor = require(Knit.Util.Janitor)
 local Action = require(script.Parent)
 local Essential = require(script.Parent.Essential)
+local Helper = require(script.Parent.Parent.Helper)
 
 local Weapon = {}
 Weapon.__index = Weapon
 setmetatable(Weapon, Essential)
 
+function Weapon.GetAvaliableInputs(tool)
+    local avaliableInputs = {
+        [tool.State == "Equipped"] = {
+            [Enum.UserInputType.MouseButton1] = {Name = "Swing"}
+        }
+    }
+    return Helper.CombineTables(avaliableInputs[true] or {}, Essential.GetAvaliableInputs(tool))
+end
 
 function Weapon.Input(tool, inputState, inputObject)
-    print(inputState, inputObject)
-    return Essential.Input(tool, inputState, inputObject)
+    local inputInfo = {
+        [tool.State == "Equipped"] = {
+            [Enum.UserInputState.Begin] = {
+                [Enum.UserInputType.MouseButton1] = Weapon.Swing
+            },
+        },
+    }
+    
+    return (inputInfo[true] and inputInfo[true][inputState] and inputInfo[true][inputState][inputObject] 
+            and inputInfo[true][inputState][inputObject]:Clone()) or Essential.Input(tool, inputState, inputObject)
 end
 
 -- Swing Action
@@ -5582,15 +6267,15 @@ function StartSwing(Action, calledBy)
     
 end
 
-function StopSwing(Action, calledBy)
+function CancelSwing(Action, calledBy)
 
 end
 
-function DestroySwing(Action, calledBy)
+function FinishSwing(Action, calledBy)
 
 end
 
-Weapon.Swing = Action.new("Swing", StartSwing, StopSwing, DestroySwing)
+Weapon.Swing = Action.new("Swing", StartSwing, CancelSwing, FinishSwing)
 
 return Weapon]]></ProtectedString>
 						<int64 name="SourceAssetId">-1</int64>
@@ -5603,70 +6288,169 @@ return Weapon]]></ProtectedString>
 						<Content name="LinkedSource"><null></null></Content>
 						<string name="Name">Essential</string>
 						<string name="ScriptGuid">{a46982e6-3ea2-4006-807a-df45a0e84f7a}</string>
-						<ProtectedString name="Source"><![CDATA[local Knit = require(game:GetService("ReplicatedStorage").Knit)
+						<ProtectedString name="Source"><![CDATA[local ContextActionService = game:GetService("ContextActionService")
+local Knit = require(game:GetService("ReplicatedStorage").Knit)
 local Janitor = require(Knit.Util.Janitor)
 local Action = require(script.Parent)
+local Helper = require(script.Parent.Parent.Helper)
 
 local Essential = {}
 Essential.__index = Essential
 
-function Essential.Input(tool, inputState, inputObject)
-    local inputInfo = {
-        [Enum.UserInputState.None] = {[nil] = Essential.Setup},
+function Essential.GetAvaliableInputs(tool) : table
+    local avaliableInputs = {
+        [tool.State == "Holstered"] = {
+			{Name = "Block", inputTypes = {Enum.KeyCode.One}}
+        },
+		[tool.State == "Equipped"] = {
+			{Name = "Holster", inputTypes = {Enum.KeyCode.One}}
+        }
     }
-    return inputInfo[inputState] and inputInfo[inputState][inputObject]
+    return avaliableInputs[true] or {}
+end
+
+---@diagnostic disable-next-line: undefined-type
+function Essential.Input(tool: Tool, inputState: EnumItem, inputObject: EnumItem) : Action
+    local inputInfo = {
+        [tool.State == nil] = {
+            [Enum.UserInputState.None] = {
+                [Enum.UserInputState.None] = Essential.Setup
+            },
+        },
+        [tool.State == "Holstered"] = {
+            [Enum.UserInputState.Begin] = {
+                [Enum.KeyCode.One] = Essential.Equip
+            },
+        },
+        [tool.State == "Equipped"] = {
+            [Enum.UserInputState.Begin] = {
+                [Enum.KeyCode.One] = Essential.Holster
+            },
+        },
+    }
+
+    return inputInfo[true] and inputInfo[true][inputState] and inputInfo[true][inputState][inputObject] and inputInfo[true][inputState][inputObject]:Clone()
 end
 
 -- Setup Action
 function StartSetup(Action, calledBy)
+    local tool = Action.PrimaryTool
+    local model = tool.Instance
+
+    local upperTorso = tool.Character.UpperTorso
+    local bodyAttach = model.BodyAttach
     
+    local Motor6D = Instance.new("Motor6D")
+    Motor6D.Name = model.Name .. "Grip"
+    Motor6D.Part0 = upperTorso
+    Motor6D.Part1 = bodyAttach
+    Motor6D.Parent = upperTorso
+    tool.PlayerJanitor:Add(Motor6D)
+    
+    Action.Motor6D = Motor6D
+    
+    tool:QueueAction(Essential.Holster:Clone(), Action)
+    Action:Finish()
 end
 
-function StopSetup(Action, calledBy)
+function CancelSetup(Action, calledBy) 
+    local tool = Action.PrimaryTool
+    local upperTorso = tool.Character.UpperTorso
 
+    if Action.Motor6D then Action.Motor6D:Destroy()
+    else upperTorso:WaitForChild(tool.Instance.Name .. "Grip"):Destroy() end 
 end
 
-function DestroySetup(Action, calledBy)
+Essential.Setup = Action.new("Setup", StartSetup, CancelSetup)
 
+function createPlayAnimStartFunction(name)
+    return function(Action, calledBy)
+        local tool = Action.PrimaryTool
+        local character = tool.Character
+
+        if tool.BaseAnimation then tool.EquipAnimation:Stop() end
+
+        if tool.Config.Animations["Init" .. name] then
+            tool.BaseAnimation = Helper.playAnim(character, tool.Config.Animations["Init" .. name])
+            tool.BaseAnimation.Stopped:wait()
+            if not tool.Character then return end -- tool is not active
+        end
+        tool.BaseAnimation = Helper.playAnim(character, tool.Config.Animations[name], {Looped = true})
+        tool.State = name .. "ed"
+
+        Action:Finish()
+    end
 end
-
-Essential.Setup = Action.new("Setup", StartSetup, StopSetup, DestroySetup)
 
 -- Holster Action
-function StartHolster(Action, calledBy)
-    
-end
+StartHolster = createPlayAnimStartFunction("Holster")
 
-function StopHolster(Action, calledBy)
-
-end
-
-function DestroyHolster(Action, calledBy)
-
-end
-
-Essential.Holster = Action.new("Holster", StartHolster, StopHolster, DestroyHolster)
+Essential.Holster = Action.new("Holster", StartHolster)
 
 -- Equip Action
-function StartEquip(Action, calledBy)
-    
-end
+StartEquip = createPlayAnimStartFunction("Equip")
 
-function StopEquip(Action, calledBy)
-
-end
-
-function DestroyEquip(Action, calledBy)
-
-end
-
-Essential.Equip = Action.new("Equip", StartEquip, StopEquip, DestroyEquip)
+Essential.Equip = Action.new("Equip", StartEquip)
 
 return Essential]]></ProtectedString>
 						<int64 name="SourceAssetId">-1</int64>
 						<BinaryString name="Tags"></BinaryString>
 					</Properties>
 				</Item>
+			</Item>
+			<Item class="ModuleScript" referent="RBXe450f37debd34c809f7f847e84cbee7c">
+				<Properties>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<Content name="LinkedSource"><null></null></Content>
+					<string name="Name">Helper</string>
+					<string name="ScriptGuid">{b8e5864b-a8da-4ddd-9c43-89823daa7d71}</string>
+					<ProtectedString name="Source"><![CDATA[local Helper = {}
+
+function Helper.playAnim(character, animation, animInfo)
+    if typeof(animation) == "number" then
+        animation = tostring(animation)
+    end
+    if typeof(animation) == "string" then
+        if string.sub(animation,1,13) ~= "rbxassetid://" then
+            animation = "rbxassetid://" .. animation
+        end
+        local newAnimation = Instance.new("Animation")
+        newAnimation.AnimationId = animation
+        animation = newAnimation
+    end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		-- need to use animation object for server access
+		local animator = humanoid:FindFirstChildOfClass("Animator")
+		if animator then
+			local animationTrack = animator:LoadAnimation(animation)
+            animationTrack.Looped = animInfo["Looped"]
+			animationTrack:Play()
+			return animationTrack
+		end
+	end
+end
+
+function Helper.CombineTables(...)
+	local tables = {...}
+	local totalContentCount = 0
+
+	for _,t in pairs(tables) do
+		totalContentCount += #t
+	end
+	local combined = table.create(totalContentCount)
+
+	for _,t in pairs(tables) do
+		table.move(t, 1, #t, #combined, combined)
+	end
+
+	return combined
+end
+
+return Helper]]></ProtectedString>
+					<int64 name="SourceAssetId">-1</int64>
+					<BinaryString name="Tags"></BinaryString>
+				</Properties>
 			</Item>
 		</Item>
 		<Item class="Script" referent="28">
@@ -5772,13 +6556,13 @@ end
 
 
 function ToolService:ManagePlayer(player)
-    --if player.Character then self:AddTool(player.Character) end
+    if player.Character then self:AddTool(player.Character) end
     player.CharacterAppearanceLoaded:Connect(function(character) self:AddTool(character, "Test") end)
 end
 
 
 function ToolService:AddTool(character: Model, toolName: string)
-    local model = ToolModels:FindFirstChild(toolName):Clone(character)
+    local model = ToolModels:FindFirstChild(toolName):Clone()
     model.Parent = character
     CollectionService:AddTag(model, "Tool")
 end
@@ -10619,8 +11403,8 @@ Config.Tools = {
 	["Test"] = {
 		ActionPack = "Weapon",
 		Animations = {
-			Holstered = 7500633842,
-			Equipped = 7500607157,
+			Holster = 7500633842,
+			Equip = 7500607157,
 		}
 	}
 }
@@ -10711,7 +11495,7 @@ return Config
 							<R21>-2.79703522e-06</R21>
 							<R22>1.00000036</R22>
 						</CoordinateFrame>
-						<bool name="CanCollide">false</bool>
+						<bool name="CanCollide">true</bool>
 						<bool name="CanQuery">true</bool>
 						<bool name="CanTouch">true</bool>
 						<bool name="CastShadow">true</bool>
@@ -10820,7 +11604,7 @@ return Config
 							<R21>0.173646599</R21>
 							<R22>-1.31923315e-07</R22>
 						</CoordinateFrame>
-						<bool name="CanCollide">false</bool>
+						<bool name="CanCollide">true</bool>
 						<bool name="CanQuery">true</bool>
 						<bool name="CanTouch">true</bool>
 						<bool name="CastShadow">true</bool>
@@ -10929,7 +11713,7 @@ return Config
 							<R21>0.66912806</R21>
 							<R22>-1.7285347e-06</R22>
 						</CoordinateFrame>
-						<bool name="CanCollide">false</bool>
+						<bool name="CanCollide">true</bool>
 						<bool name="CanQuery">true</bool>
 						<bool name="CanTouch">true</bool>
 						<bool name="CastShadow">true</bool>
@@ -11037,7 +11821,7 @@ return Config
 							<R21>0</R21>
 							<R22>1</R22>
 						</CoordinateFrame>
-						<bool name="CanCollide">false</bool>
+						<bool name="CanCollide">true</bool>
 						<bool name="CanQuery">true</bool>
 						<bool name="CanTouch">true</bool>
 						<bool name="CastShadow">true</bool>

@@ -47,17 +47,28 @@ function Tool:Init()
     else self:Destroy() end
 end
 
-
 function Tool:CharacterSetup(player: Player) -- setup tool for usage as a child of a character
-    self:ManageSiblings()
-    
     self.PlayerJanitor = Janitor.new() 
     self._janitor:Add(self.PlayerJanitor)
+
+    self.StateChanged = Signal.new()
+    self.PlayerJanitor:Add(self.StateChanged)
 
     self.Player = player
     self.Character = self.Instance.Parent
 
+    self:ManageSiblings()
+    self:ManageInputs()
+
+    self.Actions = {}
     self:Input(Enum.UserInputState.None,Enum.UserInputState.None)
+end
+
+function Tool:ManageInputs()
+    self.Inputs = {}
+    self.StateChanged:Connect(function()
+        local updatedInputs = self.ActionPack.GetAvaliableInputs(self)
+    end)
 end
 
 function Tool:ManageSiblings()
@@ -81,6 +92,7 @@ end
 
 
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
+    if #self.Actions > 0 then return end -- queued actions need to finish!
     local Action = self.ActionPack.Input(self, inputState, inputObject)
 
     if Action then
@@ -90,22 +102,36 @@ function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
             end
         end
         self:AddAction(Action)
+        Action:Start(self)
     end
 end
 
+function Tool:QueueAction(Action, ActionCaller)
+    if ActionCaller.State == "Finished" then
+        Action:Start(self)
+    else
+        self.PlayerJanitor:Add(ActionCaller.Finished:Connect(function()
+            Action:Start(self)
+        end))
+    end
+    self:AddAction(Action)
+end
 
 function Tool:AddAction(Action)
-    if not self.Actions then self.Actions = {} end
-
     Action:SetPrimaryTool(self)
     table.insert(self.Actions, Action)
-    Action:Start(self)
-
-    local DestroyedConnection
-    DestroyedConnection = Action.Destroyed:Connect(function()
+    
+    local FinishedConnection
+    FinishedConnection = Action.Finished:Connect(function()
         table.remove(self.Actions,table.find(self.Actions, Action))
-        DestroyedConnection:Disconnect()
+        FinishedConnection:Disconnect()
     end)
+    self.PlayerJanitor:Add(FinishedConnection)
+end
+
+function Tool:ChangeState(state)
+    self.State = state
+    self.StateChanged:Fire()
 end
 
 

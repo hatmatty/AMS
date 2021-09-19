@@ -35,14 +35,14 @@ function StartSwing(Action, calledBy)
     
 end
 
-function StopSwing(Action, calledBy)
+function CancelSwing(Action, calledBy)
 
 end
 
-function DestroySwing(Action, calledBy)
+function FinishSwing(Action, calledBy)
 
 end
 
-Weapon.Swing = Action.new("Swing", StartSwing, StopSwing, DestroySwing)
+Weapon.Swing = Action.new("Swing", StartSwing, CancelSwing, FinishSwing)
 
 return Weapon
