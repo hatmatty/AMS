@@ -43,13 +43,13 @@ AET plans to change this by introducing a combat system which has almost no init
 - There tool service handles the giving of tools (weapons, shields, etc) to players. This system is diverse and flexible, allowing for the creation of spears, bow & arrows, etc. 
 	#### Tool
 	> Files: [Tool]
-	- This is a component which attaches to the a tool model.
-	#### Weapon
-	> Files: [Weapon]
-	- This is the component for weapons, inherits from Tool. 
-	#### Shield
-	> Files: [Shield]
-	- This is the component for shields, inherits from Tool. 
+	- This is a component which attaches to the a tool model and directly utilizes actionpacks.
+	#### ActionPack
+	> Files: [Essential, Weapon, Shield]
+	- An actionpack creates several actions and packs them into one unit. This is important because these actions frequently communicate with each other through creating new attributes in the Action and Tool classes. If an action sets an attribute in the Action class it means it only expects other methods in the action (start, cancel, finish) to utilize it. If it sets an attribute in the Tool class it means it expects other actions in the action pack to utilize it (such as the holster action and equip action disabling the other animation which was set to an attribute of the tool when they start).
+	#### Action
+	> Files: [Action]
+	- An action consists of the following methods: start, cancel, and finish. It has one main variable which is accessed by the tool called "state". 
 
 
 
