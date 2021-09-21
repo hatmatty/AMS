@@ -2,10 +2,10 @@ local Config = {}
 
 Config.Tools = {
 	["Test"] = {
-		ActionPack = "Weapon",
+		ActionHandler = "Weapon",
 		Animations = {
 			Holster = 7500633842,
-			Equip = 7500607157,
+			Equip = 7532918137,
 		}
 	}
 }

@@ -73,27 +73,27 @@
 			<Properties>
 				<BinaryString name="AttributesSerialize"></BinaryString>
 				<CoordinateFrame name="CFrame">
-					<X>-245.016739</X>
-					<Y>3.19919562</Y>
-					<Z>-30.5619202</Z>
-					<R00>-0.854124665</R00>
-					<R01>0.0782699585</R01>
-					<R02>-0.514144719</R02>
-					<R10>-7.4505806e-09</R10>
-					<R11>0.988610089</R11>
-					<R12>0.150499403</R12>
-					<R20>0.520068288</R20>
-					<R21>0.128545254</R21>
-					<R22>-0.844396293</R22>
+					<X>-230.815247</X>
+					<Y>2.50501132</Y>
+					<Z>-20.4827957</Z>
+					<R00>0.203761145</R00>
+					<R01>0.0923435017</R01>
+					<R02>0.974655926</R02>
+					<R10>-0</R10>
+					<R11>0.995541751</R11>
+					<R12>-0.0943223238</R12>
+					<R20>-0.979020655</R20>
+					<R21>0.0192192253</R21>
+					<R22>0.202852726</R22>
 				</CoordinateFrame>
 				<Ref name="CameraSubject">null</Ref>
 				<token name="CameraType">0</token>
 				<float name="FieldOfView">70</float>
 				<token name="FieldOfViewMode">0</token>
 				<CoordinateFrame name="Focus">
-					<X>-243.988449</X>
-					<Y>2.8981967</Y>
-					<Z>-28.873127</Z>
+					<X>-232.764526</X>
+					<Y>2.69365287</Y>
+					<Z>-20.8884945</Z>
 					<R00>1</R00>
 					<R01>0</R01>
 					<R02>0</R02>
@@ -1488,6 +1488,47 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 						</Vector3>
 					</Properties>
 				</Item>
+				<Item class="Motor6D" referent="RBX5e66158129684af391ffcd6fcd44878a">
+					<Properties>
+						<BinaryString name="AttributesSerialize"></BinaryString>
+						<CoordinateFrame name="C0">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<CoordinateFrame name="C1">
+							<X>0</X>
+							<Y>0</Y>
+							<Z>0</Z>
+							<R00>1</R00>
+							<R01>0</R01>
+							<R02>0</R02>
+							<R10>0</R10>
+							<R11>1</R11>
+							<R12>0</R12>
+							<R20>0</R20>
+							<R21>0</R21>
+							<R22>1</R22>
+						</CoordinateFrame>
+						<float name="DesiredAngle">0</float>
+						<bool name="Enabled">true</bool>
+						<float name="MaxVelocity">0</float>
+						<string name="Name">Motor6D</string>
+						<Ref name="Part0">RBXedd92c86dff24c65b51646e21e00ef50</Ref>
+						<Ref name="Part1">RBXe03bf501f608458296575295af1d31bc</Ref>
+						<int64 name="SourceAssetId">-1</int64>
+						<BinaryString name="Tags"></BinaryString>
+					</Properties>
+				</Item>
 			</Item>
 			<Item class="MeshPart" referent="RBX82339c698918415080f06f4674b91fbe">
 				<Properties>
@@ -2490,47 +2531,6 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 						</Vector3>
 					</Properties>
 				</Item>
-				<Item class="Motor6D" referent="RBX5e66158129684af391ffcd6fcd44878a">
-					<Properties>
-						<BinaryString name="AttributesSerialize"></BinaryString>
-						<CoordinateFrame name="C0">
-							<X>0</X>
-							<Y>0</Y>
-							<Z>0</Z>
-							<R00>1</R00>
-							<R01>0</R01>
-							<R02>0</R02>
-							<R10>0</R10>
-							<R11>1</R11>
-							<R12>0</R12>
-							<R20>0</R20>
-							<R21>0</R21>
-							<R22>1</R22>
-						</CoordinateFrame>
-						<CoordinateFrame name="C1">
-							<X>0</X>
-							<Y>0</Y>
-							<Z>0</Z>
-							<R00>1</R00>
-							<R01>0</R01>
-							<R02>0</R02>
-							<R10>0</R10>
-							<R11>1</R11>
-							<R12>0</R12>
-							<R20>0</R20>
-							<R21>0</R21>
-							<R22>1</R22>
-						</CoordinateFrame>
-						<float name="DesiredAngle">0</float>
-						<bool name="Enabled">true</bool>
-						<float name="MaxVelocity">0</float>
-						<string name="Name">Motor6D</string>
-						<Ref name="Part0">RBX354a360877e946ee914c955d69382fd9</Ref>
-						<Ref name="Part1">RBXe03bf501f608458296575295af1d31bc</Ref>
-						<int64 name="SourceAssetId">-1</int64>
-						<BinaryString name="Tags"></BinaryString>
-					</Properties>
-				</Item>
 			</Item>
 			<Item class="MeshPart" referent="RBXfdc986b723004ba7b6ac19f9626c08b8">
 				<Properties>
@@ -2774,17 +2774,17 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 					<float name="FrontParamB">0.5</float>
 					<token name="FrontSurface">0</token>
 					<token name="FrontSurfaceInput">0</token>
-					<bool name="HasJointOffset">true</bool>
+					<bool name="HasJointOffset">false</bool>
 					<bool name="HasSkinnedMesh">false</bool>
 					<Vector3 name="InitialSize">
-						<X>0.99999994</X>
-						<Y>1.1930927</Y>
-						<Z>0.999999523</Z>
+						<X>0</X>
+						<Y>0</Y>
+						<Z>0</Z>
 					</Vector3>
 					<Vector3 name="JointOffset">
-						<X>2.98023224e-08</X>
-						<Y>0.379018486</Y>
-						<Z>-1.60860594e-07</Z>
+						<X>0</X>
+						<Y>0</Y>
+						<Z>0</Z>
 					</Vector3>
 					<BinaryString name="LODData"></BinaryString>
 					<float name="LeftParamA">-0.5</float>
@@ -2795,8 +2795,8 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 					<bool name="Massless">false</bool>
 					<token name="Material">256</token>
 					<Ref name="MaterialVariant">null</Ref>
-					<Content name="MeshID"><url>http://www.roblox.com/asset/?id=1699715610</url></Content>
-					<Content name="MeshId"><url>http://www.roblox.com/asset/?id=1699715610</url></Content>
+					<Content name="MeshID"><null></null></Content>
+					<Content name="MeshId"><null></null></Content>
 					<string name="Name">LeftLowerLeg</string>
 					<SharedString name="PhysicalConfigData">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
 					<BinaryString name="PhysicsData"></BinaryString>
@@ -4770,7 +4770,7 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 					<BinaryString name="Tags"></BinaryString>
 					<OptionalCoordinateFrame name="WorldPivotData"></OptionalCoordinateFrame>
 				</Properties>
-				<Item class="KeyframeSequence" referent="RBXf28175427a1246e383c37fa68ce8ec5e">
+				<Item class="KeyframeSequence" referent="RBX7c2aee4b29f54c7c8e7004cdd26b0287">
 					<Properties>
 						<BinaryString name="AttributesSerialize"></BinaryString>
 						<float name="AuthoredHipHeight">2</float>
@@ -4778,9 +4778,9 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 						<string name="Name">Automatic Save</string>
 						<token name="Priority">0</token>
 						<int64 name="SourceAssetId">-1</int64>
-						<BinaryString name="Tags">MTYzMTkyNjIwNw==</BinaryString>
+						<BinaryString name="Tags">MTYzMjI1NDkyMg==</BinaryString>
 					</Properties>
-					<Item class="Keyframe" referent="RBX0152a3fedd604f53921e0d3788af8f14">
+					<Item class="Keyframe" referent="RBXd9c160f109af4c23bfeb1c6fb91af516">
 						<Properties>
 							<BinaryString name="AttributesSerialize"></BinaryString>
 							<string name="Name">Keyframe</string>
@@ -4788,7 +4788,7 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 							<BinaryString name="Tags"></BinaryString>
 							<float name="Time">0</float>
 						</Properties>
-						<Item class="Pose" referent="RBX0bb31888262749d4abf0f77368103022">
+						<Item class="Pose" referent="RBXa9d0b25a7a8a45c9a319cc1a62d7888a">
 							<Properties>
 								<BinaryString name="AttributesSerialize"></BinaryString>
 								<CoordinateFrame name="CFrame">
@@ -4812,7 +4812,7 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 								<BinaryString name="Tags"></BinaryString>
 								<float name="Weight">0</float>
 							</Properties>
-							<Item class="Pose" referent="RBXd70c0485797f4ca08845e1b515a33209">
+							<Item class="Pose" referent="RBX301d3ba69da94b8898cc2d8077d2a847">
 								<Properties>
 									<BinaryString name="AttributesSerialize"></BinaryString>
 									<CoordinateFrame name="CFrame">
@@ -4836,7 +4836,7 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 									<BinaryString name="Tags"></BinaryString>
 									<float name="Weight">0</float>
 								</Properties>
-								<Item class="Pose" referent="RBX3ba10634558e4726b87816a00222dc67">
+								<Item class="Pose" referent="RBXe87128525d414011813f32b709c5ca79">
 									<Properties>
 										<BinaryString name="AttributesSerialize"></BinaryString>
 										<CoordinateFrame name="CFrame">
@@ -4860,30 +4860,105 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 										<BinaryString name="Tags"></BinaryString>
 										<float name="Weight">0</float>
 									</Properties>
-									<Item class="Pose" referent="RBX3559ba80a59f488eba11960fca73afd8">
+									<Item class="Pose" referent="RBX18de6b3e458446748feb5a84f0af57bb">
 										<Properties>
 											<BinaryString name="AttributesSerialize"></BinaryString>
 											<CoordinateFrame name="CFrame">
-												<X>0.884536743</X>
-												<Y>0.802591801</Y>
-												<Z>0.568611145</Z>
-												<R00>-0.0115732327</R00>
-												<R01>-0.722456634</R01>
-												<R02>-0.691319346</R02>
-												<R10>0.000590209733</R10>
-												<R11>-0.691370547</R11>
-												<R12>0.722500145</R12>
-												<R20>-0.999932885</R20>
-												<R21>0.0079536438</R21>
-												<R22>0.00842779875</R22>
+												<X>0</X>
+												<Y>0</Y>
+												<Z>0</Z>
+												<R00>1</R00>
+												<R01>0</R01>
+												<R02>0</R02>
+												<R10>0</R10>
+												<R11>1</R11>
+												<R12>0</R12>
+												<R20>0</R20>
+												<R21>0</R21>
+												<R22>1</R22>
 											</CoordinateFrame>
 											<token name="EasingDirection">0</token>
 											<token name="EasingStyle">0</token>
-											<string name="Name">BodyAttach</string>
+											<string name="Name">RightUpperArm</string>
 											<int64 name="SourceAssetId">-1</int64>
 											<BinaryString name="Tags"></BinaryString>
-											<float name="Weight">1</float>
+											<float name="Weight">0</float>
 										</Properties>
+										<Item class="Pose" referent="RBX00612ca404d84ce8a808df3473f1aeb3">
+											<Properties>
+												<BinaryString name="AttributesSerialize"></BinaryString>
+												<CoordinateFrame name="CFrame">
+													<X>0</X>
+													<Y>0</Y>
+													<Z>0</Z>
+													<R00>1</R00>
+													<R01>0</R01>
+													<R02>0</R02>
+													<R10>0</R10>
+													<R11>1</R11>
+													<R12>0</R12>
+													<R20>0</R20>
+													<R21>0</R21>
+													<R22>1</R22>
+												</CoordinateFrame>
+												<token name="EasingDirection">0</token>
+												<token name="EasingStyle">0</token>
+												<string name="Name">RightLowerArm</string>
+												<int64 name="SourceAssetId">-1</int64>
+												<BinaryString name="Tags"></BinaryString>
+												<float name="Weight">0</float>
+											</Properties>
+											<Item class="Pose" referent="RBXacf81fc9de5f4c5bb9b498ab66e062f4">
+												<Properties>
+													<BinaryString name="AttributesSerialize"></BinaryString>
+													<CoordinateFrame name="CFrame">
+														<X>0</X>
+														<Y>0</Y>
+														<Z>0</Z>
+														<R00>1</R00>
+														<R01>0</R01>
+														<R02>0</R02>
+														<R10>0</R10>
+														<R11>1</R11>
+														<R12>0</R12>
+														<R20>0</R20>
+														<R21>0</R21>
+														<R22>1</R22>
+													</CoordinateFrame>
+													<token name="EasingDirection">0</token>
+													<token name="EasingStyle">0</token>
+													<string name="Name">RightHand</string>
+													<int64 name="SourceAssetId">-1</int64>
+													<BinaryString name="Tags"></BinaryString>
+													<float name="Weight">0</float>
+												</Properties>
+												<Item class="Pose" referent="RBX0827ee7e98634a85a8362016690fa908">
+													<Properties>
+														<BinaryString name="AttributesSerialize"></BinaryString>
+														<CoordinateFrame name="CFrame">
+															<X>0.0342273563</X>
+															<Y>-0.176809177</Y>
+															<Z>0.0228152592</Z>
+															<R00>0.999490261</R00>
+															<R01>-0.0238915868</R01>
+															<R02>0.0211728755</R02>
+															<R10>-0.0213475153</R10>
+															<R11>-0.00707840174</R11>
+															<R12>0.999747038</R12>
+															<R20>-0.0237356741</R20>
+															<R21>-0.99968946</R21>
+															<R22>-0.00758482004</R22>
+														</CoordinateFrame>
+														<token name="EasingDirection">0</token>
+														<token name="EasingStyle">0</token>
+														<string name="Name">BodyAttach</string>
+														<int64 name="SourceAssetId">-1</int64>
+														<BinaryString name="Tags"></BinaryString>
+														<float name="Weight">1</float>
+													</Properties>
+												</Item>
+											</Item>
+										</Item>
 									</Item>
 								</Item>
 							</Item>
@@ -4951,8 +5026,8 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 						<token name="BottomSurface">0</token>
 						<token name="BottomSurfaceInput">0</token>
 						<CoordinateFrame name="CFrame">
-							<X>-235.047684</X>
-							<Y>5.13981676</Y>
+							<X>-233.547684</X>
+							<Y>4.08978844</Y>
 							<Z>-20.5287533</Z>
 							<R00>-1.62152639e-06</R00>
 							<R01>-1</R01>
@@ -5060,8 +5135,8 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 						<token name="BottomSurface">0</token>
 						<token name="BottomSurfaceInput">0</token>
 						<CoordinateFrame name="CFrame">
-							<X>-235.050995</X>
-							<Y>3.13805056</Y>
+							<X>-233.550995</X>
+							<Y>2.08802223</Y>
 							<Z>-20.5337048</Z>
 							<R00>-1.49021826e-08</R00>
 							<R01>6.75209549e-07</R01>
@@ -5169,8 +5244,8 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 						<token name="BottomSurface">0</token>
 						<token name="BottomSurfaceInput">0</token>
 						<CoordinateFrame name="CFrame">
-							<X>-235.050323</X>
-							<Y>3.20257998</Y>
+							<X>-233.550323</X>
+							<Y>2.15255165</Y>
 							<Z>-20.4254227</Z>
 							<R00>0.669127464</R00>
 							<R01>-0.743147671</R01>
@@ -5277,8 +5352,8 @@ gcLgc4RKxr21zq2UlJSM]]></BinaryString>
 						<token name="BottomSurface">0</token>
 						<token name="BottomSurfaceInput">0</token>
 						<CoordinateFrame name="CFrame">
-							<X>-235.047455</X>
-							<Y>3.19998312</Y>
+							<X>-233.547455</X>
+							<Y>2.1499548</Y>
 							<Z>-20.4182129</Z>
 							<R00>1</R00>
 							<R01>0</R01>
@@ -5696,40 +5771,53 @@ function ToolController:KnitStart()
     ToolInput:Connect(function(...) self:ManageToolInput(...) end)
 end
 
-function ToolController:ManageToolInput(tool: Model, command: string, ...)
+function ToolController:ManageToolInput(toolId: string, command: string, ...)
+    if not Actions[toolId] then Actions[toolId] = {} end
+
     if command == "Create" then
-        self:CreateToolInput(tool, ...)
+        self:CreateToolInput(toolId, ...)
     elseif command == "Delete" then
-        self:DeleteToolInput(tool, ...)
+        self:DeleteToolInput(toolId, ...)
     elseif command == "Destroy" then
-        self:DestroyToolInput(tool)
+        self:DestroyToolInput(toolId)
     end
+    
 end
 
-function ToolController:CreateToolInput(tool: Model, inputs: table)
-    for _,inputInfo in pairs(inputs) do  -- ex of inputInfo: {Name = "Block", inputTypes = {Enum.UserInputType.MouseButton}}
+function ToolController:CreateToolInput(toolId: string, inputs: table)
+    for InputState,inputInfo in pairs(inputs) do  -- ex of inputInfo: {Name = "Block", inputTypes = {Enum.UserInputType.MouseButton}}
         -- tool.Name & inputInfo.Name are concacted to allow for duplicating inputs, for instance if a sword and a shield both have a block function, the one which runs should be decided by the tool
-        ContextActionService:BindAction(tool.Name .. inputInfo.Name, function(...) ToolInput:Fire(tool, ...) end, true, inputInfo.inputTypes)
-        Actions[tool][inputInfo.Name] = true
+        for InputObject,ActionName in pairs(inputs) do
+            print(InputObject,InputState,ActionName)
+            ContextActionService:BindAction(
+            toolId .. inputInfo.Name, 
+            function(actionName, inputState, inputObject)
+                if inputState ~= InputState then return end
+                ToolInput:Fire(toolId, inputState, inputObject.KeyCode) 
+            end, 
+            true, 
+            InputObject) 
+
+            Actions[toolId][ActionName] = true
+        end
     end
 end
 
-function ToolController:DeleteToolInput(tool: Model, inputs: table)
+function ToolController:DeleteToolInput(toolId: string, inputs: table)
     for _,inputInfo in pairs(inputs) do -- ex of inputInfo: {Name = "Block"}
-        ContextActionService:UnbindAction(tool.Name .. inputInfo.Name)
+        ContextActionService:UnbindAction(toolId .. inputInfo.Name)
     end
 end
 
 
-function ToolController:DestroyToolInput(tool: Model)
-    if not Actions[tool] then warn("Something might have gone wrong...") end
+function ToolController:DestroyToolInput(toolId: string)
     local inputs = {}
-    for inputName,_ in pairs(Actions[tool]) do
+    for inputName,_ in pairs(Actions[toolId]) do
         local newTable = {}
         newTable.Name = inputName
         table.insert(inputs, newTable)
     end
-    self:DeleteToolInput(tool, inputs)
+    self:DeleteToolInput(toolId, inputs)
 end
 
 
@@ -5995,6 +6083,7 @@ end):Catch(warn)
 					<string name="Name">Tool</string>
 					<string name="ScriptGuid">{3fdc38a1-5abe-4d8a-98eb-bb24841c97e8}</string>
 					<ProtectedString name="Source"><![CDATA[local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local HttpService = game:GetService("HttpService")
 local Config = require(game:GetService("ReplicatedStorage").Config)
 local Janitor = require(Knit.Util.Janitor)
 local Component = require(Knit.Util.Component)
@@ -6003,14 +6092,15 @@ local RemoteSignal = require(Knit.Util.Remote.RemoteSignal)
 
 local Players = game:GetService("Players")
 
-local Actions = script.Parent.Parent.Modules.Action
+local ActionHandlers = script.Parent.Parent.Modules.Action.ActionHandler
 
 local Tools = {}
 
 local Tool = {}
 Tool.__index = Tool
 Tool.Tag = "Tool"
-Tool.ToolInput = Signal.new()
+Tool.SendInput = Signal.new()
+Tool.GetInput = Signal.new()
 
 
 function Tool.new(instance)
@@ -6024,16 +6114,17 @@ function Tool.new(instance)
 	if not self.Config then error("tool " .. instance.Name .. " need to be configured") end
 
     self.Name = self.Config.Name
-    self.ActionPack = require(Actions:FindFirstChild(self.Config.ActionPack))
+    self.ActionHandler = require(ActionHandlers:FindFirstChild(self.Config.ActionHandler))
 
     -- then find the appropriate module which contains the actions for the tool
 
+    self.Id = HttpService:GenerateGUID()
     Tools[instance] = self
+    Tools[self.Id] = self
 
     return self
 
 end
-
 
 function Tool:Init()
     local player = Players:GetPlayerFromCharacter(self.Instance.Parent)
@@ -6063,7 +6154,11 @@ end
 function Tool:ManageInputs()
     self.Inputs = {}
     self.StateChanged:Connect(function()
-        local updatedInputs = self.ActionPack.GetAvaliableInputs(self)
+        local updatedInputs = self.ActionHandler:GetAvaliableInputs(self.State)
+        print("Inputs:", updatedInputs)
+        self.SendInput:Fire(self.Player, self.Id, "Destroy", self.Inputs)
+        self.Inputs = updatedInputs
+        self.SendInput:Fire(self.Player, self.Id, "Create", self.Inputs)
     end)
 end
 
@@ -6077,8 +6172,9 @@ function Tool:CharacterDestroy()
 end
 
 function Tool.handleInput() -- DNT (do not trust) : recieved by client
-    Tool.ToolInput:Connect(function(player: Player, toolModel: Model, actionName, inputState: Enum, inputObject: Enum )
-        local Tool = Tools[toolModel]
+    Tool.GetInput:Connect(function(player: Player, toolId: string, inputState: Enum, inputObject: Enum )
+        assert(typeof(toolId) == "string")
+        local Tool = Tools[toolId]
         if Tool and Tool.Player == player then
             assert(typeof(inputObject) == "EnumItem" and typeof(inputState) == "EnumItem")
             Tool:Input(inputState, inputObject) 
@@ -6089,40 +6185,37 @@ end
 
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
     if #self.Actions > 0 then return end -- queued actions need to finish!
-    local Action = self.ActionPack.Input(self, inputState, inputObject)
-
+    local Action = self.ActionHandler:GetAction(self.State, inputState, inputObject)
     if Action then
-        if self.Siblings then
-            for _,tool in pairs(self.Siblings) do
-                if tool:ShouldBlock(Action) then return end -- sibling does not want this action made!
-            end
-        end
         self:AddAction(Action)
-        Action:Start(self)
     end
-end
-
-function Tool:QueueAction(Action, ActionCaller)
-    if ActionCaller.State == "Finished" then
-        Action:Start(self)
-    else
-        self.PlayerJanitor:Add(ActionCaller.Finished:Connect(function()
-            Action:Start(self)
-        end))
-    end
-    self:AddAction(Action)
 end
 
 function Tool:AddAction(Action)
     Action:SetPrimaryTool(self)
-    table.insert(self.Actions, Action)
-    
-    local FinishedConnection
-    FinishedConnection = Action.Finished:Connect(function()
-        table.remove(self.Actions,table.find(self.Actions, Action))
-        FinishedConnection:Disconnect()
+    if self.Action then
+        table.insert(self.Actions, Action)
+    else
+        self:StartAction(Action)
+    end
+end
+
+function Tool:StartAction(Action)
+    self.Action = Action
+    local EndedConnection
+    EndedConnection = Action.Ended:Connect(function()
+        EndedConnection:Disconnect()
+
+        self.Action = nil
+        if #self.Actions > 0 then
+            local NewAction = self.Actions[1]
+            table.remove(self.Actions,1)
+            self:StartAction(NewAction)
+        end
     end)
-    self.PlayerJanitor:Add(FinishedConnection)
+    self.PlayerJanitor:Add(EndedConnection)
+
+    Action:Start()
 end
 
 function Tool:ChangeState(state)
@@ -6132,6 +6225,8 @@ end
 
 
 function Tool:Destroy()
+    Tools[self.Instance] = nil
+    Tools[self.Id] = nil
     self._janitor:Destroy()
 end
 
@@ -6166,23 +6261,20 @@ local Action = {}
 Action.__index = Action
 
 
-function Action.new(name, start, cancel, finish)
+function Action.new(name, Start, End)
     local self = setmetatable({}, Action)
     self._janitor = Janitor.new()
 
     self.Started = Signal.new()
-    self.Cancelled = Signal.new()
-    self.Finished = Signal.new()
+    self.Ended = Signal.new()
 
     self._janitor:Add(self.Started)
-    self._janitor:Add(self.Cancelled)
-    self._janitor:Add(self.Finished)
+    self._janitor:Add(self.Ended)
     
     self.Name = name
     -- functions
-    self._Start = start
-    self._Cancel = cancel
-    self._Finish = finish
+    self._Start = Start
+    self._End = End
 
     self.State = "Created"
 
@@ -6190,7 +6282,7 @@ function Action.new(name, start, cancel, finish)
 end
 
 function Action:Clone()
-    local ClonedAction = Action.new(self.Name, self._Start, self._Cancel, self._Finish)
+    local ClonedAction = Action.new(self.Name, self._Start, self._Cancel, self._End)
     ClonedAction:SetPrimaryTool(self.PrimaryTool)
     return ClonedAction
 end
@@ -6199,214 +6291,21 @@ function Action:SetPrimaryTool(tool: Tool)
     self.PrimaryTool = tool
 end
 
-function Action:Start(caller: Tool) -- caller : the object which calls :stop on this action can be tracked as it will pass itself as the first argument, usually a tool
+function Action:Start() -- caller : the object which calls :stop on this action can be tracked as it will pass itself as the first argument, usually a tool
     self.State = "Started"
-    self._Start(self, caller)
+    self:_Start()
     self.Started:Fire()
 end
 
-function Action:Cancel(caller: Tool) 
-    self.State = "Cancelled"
-    if self._Cancel then self._Cancel(self, caller) end
-    self.Cancelled:Fire()
-end
-
-function Action:Finish(caller: Tool)
-    self.State = "Finished"
-    if self._Finish then self._Finish(self, caller) end
-    self.Finished:Fire()
+function Action:End()
+    self.State = "Ended"
+    if self._End then self:_End() end
+    self.Ended:Fire()
     self._janitor:Destroy()
-    print("Fired")
 end
 
-
-return Action]]></ProtectedString>
-					<int64 name="SourceAssetId">-1</int64>
-					<BinaryString name="Tags"></BinaryString>
-				</Properties>
-				<Item class="ModuleScript" referent="RBX88e188ba1e374efe81294b209fb0b302">
-					<Properties>
-						<BinaryString name="AttributesSerialize"></BinaryString>
-						<Content name="LinkedSource"><null></null></Content>
-						<string name="Name">Weapon</string>
-						<string name="ScriptGuid">{45aa16c5-1afb-488d-9ca1-dbfa7802dd1d}</string>
-						<ProtectedString name="Source"><![CDATA[local Knit = require(game:GetService("ReplicatedStorage").Knit)
-local Janitor = require(Knit.Util.Janitor)
-local Action = require(script.Parent)
-local Essential = require(script.Parent.Essential)
-local Helper = require(script.Parent.Parent.Helper)
-
-local Weapon = {}
-Weapon.__index = Weapon
-setmetatable(Weapon, Essential)
-
-function Weapon.GetAvaliableInputs(tool)
-    local avaliableInputs = {
-        [tool.State == "Equipped"] = {
-            [Enum.UserInputType.MouseButton1] = {Name = "Swing"}
-        }
-    }
-    return Helper.CombineTables(avaliableInputs[true] or {}, Essential.GetAvaliableInputs(tool))
-end
-
-function Weapon.Input(tool, inputState, inputObject)
-    local inputInfo = {
-        [tool.State == "Equipped"] = {
-            [Enum.UserInputState.Begin] = {
-                [Enum.UserInputType.MouseButton1] = Weapon.Swing
-            },
-        },
-    }
-    
-    return (inputInfo[true] and inputInfo[true][inputState] and inputInfo[true][inputState][inputObject] 
-            and inputInfo[true][inputState][inputObject]:Clone()) or Essential.Input(tool, inputState, inputObject)
-end
-
--- Swing Action
-function StartSwing(Action, calledBy)
-    
-end
-
-function CancelSwing(Action, calledBy)
-
-end
-
-function FinishSwing(Action, calledBy)
-
-end
-
-Weapon.Swing = Action.new("Swing", StartSwing, CancelSwing, FinishSwing)
-
-return Weapon]]></ProtectedString>
-						<int64 name="SourceAssetId">-1</int64>
-						<BinaryString name="Tags"></BinaryString>
-					</Properties>
-				</Item>
-				<Item class="ModuleScript" referent="RBX376d23927c7d4d8dba98d47288aa5a3d">
-					<Properties>
-						<BinaryString name="AttributesSerialize"></BinaryString>
-						<Content name="LinkedSource"><null></null></Content>
-						<string name="Name">Essential</string>
-						<string name="ScriptGuid">{a46982e6-3ea2-4006-807a-df45a0e84f7a}</string>
-						<ProtectedString name="Source"><![CDATA[local ContextActionService = game:GetService("ContextActionService")
-local Knit = require(game:GetService("ReplicatedStorage").Knit)
-local Janitor = require(Knit.Util.Janitor)
-local Action = require(script.Parent)
-local Helper = require(script.Parent.Parent.Helper)
-
-local Essential = {}
-Essential.__index = Essential
-
-function Essential.GetAvaliableInputs(tool) : table
-    local avaliableInputs = {
-        [tool.State == "Holstered"] = {
-			{Name = "Block", inputTypes = {Enum.KeyCode.One}}
-        },
-		[tool.State == "Equipped"] = {
-			{Name = "Holster", inputTypes = {Enum.KeyCode.One}}
-        }
-    }
-    return avaliableInputs[true] or {}
-end
-
----@diagnostic disable-next-line: undefined-type
-function Essential.Input(tool: Tool, inputState: EnumItem, inputObject: EnumItem) : Action
-    local inputInfo = {
-        [tool.State == nil] = {
-            [Enum.UserInputState.None] = {
-                [Enum.UserInputState.None] = Essential.Setup
-            },
-        },
-        [tool.State == "Holstered"] = {
-            [Enum.UserInputState.Begin] = {
-                [Enum.KeyCode.One] = Essential.Equip
-            },
-        },
-        [tool.State == "Equipped"] = {
-            [Enum.UserInputState.Begin] = {
-                [Enum.KeyCode.One] = Essential.Holster
-            },
-        },
-    }
-
-    return inputInfo[true] and inputInfo[true][inputState] and inputInfo[true][inputState][inputObject] and inputInfo[true][inputState][inputObject]:Clone()
-end
-
--- Setup Action
-function StartSetup(Action, calledBy)
-    local tool = Action.PrimaryTool
-    local model = tool.Instance
-
-    local upperTorso = tool.Character.UpperTorso
-    local bodyAttach = model.BodyAttach
-    
-    local Motor6D = Instance.new("Motor6D")
-    Motor6D.Name = model.Name .. "Grip"
-    Motor6D.Part0 = upperTorso
-    Motor6D.Part1 = bodyAttach
-    Motor6D.Parent = upperTorso
-    tool.PlayerJanitor:Add(Motor6D)
-    
-    Action.Motor6D = Motor6D
-    
-    tool:QueueAction(Essential.Holster:Clone(), Action)
-    Action:Finish()
-end
-
-function CancelSetup(Action, calledBy) 
-    local tool = Action.PrimaryTool
-    local upperTorso = tool.Character.UpperTorso
-
-    if Action.Motor6D then Action.Motor6D:Destroy()
-    else upperTorso:WaitForChild(tool.Instance.Name .. "Grip"):Destroy() end 
-end
-
-Essential.Setup = Action.new("Setup", StartSetup, CancelSetup)
-
-function createPlayAnimStartFunction(name)
-    return function(Action, calledBy)
-        local tool = Action.PrimaryTool
-        local character = tool.Character
-
-        if tool.BaseAnimation then tool.EquipAnimation:Stop() end
-
-        if tool.Config.Animations["Init" .. name] then
-            tool.BaseAnimation = Helper.playAnim(character, tool.Config.Animations["Init" .. name])
-            tool.BaseAnimation.Stopped:wait()
-            if not tool.Character then return end -- tool is not active
-        end
-        tool.BaseAnimation = Helper.playAnim(character, tool.Config.Animations[name], {Looped = true})
-        tool.State = name .. "ed"
-
-        Action:Finish()
-    end
-end
-
--- Holster Action
-StartHolster = createPlayAnimStartFunction("Holster")
-
-Essential.Holster = Action.new("Holster", StartHolster)
-
--- Equip Action
-StartEquip = createPlayAnimStartFunction("Equip")
-
-Essential.Equip = Action.new("Equip", StartEquip)
-
-return Essential]]></ProtectedString>
-						<int64 name="SourceAssetId">-1</int64>
-						<BinaryString name="Tags"></BinaryString>
-					</Properties>
-				</Item>
-			</Item>
-			<Item class="ModuleScript" referent="RBXe450f37debd34c809f7f847e84cbee7c">
-				<Properties>
-					<BinaryString name="AttributesSerialize"></BinaryString>
-					<Content name="LinkedSource"><null></null></Content>
-					<string name="Name">Helper</string>
-					<string name="ScriptGuid">{b8e5864b-a8da-4ddd-9c43-89823daa7d71}</string>
-					<ProtectedString name="Source"><![CDATA[local Helper = {}
-
-function Helper.playAnim(character, animation, animInfo)
+-- all actions share this because almost all actions play an animation
+function Action._playAnim(character, animation, animInfo)
     if typeof(animation) == "number" then
         animation = tostring(animation)
     end
@@ -6431,19 +6330,215 @@ function Helper.playAnim(character, animation, animInfo)
 	end
 end
 
+
+return Action]]></ProtectedString>
+					<int64 name="SourceAssetId">-1</int64>
+					<BinaryString name="Tags"></BinaryString>
+				</Properties>
+				<Item class="ModuleScript" referent="RBXb3f682ddc2fd4ff1ac3697f3d9bb28bb">
+					<Properties>
+						<BinaryString name="AttributesSerialize"></BinaryString>
+						<Content name="LinkedSource"><null></null></Content>
+						<string name="Name">ActionHandler</string>
+						<string name="ScriptGuid">{e5caf18a-6132-417e-996d-bd9a83db51da}</string>
+						<ProtectedString name="Source"><![CDATA[local ContextActionService = game:GetService("ContextActionService")
+local Helper = require(script.Parent.Parent.Helper)
+
+local ActionHandler = {}
+ActionHandler.__index = ActionHandler
+
+
+
+function ActionHandler.new()
+    local self = {}
+    setmetatable(self, ActionHandler)
+    self.Actions = {}
+    self.__index = self -- incase the actionhandler is inherited from
+    return self
+end
+
+function ActionHandler:StoreAction(Action)
+    self.Actions[Action.Name] = Action
+end
+
+
+function ActionHandler:GetAction(state: string, InputState: EnumItem, InputObject: EnumItem)
+    if not state then state = "nil" end -- tables cannot have nil indexes
+    local ActionName = self.InputInfo[state] and self.InputInfo[state][InputState] and self.InputInfo[state][InputState][InputObject]
+    if ActionName then
+        return self.Actions[ActionName]
+    elseif getmetatable(self) ~= ActionHandler then
+        return getmetatable(self):GetAction(state, InputState, InputObject)
+    end
+end
+
+
+function ActionHandler:GetAvaliableInputs(state: string) : table
+    local AvaliableInputs = self.InputInfo[state] or {}
+    print(state, AvaliableInputs)
+    if getmetatable(self) ~= ActionHandler then
+        return Helper.CombineTables(AvaliableInputs, getmetatable(self):GetAvaliableInputs(state))
+    else
+        return AvaliableInputs
+    end
+end
+
+return ActionHandler]]></ProtectedString>
+						<int64 name="SourceAssetId">-1</int64>
+						<BinaryString name="Tags"></BinaryString>
+					</Properties>
+					<Item class="ModuleScript" referent="RBX27d5c2ad38e84bc697f0ce5ec079091c">
+						<Properties>
+							<BinaryString name="AttributesSerialize"></BinaryString>
+							<Content name="LinkedSource"><null></null></Content>
+							<string name="Name">Essential</string>
+							<string name="ScriptGuid">{22e5050c-f41a-4d4d-ae26-1fa84af4e39c}</string>
+							<ProtectedString name="Source"><![CDATA[local ContextActionService = game:GetService("ContextActionService")
+local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local Janitor = require(Knit.Util.Janitor)
+local ActionHandler = require(script.Parent)
+local Action = require(script.Parent.Parent)
+
+local Essential = ActionHandler.new()
+
+Essential.InputInfo = {
+    ["nil"] = {
+        [Enum.UserInputState.None] = {
+            [Enum.UserInputState.None] = "Setup"
+        },
+    },
+    ["Holstered"] = {
+        [Enum.UserInputState.Begin] = {
+            [Enum.KeyCode.One] = "Equip"
+        },
+    },
+    ["Equipped"] = {
+        [Enum.UserInputState.Begin] = {
+            [Enum.KeyCode.One] = "Holster"
+        },
+    },
+}
+
+-- Setup Action
+function StartSetup(Action)
+    local tool = Action.PrimaryTool
+    local model = tool.Instance
+
+    local upperTorso = tool.Character.UpperTorso
+    local bodyAttach = model.BodyAttach
+
+    local Motor6D = Instance.new("Motor6D")
+    Motor6D.Name = model.Name .. "Grip"
+    Motor6D.Part0 = upperTorso
+    Motor6D.Part1 = bodyAttach
+    Motor6D.Parent = model
+
+    tool.Motor6D = Motor6D
+
+    tool:AddAction(Essential.Actions.Holster:Clone(), Action)
+    Action:End()
+end
+
+Essential:StoreAction(Action.new("Setup", StartSetup))
+
+function createPlayAnimStartFunction(name, limb)
+    return function(Action)
+        local tool = Action.PrimaryTool
+        local character = tool.Character
+        local bodyPart = character:FindFirstChild(limb)
+
+        if tool.BaseAnimation then tool.BaseAnimation:Stop() end
+
+        tool.Motor6D.Part0 = bodyPart
+        if tool.Config.Animations["Init" .. name] then
+            tool.BaseAnimation = Action._playAnim(character, tool.Config.Animations["Init" .. name])
+            tool.BaseAnimation.Stopped:wait()
+            if not tool.Character then return end -- tool is not active
+        end
+        tool.BaseAnimation = Action._playAnim(character, tool.Config.Animations[name], {Looped = true})
+        if name == "Equip" then tool:ChangeState(name .. "ped") else
+            tool:ChangeState(name .. "ed")
+        end
+        
+        Action:End()
+    end
+end
+
+-- Holster Action
+StartHolster = createPlayAnimStartFunction("Holster", "UpperTorso")
+
+Essential:StoreAction(Action.new("Holster", StartHolster))
+
+-- Equip Action
+StartEquip = createPlayAnimStartFunction("Equip", "RightHand")
+
+Essential:StoreAction(Action.new("Equip", StartEquip))
+
+return Essential]]></ProtectedString>
+							<int64 name="SourceAssetId">-1</int64>
+							<BinaryString name="Tags"></BinaryString>
+						</Properties>
+					</Item>
+					<Item class="ModuleScript" referent="RBXa58e429a098a40f1903c450a6051e46b">
+						<Properties>
+							<BinaryString name="AttributesSerialize"></BinaryString>
+							<Content name="LinkedSource"><null></null></Content>
+							<string name="Name">Weapon</string>
+							<string name="ScriptGuid">{c0e6fb19-3567-4ad8-ad00-c47ca19c97a5}</string>
+							<ProtectedString name="Source"><![CDATA[local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local Janitor = require(Knit.Util.Janitor)
+local ActionHandler = require(script.Parent)
+local Action = require(script.Parent.Parent)
+local Essential = require(script.Parent.Essential)
+
+local Weapon = ActionHandler.new()
+setmetatable(Weapon, Essential)
+
+Weapon.InputInfo = {
+    ["Equipped"] = {
+        [Enum.UserInputState.Begin] = {
+            [Enum.UserInputType.MouseButton1] = "Swing"
+        },
+    },
+}
+
+-- Swing Action
+function StartSwing(Action)
+    
+end
+
+function EndSwing(Action)
+    
+end
+
+Weapon.Swing = Action.new("Swing", StartSwing, EndSwing)
+
+return Weapon]]></ProtectedString>
+							<int64 name="SourceAssetId">-1</int64>
+							<BinaryString name="Tags"></BinaryString>
+						</Properties>
+					</Item>
+				</Item>
+			</Item>
+			<Item class="ModuleScript" referent="RBXe450f37debd34c809f7f847e84cbee7c">
+				<Properties>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<Content name="LinkedSource"><null></null></Content>
+					<string name="Name">Helper</string>
+					<string name="ScriptGuid">{b8e5864b-a8da-4ddd-9c43-89823daa7d71}</string>
+					<ProtectedString name="Source"><![CDATA[local Helper = {}
+
 function Helper.CombineTables(...)
+	print(...)
 	local tables = {...}
-	local totalContentCount = 0
 
-	for _,t in pairs(tables) do
-		totalContentCount += #t
+	local combined = {}
+	for _,table in pairs(tables) do 
+		for index,value in pairs(table) do
+			combined[index] = value
+		end
 	end
-	local combined = table.create(totalContentCount)
-
-	for _,t in pairs(tables) do
-		table.move(t, 1, #t, #combined, combined)
-	end
-
+	print(combined)
 	return combined
 end
 
@@ -6540,13 +6635,14 @@ function ToolService:KnitStart()
     event is redirected to the signal
     --]]
 
-    local ToolInputSignal = Tool.ToolInput
+    local GetInput = Tool.GetInput
+    local SendInput = Tool.SendInput
     local ToolInputRemote = self.Client.ToolInput
-    ToolInputSignal:Connect(function(...)
-        ToolInputRemote:Fire(...)
+    SendInput:Connect(function(player, ...)
+        ToolInputRemote:Fire(player, ...)
     end)
     ToolInputRemote:Connect(function(...)
-        ToolInputSignal:Fire(...)
+        GetInput:Fire(...)
     end)
 
     for _,player in pairs(Players:GetPlayers()) do self:ManagePlayer(player) end
@@ -11401,10 +11497,10 @@ return Timer
 
 Config.Tools = {
 	["Test"] = {
-		ActionPack = "Weapon",
+		ActionHandler = "Weapon",
 		Animations = {
 			Holster = 7500633842,
-			Equip = 7500607157,
+			Equip = 7532918137,
 		}
 	}
 }

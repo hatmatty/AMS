@@ -1,4 +1,5 @@
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local HttpService = game:GetService("HttpService")
 local Config = require(game:GetService("ReplicatedStorage").Config)
 local Janitor = require(Knit.Util.Janitor)
 local Component = require(Knit.Util.Component)
@@ -7,14 +8,15 @@ local RemoteSignal = require(Knit.Util.Remote.RemoteSignal)
 
 local Players = game:GetService("Players")
 
-local Actions = script.Parent.Parent.Modules.Action
+local ActionHandlers = script.Parent.Parent.Modules.Action.ActionHandler
 
 local Tools = {}
 
 local Tool = {}
 Tool.__index = Tool
 Tool.Tag = "Tool"
-Tool.ToolInput = Signal.new()
+Tool.SendInput = Signal.new()
+Tool.GetInput = Signal.new()
 
 
 function Tool.new(instance)
@@ -28,16 +30,17 @@ function Tool.new(instance)
 	if not self.Config then error("tool " .. instance.Name .. " need to be configured") end
 
     self.Name = self.Config.Name
-    self.ActionPack = require(Actions:FindFirstChild(self.Config.ActionPack))
+    self.ActionHandler = require(ActionHandlers:FindFirstChild(self.Config.ActionHandler))
 
     -- then find the appropriate module which contains the actions for the tool
 
+    self.Id = HttpService:GenerateGUID()
     Tools[instance] = self
+    Tools[self.Id] = self
 
     return self
 
 end
-
 
 function Tool:Init()
     local player = Players:GetPlayerFromCharacter(self.Instance.Parent)
@@ -67,9 +70,14 @@ end
 function Tool:ManageInputs()
     self.Inputs = {}
     self.StateChanged:Connect(function()
-        local updatedInputs = self.ActionPack.GetAvaliableInputs(self)
+        local updatedInputs = self.ActionHandler:GetAvaliableInputs(self.State)
+        self.SendInput:Fire(self.Player, self.Id, "Destroy", self.Inputs)
+        self.Inputs = updatedInputs
+        self.SendInput:Fire(self.Player, self.Id, "Create", self.Inputs)
     end)
 end
+
+
 
 function Tool:ManageSiblings()
     -- WIP!!
@@ -81,8 +89,9 @@ function Tool:CharacterDestroy()
 end
 
 function Tool.handleInput() -- DNT (do not trust) : recieved by client
-    Tool.ToolInput:Connect(function(player: Player, toolModel: Model, actionName, inputState: Enum, inputObject: Enum )
-        local Tool = Tools[toolModel]
+    Tool.GetInput:Connect(function(player: Player, toolId: string, inputState: Enum, inputObject: Enum )
+        assert(typeof(toolId) == "string")
+        local Tool = Tools[toolId]
         if Tool and Tool.Player == player then
             assert(typeof(inputObject) == "EnumItem" and typeof(inputState) == "EnumItem")
             Tool:Input(inputState, inputObject) 
@@ -93,40 +102,37 @@ end
 
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
     if #self.Actions > 0 then return end -- queued actions need to finish!
-    local Action = self.ActionPack.Input(self, inputState, inputObject)
-
+    local Action = self.ActionHandler:GetAction(self.State, inputState, inputObject)
     if Action then
-        if self.Siblings then
-            for _,tool in pairs(self.Siblings) do
-                if tool:ShouldBlock(Action) then return end -- sibling does not want this action made!
-            end
-        end
         self:AddAction(Action)
-        Action:Start(self)
     end
-end
-
-function Tool:QueueAction(Action, ActionCaller)
-    if ActionCaller.State == "Finished" then
-        Action:Start(self)
-    else
-        self.PlayerJanitor:Add(ActionCaller.Finished:Connect(function()
-            Action:Start(self)
-        end))
-    end
-    self:AddAction(Action)
 end
 
 function Tool:AddAction(Action)
     Action:SetPrimaryTool(self)
-    table.insert(self.Actions, Action)
-    
-    local FinishedConnection
-    FinishedConnection = Action.Finished:Connect(function()
-        table.remove(self.Actions,table.find(self.Actions, Action))
-        FinishedConnection:Disconnect()
+    if self.Action then
+        table.insert(self.Actions, Action)
+    else
+        self:StartAction(Action)
+    end
+end
+
+function Tool:StartAction(Action)
+    self.Action = Action
+    local EndedConnection
+    EndedConnection = Action.Ended:Connect(function()
+        EndedConnection:Disconnect()
+
+        self.Action = nil
+        if #self.Actions > 0 then
+            local NewAction = self.Actions[1]
+            table.remove(self.Actions,1)
+            self:StartAction(NewAction)
+        end
     end)
-    self.PlayerJanitor:Add(FinishedConnection)
+    self.PlayerJanitor:Add(EndedConnection)
+
+    Action:Start()
 end
 
 function Tool:ChangeState(state)
@@ -136,6 +142,8 @@ end
 
 
 function Tool:Destroy()
+    Tools[self.Instance] = nil
+    Tools[self.Id] = nil
     self._janitor:Destroy()
 end
 

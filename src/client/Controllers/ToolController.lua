@@ -32,40 +32,51 @@ function ToolController:KnitStart()
     ToolInput:Connect(function(...) self:ManageToolInput(...) end)
 end
 
-function ToolController:ManageToolInput(tool: Model, command: string, ...)
+function ToolController:ManageToolInput(toolId: string, command: string, ...)
+    if not Actions[toolId] then Actions[toolId] = {} end
+    
     if command == "Create" then
-        self:CreateToolInput(tool, ...)
+        self:CreateToolInput(toolId, ...)
     elseif command == "Delete" then
-        self:DeleteToolInput(tool, ...)
+        self:DeleteToolInput(toolId, ...)
     elseif command == "Destroy" then
-        self:DestroyToolInput(tool)
+        self:DestroyToolInput(toolId)
+    end
+    
+end
+
+function ToolController:CreateToolInput(toolId: string, inputs: table)
+    for _, inputInfo in pairs(inputs) do
+        local InputState = inputInfo.inputState
+
+        ContextActionService:BindAction(
+            toolId .. inputInfo.actionName,
+            function(actionName, inputState, inputObject)
+                if inputState ~= InputState then return end
+                ToolInput:Fire(toolId,inputState,inputObject.KeyCode)
+            end, 
+            true,
+            inputInfo.inputObject)
     end
 end
 
-function ToolController:CreateToolInput(tool: Model, inputs: table)
-    for _,inputInfo in pairs(inputs) do  -- ex of inputInfo: {Name = "Block", inputTypes = {Enum.UserInputType.MouseButton}}
-        -- tool.Name & inputInfo.Name are concacted to allow for duplicating inputs, for instance if a sword and a shield both have a block function, the one which runs should be decided by the tool
-        ContextActionService:BindAction(tool.Name .. inputInfo.Name, function(...) ToolInput:Fire(tool, ...) end, true, inputInfo.inputTypes)
-        Actions[tool][inputInfo.Name] = true
-    end
-end
-
-function ToolController:DeleteToolInput(tool: Model, inputs: table)
-    for _,inputInfo in pairs(inputs) do -- ex of inputInfo: {Name = "Block"}
-        ContextActionService:UnbindAction(tool.Name .. inputInfo.Name)
+function ToolController:DeleteToolInput(toolId: string, inputs: table)
+    for InputState,inputInfo in pairs(inputs) do
+        for InputObject,ActionName in pairs(inputInfo) do
+            ContextActionService:UnbindAction(toolId .. ActionName)
+        end
     end
 end
 
 
-function ToolController:DestroyToolInput(tool: Model)
-    if not Actions[tool] then warn("Something might have gone wrong...") end
+function ToolController:DestroyToolInput(toolId: string)
     local inputs = {}
-    for inputName,_ in pairs(Actions[tool]) do
+    for inputName,_ in pairs(Actions[toolId]) do
         local newTable = {}
         newTable.Name = inputName
         table.insert(inputs, newTable)
     end
-    self:DeleteToolInput(tool, inputs)
+    self:DeleteToolInput(toolId, inputs)
 end
 
 

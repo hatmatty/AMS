@@ -35,13 +35,14 @@ function ToolService:KnitStart()
     event is redirected to the signal
     --]]
 
-    local ToolInputSignal = Tool.ToolInput
+    local GetInput = Tool.GetInput
+    local SendInput = Tool.SendInput
     local ToolInputRemote = self.Client.ToolInput
-    ToolInputSignal:Connect(function(...)
-        ToolInputRemote:Fire(...)
+    SendInput:Connect(function(player, ...)
+        ToolInputRemote:Fire(player, ...)
     end)
     ToolInputRemote:Connect(function(...)
-        ToolInputSignal:Fire(...)
+        GetInput:Fire(...)
     end)
 
     for _,player in pairs(Players:GetPlayers()) do self:ManagePlayer(player) end
