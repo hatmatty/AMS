@@ -77,11 +77,19 @@ function Tool:ManageInputs()
     end)
 end
 
-
-
 function Tool:ManageSiblings()
     -- WIP!!
     self.Siblings = {}
+	
+	self.PlayerJanitor:Add(self.Character.ChildAdded:Connect(function(child) 
+		if Tools[child] then
+			self.Siblings[child] = Tool
+		end
+	end))
+	
+	self.PlayerJanitor:Add(self.Character.ChildRemoved:Connect(function(child)
+		if self.Siblings[child] then self.Siblings[child] = nil end
+	end))
 end
 
 function Tool:CharacterDestroy()
@@ -103,6 +111,10 @@ end
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
     if #self.Actions > 0 then return end -- queued actions need to finish!
     local Action = self.ActionHandler:GetAction(self.State, inputState, inputObject)
+	for _,siblingTool in pairs(self.Siblings) do
+		local siblingAction = siblingTool.ActionHandler:GetAction(self.State, inputState, inputObject) end
+		if siblingAction.Priority > Action.Priority then return end -- sibling wants their action to go!
+	end
     if Action then
         self:AddAction(Action)
     end
