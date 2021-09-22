@@ -8,7 +8,7 @@ setmetatable(Weapon, Essential)
 Weapon.InputInfo = {
     ["Equipped"] = {
         [Enum.UserInputState.Begin] = {
-            [Enum.UserInputType.MouseButton1] = "Swing"
+            [Enum.UserInputType.MouseButton1] = {Name = "Swing"}
         },
     },
 }
