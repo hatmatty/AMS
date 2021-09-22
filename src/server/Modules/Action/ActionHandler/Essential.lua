@@ -6,17 +6,17 @@ local Essential = ActionHandler.new()
 Essential.InputInfo = {
     ["nil"] = {
         [Enum.UserInputState.None] = {
-            [Enum.UserInputState.None] = "Setup"
+            [Enum.UserInputState.None] = {Name = "Setup"}
         },
     },
     ["Holstered"] = {
         [Enum.UserInputState.Begin] = {
-            [Enum.KeyCode.One] = "Equip"
+            [Enum.KeyCode.One] = {Name = "Equip"}
         },
     },
     ["Equipped"] = {
         [Enum.UserInputState.Begin] = {
-            [Enum.KeyCode.One] = "Holster"
+            [Enum.KeyCode.One] = {Name = "Holster"}
         },
     },
 }
