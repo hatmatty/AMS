@@ -32,8 +32,6 @@ function Tool.new(instance)
     self.Name = self.Config.Name
     self.ActionHandler = require(ActionHandlers:FindFirstChild(self.Config.ActionHandler))
 
-    -- then find the appropriate module which contains the actions for the tool
-
     self.Id = HttpService:GenerateGUID()
     Tools[instance] = self
     Tools[self.Id] = self
@@ -78,15 +76,14 @@ function Tool:ManageInputs()
 end
 
 function Tool:ManageSiblings()
-    -- WIP!!
     self.Siblings = {}
 	
 	self.PlayerJanitor:Add(self.Character.ChildAdded:Connect(function(child) 
 		if Tools[child] then
-			self.Siblings[child] = Tool
+			self.Siblings[child] = Tools[child]
 		end
 	end))
-	
+
 	self.PlayerJanitor:Add(self.Character.ChildRemoved:Connect(function(child)
 		if self.Siblings[child] then self.Siblings[child] = nil end
 	end))
