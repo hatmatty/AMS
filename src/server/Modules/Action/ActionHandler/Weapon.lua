@@ -8,20 +8,40 @@ setmetatable(Weapon, Essential)
 Weapon.InputInfo = {
     ["Equipped"] = {
         [Enum.UserInputState.Begin] = {
-            [Enum.UserInputType.MouseButton1] = {Name = "Swing"}
+            [Enum.UserInputType.MouseButton1] = {Name = "Draw"}
+        },
+    },
+    ["Drawing"] = {
+        [Enum.UserInputState.End] = {
+            [Enum.UserInputType.MouseButton1] = {Name = "Release"}
         },
     },
 }
 
--- Swing Action
-function StartSwing(Action)
+function StartDraw(Action)
+    local tool = Action.PrimaryTool
     
 end
 
-function EndSwing(Action)
+function EndDraw(Action)
+    local tool = Action.PrimaryTool
     
 end
 
-Weapon.Swing = Action.new("Swing", StartSwing, EndSwing)
+Weapon.Draw = Action.new("Draw", StartSwing, EndSwing)
+
+function ReleaseStart(Action)
+    local tool = Action.PrimaryTool
+    
+    
+    Action:End()
+end
+
+function ReleaseEnd(Action)
+    local tool = Action.PrimaryTool
+    
+end
+
+Weapon.Release = Action.new("Release", ReleaseStart, ReleaseEnd)
 
 return Weapon
