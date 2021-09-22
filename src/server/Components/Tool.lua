@@ -129,20 +129,18 @@ function Tool:AddAction(Action)
     end
 end
 
-function Tool:StartAction(Action)
-    self.Action = Action
-    local EndedConnection
-    EndedConnection = Action.Ended:Connect(function()
-        EndedConnection:Disconnect()
+function Tool:Queue(Action, ActionCaller)
+	self.PlayerJanitor:Add(ActionCaller.Ended:Connect(function()
+		self:StartAction(Action)	
+	end)
+end
 
-        self.Action = nil
-        if #self.Actions > 0 then
-            local NewAction = self.Actions[1]
-            table.remove(self.Actions,1)
-            self:StartAction(NewAction)
-        end
-    end)
-    self.PlayerJanitor:Add(EndedConnection)
+function Tool:StartAction(Action)
+    self.Actions[Action.Name] = Action
+    self.PlayerJanitor:Add(Action.Ended:Connect(function()
+        EndedConnection:Disconnect()
+        self.Actions[Action.Name] = nil
+    end))
 
     Action:Start()
 end
