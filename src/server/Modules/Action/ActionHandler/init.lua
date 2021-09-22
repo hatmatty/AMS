@@ -30,8 +30,8 @@ end
 function ParseInput(AvaliableInputs)
     local new = {}
     for inputState,inputInfo in pairs(AvaliableInputs) do  
-        for inputObject,actionName in pairs(inputInfo) do
-            table.insert(new, {actionName = actionName, inputObject = inputObject, inputState = inputState})
+        for inputObject,actionInfo in pairs(inputInfo) do
+            table.insert(new, {actionName = actionInfo.Name, inputObject = inputObject, inputState = inputState})
         end
     end
     return new
