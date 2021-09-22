@@ -7,7 +7,7 @@ local Action = {}
 Action.__index = Action
 
 
-function Action.new(name, Start, End)
+function Action.new(name, Start, End, priority)
     local self = setmetatable({}, Action)
     self._janitor = Janitor.new()
 
@@ -21,6 +21,9 @@ function Action.new(name, Start, End)
     -- functions
     self._Start = Start
     self._End = End
+
+	self.Priority = Priority or 0
+
 
     self.State = "Created"
 
