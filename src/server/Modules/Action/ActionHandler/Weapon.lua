@@ -21,7 +21,6 @@ Weapon.InputInfo = {
 function StartDraw(Action)
     local tool = Action.PrimaryTool
     
-    print("1")
 end
 
 function EndDraw(Action)
@@ -29,7 +28,7 @@ function EndDraw(Action)
     
 end
 
-Weapon.Draw = Action.new("Draw", StartDraw, EndDraw)
+Weapon:StoreAction(Action.new("Draw", StartDraw, EndDraw))
 
 function ReleaseStart(Action)
     local tool = Action.PrimaryTool
@@ -43,6 +42,6 @@ function ReleaseEnd(Action)
     
 end
 
-Weapon.Release = Action.new("Release", ReleaseStart, ReleaseEnd)
+Weapon:StoreAction(Action.new("Release", ReleaseStart, ReleaseEnd))
 
 return Weapon

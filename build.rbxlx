@@ -5830,11 +5830,11 @@ return ToolController]]></ProtectedString>
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
 
 local CameraDirectionController = Knit.CreateController { Name = "CameraDirectionController" }
-local RemoteCameraDirection
+local RemoteCameraDirection = Knit.GetService("ClientInfo").CameraDirection
+
 
 function CameraDirectionController:KnitStart()
-    RemoteCameraDirection = Knit.GetService("ClientInfo").CameraDirection
-    print(RemoteCameraDirection)
+    
 end
 
 
@@ -6727,14 +6727,13 @@ return ToolService]]></ProtectedString>
 					<ProtectedString name="Source"><![CDATA[-- used to access information from clients
 
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local Players = game:GetService("Players")
 local RemoteSignal = require(Knit.Util.Remote.RemoteSignal)
 
 local ClientInfo = Knit.CreateService {
     Name = "ClientInfo";
     Client = {
-        RemoteSignals = {
-            CameraDirection = RemoteSignal.new()
-        }
+        CameraDirection = RemoteSignal.new()
     };
 }
 
@@ -6743,13 +6742,16 @@ ClientInfo.Info = {}
 
 function ClientInfo:KnitStart() end
 
-function ClientInfo:KnitInit()
-	print("i'm here")
-    for _,remoteSignal in pairs(self.Client.RemoteSignals) do
-        remoteSignal:Connect(function(player: Player, ...)
-            ClientInfo.Info[player] = ...
-        end)
+function getFunc(inputType)
+    return function(player: Player, ...)
+        if not ClientInfo.Info[player] then ClientInfo.Info[player] = {} end
+        ClientInfo.Info[player][inputType] = ...
     end
+end
+
+function ClientInfo:KnitInit()
+    Players.PlayerRemoving:Connect(function(player) self.Info[player] = nil end)
+    self.Client.CameraDirection:Connect(getFunc("CameraDirection"))
 end
 
 
