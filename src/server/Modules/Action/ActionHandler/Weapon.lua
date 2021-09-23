@@ -21,6 +21,7 @@ Weapon.InputInfo = {
 function StartDraw(Action)
     local tool = Action.PrimaryTool
     
+    print("1")
 end
 
 function EndDraw(Action)
@@ -28,7 +29,7 @@ function EndDraw(Action)
     
 end
 
-Weapon.Draw = Action.new("Draw", StartSwing, EndSwing)
+Weapon.Draw = Action.new("Draw", StartDraw, EndDraw)
 
 function ReleaseStart(Action)
     local tool = Action.PrimaryTool

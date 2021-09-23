@@ -40,7 +40,7 @@ function ToolController:ManageToolInput(toolId: string, command: string, ...)
     elseif command == "Delete" then
         self:DeleteToolInput(toolId, ...)
     elseif command == "Destroy" then
-        self:DestroyToolInput(toolId)
+        self:DestroyToolInput(toolId, ...)
     end
     
 end
@@ -53,30 +53,25 @@ function ToolController:CreateToolInput(toolId: string, inputs: table)
             toolId .. inputInfo.actionName,
             function(actionName, inputState, inputObject)
                 if inputState ~= InputState then return end
-                ToolInput:Fire(toolId,inputState,inputObject.KeyCode)
+                
+                local inputToSend = inputObject.KeyCode
+                if inputToSend == Enum.KeyCode.Unknown then
+                    inputToSend = inputObject.UserInputType
+                end
+                
+                print(inputToSend)
+                ToolInput:Fire(toolId,inputState,inputToSend)
             end, 
             true,
             inputInfo.inputObject)
     end
 end
 
-function ToolController:DeleteToolInput(toolId: string, inputs: table)
-    for InputState,inputInfo in pairs(inputs) do
-        for InputObject,ActionName in pairs(inputInfo) do
-            ContextActionService:UnbindAction(toolId .. ActionName)
-        end
-    end
-end
 
-
-function ToolController:DestroyToolInput(toolId: string)
-    local inputs = {}
-    for inputName,_ in pairs(Actions[toolId]) do
-        local newTable = {}
-        newTable.Name = inputName
-        table.insert(inputs, newTable)
+function ToolController:DestroyToolInput(toolId: string, inputs: table)
+    for _,inputInfo in pairs(inputs) do
+        ContextActionService:UnbindAction(toolId .. inputInfo.actionName)
     end
-    self:DeleteToolInput(toolId, inputs)
 end
 
 

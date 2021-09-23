@@ -2,13 +2,14 @@ local Helper = {}
 
 function Helper.CombineTables(...)
 	local tables = {...}
-
 	local combined = {}
-	for _,table in pairs(tables) do 
-		for index,value in pairs(table) do
-			combined[index] = value
+
+	for _,t in pairs(tables) do
+		for _,v in pairs(t) do
+			table.insert(combined,v)
 		end
 	end
+
 	return combined
 end
 

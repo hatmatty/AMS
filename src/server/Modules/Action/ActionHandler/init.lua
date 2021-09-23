@@ -16,7 +16,6 @@ function ActionHandler:StoreAction(Action)
     self.Actions[Action.Name] = Action
 end
 
-
 function ActionHandler:GetAction(state: string, InputState: EnumItem, InputObject: EnumItem)
     if not state then state = "nil" end -- tables cannot have nil indexes
     local ActionName = self.InputInfo[state] and self.InputInfo[state][InputState] and self.InputInfo[state][InputState][InputObject] and self.InputInfo[state][InputState][InputObject].Name

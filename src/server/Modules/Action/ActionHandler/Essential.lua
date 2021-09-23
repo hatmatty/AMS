@@ -37,7 +37,7 @@ function StartSetup(Action)
 
     tool.Motor6D = Motor6D
 
-    tool:QueueAction(Essential.Actions.Holster:Clone(), Action)
+    tool:Queue(Essential.Actions.Holster:Clone(), Action)
     Action:End()
 end
 

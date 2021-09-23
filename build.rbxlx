@@ -73,18 +73,18 @@
 			<Properties>
 				<BinaryString name="AttributesSerialize"></BinaryString>
 				<CoordinateFrame name="CFrame">
-					<X>-230.815247</X>
-					<Y>2.50501132</Y>
-					<Z>-20.4827957</Z>
-					<R00>0.203761145</R00>
-					<R01>0.0923435017</R01>
-					<R02>0.974655926</R02>
+					<X>-230.778214</X>
+					<Y>2.48416901</Y>
+					<Z>-20.7858925</Z>
+					<R00>0.0515857264</R00>
+					<R01>0.104604453</R01>
+					<R02>0.993175149</R02>
 					<R10>-0</R10>
-					<R11>0.995541751</R11>
-					<R12>-0.0943223238</R12>
-					<R20>-0.979020655</R20>
-					<R21>0.0192192253</R21>
-					<R22>0.202852726</R22>
+					<R11>0.994499266</R11>
+					<R12>-0.104743905</R12>
+					<R20>-0.998668611</R20>
+					<R21>0.0054032905</R21>
+					<R22>0.0513019674</R22>
 				</CoordinateFrame>
 				<Ref name="CameraSubject">null</Ref>
 				<token name="CameraType">0</token>
@@ -5773,56 +5773,77 @@ end
 
 function ToolController:ManageToolInput(toolId: string, command: string, ...)
     if not Actions[toolId] then Actions[toolId] = {} end
-
+    
     if command == "Create" then
         self:CreateToolInput(toolId, ...)
     elseif command == "Delete" then
         self:DeleteToolInput(toolId, ...)
     elseif command == "Destroy" then
-        self:DestroyToolInput(toolId)
+        self:DestroyToolInput(toolId, ...)
     end
     
 end
 
 function ToolController:CreateToolInput(toolId: string, inputs: table)
-    for InputState,inputInfo in pairs(inputs) do  -- ex of inputInfo: {Name = "Block", inputTypes = {Enum.UserInputType.MouseButton}}
-        -- tool.Name & inputInfo.Name are concacted to allow for duplicating inputs, for instance if a sword and a shield both have a block function, the one which runs should be decided by the tool
-        for InputObject,ActionName in pairs(inputs) do
-            print(InputObject,InputState,ActionName)
-            ContextActionService:BindAction(
-            toolId .. inputInfo.Name, 
+    for _, inputInfo in pairs(inputs) do
+        local InputState = inputInfo.inputState
+
+        ContextActionService:BindAction(
+            toolId .. inputInfo.actionName,
             function(actionName, inputState, inputObject)
                 if inputState ~= InputState then return end
-                ToolInput:Fire(toolId, inputState, inputObject.KeyCode) 
+                
+                local inputToSend = inputObject.KeyCode
+                if inputToSend == Enum.KeyCode.Unknown then
+                    inputToSend = inputObject.UserInputType
+                end
+                
+                print(inputToSend)
+                ToolInput:Fire(toolId,inputState,inputToSend)
             end, 
-            true, 
-            InputObject) 
-
-            Actions[toolId][ActionName] = true
-        end
-    end
-end
-
-function ToolController:DeleteToolInput(toolId: string, inputs: table)
-    for _,inputInfo in pairs(inputs) do -- ex of inputInfo: {Name = "Block"}
-        ContextActionService:UnbindAction(toolId .. inputInfo.Name)
+            true,
+            inputInfo.inputObject)
     end
 end
 
 
-function ToolController:DestroyToolInput(toolId: string)
-    local inputs = {}
-    for inputName,_ in pairs(Actions[toolId]) do
-        local newTable = {}
-        newTable.Name = inputName
-        table.insert(inputs, newTable)
+function ToolController:DestroyToolInput(toolId: string, inputs: table)
+    for _,inputInfo in pairs(inputs) do
+        ContextActionService:UnbindAction(toolId .. inputInfo.actionName)
     end
-    self:DeleteToolInput(toolId, inputs)
 end
 
 
 
 return ToolController]]></ProtectedString>
+						<int64 name="SourceAssetId">-1</int64>
+						<BinaryString name="Tags"></BinaryString>
+					</Properties>
+				</Item>
+				<Item class="ModuleScript" referent="RBX36892dad369b40dbb42dd32fb2c0c078">
+					<Properties>
+						<BinaryString name="AttributesSerialize"></BinaryString>
+						<Content name="LinkedSource"><null></null></Content>
+						<string name="Name">CameraDirectionController</string>
+						<string name="ScriptGuid">{240f5be9-eb31-44df-8d40-e1c5ac616bd9}</string>
+						<ProtectedString name="Source"><![CDATA[local ServerScriptService = game:GetService("ServerScriptService")
+local Knit = require(game:GetService("ReplicatedStorage").Knit)
+
+local CameraDirectionController = Knit.CreateController { Name = "CameraDirectionController" }
+local RemoteCameraDirection
+
+function CameraDirectionController:KnitStart()
+    RemoteCameraDirection = Knit.GetService("ClientInfo").CameraDirection
+    print(RemoteCameraDirection)
+end
+
+
+function CameraDirectionController:KnitInit()
+    
+end
+
+
+return CameraDirectionController]]></ProtectedString>
 						<int64 name="SourceAssetId">-1</int64>
 						<BinaryString name="Tags"></BinaryString>
 					</Properties>
@@ -6102,7 +6123,6 @@ Tool.Tag = "Tool"
 Tool.SendInput = Signal.new()
 Tool.GetInput = Signal.new()
 
-
 function Tool.new(instance)
 
     local self = setmetatable({}, Tool)
@@ -6115,10 +6135,9 @@ function Tool.new(instance)
 
     self.Name = self.Config.Name
     self.ActionHandler = require(ActionHandlers:FindFirstChild(self.Config.ActionHandler))
-
-    -- then find the appropriate module which contains the actions for the tool
-
+   
     self.Id = HttpService:GenerateGUID()
+
     Tools[instance] = self
     Tools[self.Id] = self
 
@@ -6138,8 +6157,7 @@ function Tool:CharacterSetup(player: Player) -- setup tool for usage as a child 
     self.PlayerJanitor = Janitor.new() 
     self._janitor:Add(self.PlayerJanitor)
 
-    self.StateChanged = Signal.new()
-    self.PlayerJanitor:Add(self.StateChanged)
+    self.StateChanged = Signal.new(self.PlayerJanitor)
 
     self.Player = player
     self.Character = self.Instance.Parent
@@ -6153,18 +6171,26 @@ end
 
 function Tool:ManageInputs()
     self.Inputs = {}
-    self.StateChanged:Connect(function()
+    self.PlayerJanitor:Add(self.StateChanged:Connect(function()
         local updatedInputs = self.ActionHandler:GetAvaliableInputs(self.State)
-        print("Inputs:", updatedInputs)
         self.SendInput:Fire(self.Player, self.Id, "Destroy", self.Inputs)
         self.Inputs = updatedInputs
         self.SendInput:Fire(self.Player, self.Id, "Create", self.Inputs)
-    end)
+    end))
 end
 
 function Tool:ManageSiblings()
-    -- WIP!!
     self.Siblings = {}
+	
+	self.PlayerJanitor:Add(self.Character.ChildAdded:Connect(function(child) 
+		if Tools[child] then
+			self.Siblings[child] = Tools[child]
+		end
+	end))
+
+	self.PlayerJanitor:Add(self.Character.ChildRemoved:Connect(function(child)
+		if self.Siblings[child] then self.Siblings[child] = nil end
+	end))
 end
 
 function Tool:CharacterDestroy()
@@ -6184,38 +6210,28 @@ end
 
 
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
-    if #self.Actions > 0 then return end -- queued actions need to finish!
     local Action = self.ActionHandler:GetAction(self.State, inputState, inputObject)
-    if Action then
-        self:AddAction(Action)
-    end
+	for _,siblingTool in pairs(self.Siblings) do
+		local siblingAction = siblingTool.ActionHandler:GetAction(self.State, inputState, inputObject)
+		if siblingAction.Priority > Action.Priority then return end -- sibling wants their action to go!
+	end
+    if Action then self:AddAction(Action) end
 end
+
 
 function Tool:AddAction(Action)
     Action:SetPrimaryTool(self)
-    if self.Action then
-        table.insert(self.Actions, Action)
-    else
-        self:StartAction(Action)
-    end
+    self.Actions[Action.Name] = Action
+    self.PlayerJanitor:Add(Action.Ended:Connect(function()
+        self.Actions[Action.Name] = nil
+    end))
+    Action:Start()
 end
 
-function Tool:StartAction(Action)
-    self.Action = Action
-    local EndedConnection
-    EndedConnection = Action.Ended:Connect(function()
-        EndedConnection:Disconnect()
-
-        self.Action = nil
-        if #self.Actions > 0 then
-            local NewAction = self.Actions[1]
-            table.remove(self.Actions,1)
-            self:StartAction(NewAction)
-        end
-    end)
-    self.PlayerJanitor:Add(EndedConnection)
-
-    Action:Start()
+function Tool:Queue(Action, ActionCaller)
+	self.PlayerJanitor:Add(ActionCaller.Ended:Connect(function()
+		self:AddAction(Action)	
+	end))
 end
 
 function Tool:ChangeState(state)
@@ -6233,7 +6249,8 @@ end
 
 Tool.handleInput()
 
-return Tool]]></ProtectedString>
+return Tool
+]]></ProtectedString>
 					<int64 name="SourceAssetId">-1</int64>
 					<BinaryString name="Tags"></BinaryString>
 				</Properties>
@@ -6261,7 +6278,7 @@ local Action = {}
 Action.__index = Action
 
 
-function Action.new(name, Start, End)
+function Action.new(name, Start, End, priority)
     local self = setmetatable({}, Action)
     self._janitor = Janitor.new()
 
@@ -6275,6 +6292,9 @@ function Action.new(name, Start, End)
     -- functions
     self._Start = Start
     self._End = End
+
+	self.Priority = Priority or 0
+
 
     self.State = "Created"
 
@@ -6331,7 +6351,8 @@ function Action._playAnim(character, animation, animInfo)
 end
 
 
-return Action]]></ProtectedString>
+return Action
+]]></ProtectedString>
 					<int64 name="SourceAssetId">-1</int64>
 					<BinaryString name="Tags"></BinaryString>
 				</Properties>
@@ -6347,8 +6368,6 @@ local Helper = require(script.Parent.Parent.Helper)
 local ActionHandler = {}
 ActionHandler.__index = ActionHandler
 
-
-
 function ActionHandler.new()
     local self = {}
     setmetatable(self, ActionHandler)
@@ -6361,21 +6380,29 @@ function ActionHandler:StoreAction(Action)
     self.Actions[Action.Name] = Action
 end
 
-
 function ActionHandler:GetAction(state: string, InputState: EnumItem, InputObject: EnumItem)
     if not state then state = "nil" end -- tables cannot have nil indexes
-    local ActionName = self.InputInfo[state] and self.InputInfo[state][InputState] and self.InputInfo[state][InputState][InputObject]
+    local ActionName = self.InputInfo[state] and self.InputInfo[state][InputState] and self.InputInfo[state][InputState][InputObject] and self.InputInfo[state][InputState][InputObject].Name
     if ActionName then
-        return self.Actions[ActionName]
+        return self.Actions[ActionName]:Clone()
     elseif getmetatable(self) ~= ActionHandler then
         return getmetatable(self):GetAction(state, InputState, InputObject)
     end
 end
 
+function ParseInput(AvaliableInputs)
+    local new = {}
+    for inputState,inputInfo in pairs(AvaliableInputs) do  
+        for inputObject,actionInfo in pairs(inputInfo) do
+            table.insert(new, {actionName = actionInfo.Name, inputObject = inputObject, inputState = inputState})
+        end
+    end
+    return new
+end
 
 function ActionHandler:GetAvaliableInputs(state: string) : table
     local AvaliableInputs = self.InputInfo[state] or {}
-    print(state, AvaliableInputs)
+    AvaliableInputs = ParseInput(AvaliableInputs)
     if getmetatable(self) ~= ActionHandler then
         return Helper.CombineTables(AvaliableInputs, getmetatable(self):GetAvaliableInputs(state))
     else
@@ -6383,7 +6410,8 @@ function ActionHandler:GetAvaliableInputs(state: string) : table
     end
 end
 
-return ActionHandler]]></ProtectedString>
+return ActionHandler
+]]></ProtectedString>
 						<int64 name="SourceAssetId">-1</int64>
 						<BinaryString name="Tags"></BinaryString>
 					</Properties>
@@ -6393,10 +6421,7 @@ return ActionHandler]]></ProtectedString>
 							<Content name="LinkedSource"><null></null></Content>
 							<string name="Name">Essential</string>
 							<string name="ScriptGuid">{22e5050c-f41a-4d4d-ae26-1fa84af4e39c}</string>
-							<ProtectedString name="Source"><![CDATA[local ContextActionService = game:GetService("ContextActionService")
-local Knit = require(game:GetService("ReplicatedStorage").Knit)
-local Janitor = require(Knit.Util.Janitor)
-local ActionHandler = require(script.Parent)
+							<ProtectedString name="Source"><![CDATA[local ActionHandler = require(script.Parent)
 local Action = require(script.Parent.Parent)
 
 local Essential = ActionHandler.new()
@@ -6404,17 +6429,17 @@ local Essential = ActionHandler.new()
 Essential.InputInfo = {
     ["nil"] = {
         [Enum.UserInputState.None] = {
-            [Enum.UserInputState.None] = "Setup"
+            [Enum.UserInputState.None] = {Name = "Setup"}
         },
     },
     ["Holstered"] = {
         [Enum.UserInputState.Begin] = {
-            [Enum.KeyCode.One] = "Equip"
+            [Enum.KeyCode.One] = {Name = "Equip"}
         },
     },
     ["Equipped"] = {
         [Enum.UserInputState.Begin] = {
-            [Enum.KeyCode.One] = "Holster"
+            [Enum.KeyCode.One] = {Name = "Holster"}
         },
     },
 }
@@ -6435,7 +6460,7 @@ function StartSetup(Action)
 
     tool.Motor6D = Motor6D
 
-    tool:AddAction(Essential.Actions.Holster:Clone(), Action)
+    tool:Queue(Essential.Actions.Holster:Clone(), Action)
     Action:End()
 end
 
@@ -6474,7 +6499,8 @@ StartEquip = createPlayAnimStartFunction("Equip", "RightHand")
 
 Essential:StoreAction(Action.new("Equip", StartEquip))
 
-return Essential]]></ProtectedString>
+return Essential
+]]></ProtectedString>
 							<int64 name="SourceAssetId">-1</int64>
 							<BinaryString name="Tags"></BinaryString>
 						</Properties>
@@ -6485,9 +6511,7 @@ return Essential]]></ProtectedString>
 							<Content name="LinkedSource"><null></null></Content>
 							<string name="Name">Weapon</string>
 							<string name="ScriptGuid">{c0e6fb19-3567-4ad8-ad00-c47ca19c97a5}</string>
-							<ProtectedString name="Source"><![CDATA[local Knit = require(game:GetService("ReplicatedStorage").Knit)
-local Janitor = require(Knit.Util.Janitor)
-local ActionHandler = require(script.Parent)
+							<ProtectedString name="Source"><![CDATA[local ActionHandler = require(script.Parent)
 local Action = require(script.Parent.Parent)
 local Essential = require(script.Parent.Essential)
 
@@ -6497,23 +6521,45 @@ setmetatable(Weapon, Essential)
 Weapon.InputInfo = {
     ["Equipped"] = {
         [Enum.UserInputState.Begin] = {
-            [Enum.UserInputType.MouseButton1] = "Swing"
+            [Enum.UserInputType.MouseButton1] = {Name = "Draw"}
+        },
+    },
+    ["Drawing"] = {
+        [Enum.UserInputState.End] = {
+            [Enum.UserInputType.MouseButton1] = {Name = "Release"}
         },
     },
 }
 
--- Swing Action
-function StartSwing(Action)
+function StartDraw(Action)
+    local tool = Action.PrimaryTool
+    
+    print("1")
+end
+
+function EndDraw(Action)
+    local tool = Action.PrimaryTool
     
 end
 
-function EndSwing(Action)
+Weapon.Draw = Action.new("Draw", StartDraw, EndDraw)
+
+function ReleaseStart(Action)
+    local tool = Action.PrimaryTool
+    
+    
+    Action:End()
+end
+
+function ReleaseEnd(Action)
+    local tool = Action.PrimaryTool
     
 end
 
-Weapon.Swing = Action.new("Swing", StartSwing, EndSwing)
+Weapon.Release = Action.new("Release", ReleaseStart, ReleaseEnd)
 
-return Weapon]]></ProtectedString>
+return Weapon
+]]></ProtectedString>
 							<int64 name="SourceAssetId">-1</int64>
 							<BinaryString name="Tags"></BinaryString>
 						</Properties>
@@ -6529,16 +6575,15 @@ return Weapon]]></ProtectedString>
 					<ProtectedString name="Source"><![CDATA[local Helper = {}
 
 function Helper.CombineTables(...)
-	print(...)
 	local tables = {...}
-
 	local combined = {}
-	for _,table in pairs(tables) do 
-		for index,value in pairs(table) do
-			combined[index] = value
+
+	for _,t in pairs(tables) do
+		for _,v in pairs(t) do
+			table.insert(combined,v)
 		end
 	end
-	print(combined)
+
 	return combined
 end
 
@@ -6669,6 +6714,46 @@ end
 
 
 return ToolService]]></ProtectedString>
+					<int64 name="SourceAssetId">-1</int64>
+					<BinaryString name="Tags"></BinaryString>
+				</Properties>
+			</Item>
+			<Item class="ModuleScript" referent="RBXaff98c8055b947ecaa8320eb00f1144c">
+				<Properties>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<Content name="LinkedSource"><null></null></Content>
+					<string name="Name">ClientInfo</string>
+					<string name="ScriptGuid">{f7a4958d-cdbc-4708-b90a-45539bd2b60a}</string>
+					<ProtectedString name="Source"><![CDATA[-- used to access information from clients
+
+local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local RemoteSignal = require(Knit.Util.Remote.RemoteSignal)
+
+local ClientInfo = Knit.CreateService {
+    Name = "ClientInfo";
+    Client = {
+        RemoteSignals = {
+            CameraDirection = RemoteSignal.new()
+        }
+    };
+}
+
+ClientInfo.Info = {}
+
+
+function ClientInfo:KnitStart() end
+
+function ClientInfo:KnitInit()
+	print("i'm here")
+    for _,remoteSignal in pairs(self.Client.RemoteSignals) do
+        remoteSignal:Connect(function(player: Player, ...)
+            ClientInfo.Info[player] = ...
+        end)
+    end
+end
+
+
+return ClientInfo]]></ProtectedString>
 					<int64 name="SourceAssetId">-1</int64>
 					<BinaryString name="Tags"></BinaryString>
 				</Properties>
