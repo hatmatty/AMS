@@ -30,7 +30,8 @@ function Tool.new(instance)
 
     self.Name = self.Config.Name
     self.ActionHandler = require(ActionHandlers:FindFirstChild(self.Config.ActionHandler))
-   
+	self.DefaultHandler = self.ActionHandler
+	
     self.Id = HttpService:GenerateGUID()
 
     Tools[instance] = self
@@ -53,6 +54,7 @@ function Tool:CharacterSetup(player: Player) -- setup tool for usage as a child 
     self._janitor:Add(self.PlayerJanitor)
 
     self.StateChanged = Signal.new(self.PlayerJanitor)
+	self.HandlerChanged = Signal.new(self.PlayerJanitor)
 
     self.Player = player
     self.Character = self.Instance.Parent
@@ -67,25 +69,51 @@ end
 function Tool:ManageInputs()
     self.Inputs = {}
     self.PlayerJanitor:Add(self.StateChanged:Connect(function()
-        local updatedInputs = self.ActionHandler:GetAvaliableInputs(self.State)
-        self.SendInput:Fire(self.Player, self.Id, "Destroy", self.Inputs)
-        self.Inputs = updatedInputs
-        self.SendInput:Fire(self.Player, self.Id, "Create", self.Inputs)
+        Tool:UpdateInputs()
     end))
+end
+
+function Tool:UpdateInputs()
+	local updatedInputs = self.ActionHandler:GetAvaliableInputs(self.State)
+	self.SendInput:Fire(self.Player, self.Id, "Destroy", self.Inputs)
+	self.Inputs = updatedInputs
+	self.SendInput:Fire(self.Player, self.Id, "Create", self.Inputs)
+end
+
+function Tool:Lock(signal, actionHandler)
+	if self.Locked then error("cannot lock when already locked") end
+	self.Locked = true
+	self.ActionHandler = actionHandler
+	
+	signal:Connect(function() 
+		self.Locked = nil
+		self.ActionHandler = self.DefaultHandler	
+	end) 
+	
+	self:UpdateInputs()
 end
 
 function Tool:ManageSiblings()
     self.Siblings = {}
 	
-	self.PlayerJanitor:Add(self.Character.ChildAdded:Connect(function(child) 
+	local function TryAddSibling(child)
 		if Tools[child] then
 			self.Siblings[child] = Tools[child]
+			ManageHandler(sibling)
 		end
-	end))
+	end
+	
+	local function TryRemoveSibling(child)
+		if not self.Siblings[child] return 
+		self.Siblings[child].HandlerChanged
+		self.Siblings[child] = nil
+	end
+	
+	self.PlayerJanitor:Add(self.Character.ChildAdded:Connect(TryAddSibling)
 
-	self.PlayerJanitor:Add(self.Character.ChildRemoved:Connect(function(child)
-		if self.Siblings[child] then self.Siblings[child] = nil end
-	end))
+	self.PlayerJanitor:Add(self.Character.ChildRemoved:Connect(TryRemoveSibling)
+	
+	for _,child in pairs(self.Character) do TryAddSibling(child) end
 end
 
 function Tool:CharacterDestroy()
@@ -103,13 +131,13 @@ function Tool.handleInput() -- DNT (do not trust) : recieved by client
     end)
 end
 
+function Tool:ChangeHandler(handler)
+	self.ActionHandler = handler
+	self.HandlerChanged:Fire()
+end
 
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
     local Action = self.ActionHandler:GetAction(self.State, inputState, inputObject)
-	for _,siblingTool in pairs(self.Siblings) do
-		local siblingAction = siblingTool.ActionHandler:GetAction(self.State, inputState, inputObject)
-		if siblingAction.Priority > Action.Priority then return end -- sibling wants their action to go!
-	end
     if Action then self:AddAction(Action) end
 end
 
