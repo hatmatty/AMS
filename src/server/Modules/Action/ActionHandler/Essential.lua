@@ -1,9 +1,7 @@
 local ActionHandler = require(script.Parent)
 local Action = require(script.Parent.Parent)
 
-local Essential = ActionHandler.new()
-
-Essential.InputInfo = {
+local Essential = ActionHandler.new({
     ["nil"] = {
         [Enum.UserInputState.None] = {
             [Enum.UserInputState.None] = {Name = "Setup"}
@@ -19,11 +17,10 @@ Essential.InputInfo = {
             [Enum.KeyCode.One] = {Name = "Holster"}
         },
     },
-}
+})
 
 -- Setup Action
-function StartSetup(Action)
-    local tool = Action.PrimaryTool
+function StartSetup(Action, tool)
     local model = tool.Instance
 
     local upperTorso = tool.Character.UpperTorso
@@ -44,20 +41,18 @@ end
 Essential:StoreAction(Action.new("Setup", StartSetup))
 
 function createPlayAnimStartFunction(name, limb)
-    return function(Action)
-        local tool = Action.PrimaryTool
+    return function(Action, tool)
         local character = tool.Character
         local bodyPart = character:FindFirstChild(limb)
 
         if tool.BaseAnimation then tool.BaseAnimation:Stop() end
-
         tool.Motor6D.Part0 = bodyPart
         if tool.Config.Animations["Init" .. name] then
-            tool.BaseAnimation = Action._playAnim(character, tool.Config.Animations["Init" .. name])
+            tool.BaseAnimation = Action.playAnim(character, tool.Config.Animations["Init" .. name])
             tool.BaseAnimation.Stopped:wait()
             if not tool.Character then return end -- tool is not active
         end
-        tool.BaseAnimation = Action._playAnim(character, tool.Config.Animations[name], {Looped = true})
+        tool.BaseAnimation = Action.playAnim(character, tool.Config.Animations[name], {Looped = true})
         if name == "Equip" then tool:ChangeState(name .. "ped") else
             tool:ChangeState(name .. "ed")
         end

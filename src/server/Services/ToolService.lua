@@ -12,6 +12,8 @@ local Knit = require(game:GetService("ReplicatedStorage").Knit)
 local Promise = require(Knit.Util.Promise)
 local RemoteSignal = require(Knit.Util.Remote.RemoteSignal)
 local Tool = require(script.Parent.Parent.Components.Tool)
+local Network = require(game:GetService("ReplicatedStorage").Network)
+
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,7 +24,9 @@ local Players = game:GetService("Players")
 
 local ToolService = Knit.CreateService {
     Name = "ToolService";
-    Client = {ToolInput = RemoteSignal.new()};
+    Client = {
+        ToolInput = RemoteSignal.new(),
+        CameraDirection = RemoteSignal.new()};
 }
 
 
@@ -38,8 +42,8 @@ function ToolService:KnitStart()
     local GetInput = Tool.GetInput
     local SendInput = Tool.SendInput
     local ToolInputRemote = self.Client.ToolInput
-    SendInput:Connect(function(player, ...)
-        ToolInputRemote:Fire(player, ...)
+    SendInput:Connect(function(...)
+        ToolInputRemote:Fire(...)
     end)
     ToolInputRemote:Connect(function(...)
         GetInput:Fire(...)
@@ -48,6 +52,9 @@ function ToolService:KnitStart()
     for _,player in pairs(Players:GetPlayers()) do self:ManagePlayer(player) end
     Players.PlayerAdded:Connect(function(...) self:ManagePlayer(...) end)
 
+    self.Client.CameraDirection:Connect(function(...)
+        Tool.CameraDirection:Fire(...)
+    end)
 end
 
 

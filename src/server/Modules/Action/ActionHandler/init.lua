@@ -4,11 +4,14 @@ local Helper = require(script.Parent.Parent.Helper)
 local ActionHandler = {}
 ActionHandler.__index = ActionHandler
 
-function ActionHandler.new()
+function ActionHandler.new(InputInfo: table, ...)
     local self = {}
     setmetatable(self, ActionHandler)
     self.Actions = {}
     self.__index = self -- incase the actionhandler is inherited from
+    self.InputInfo = InputInfo
+
+    for _,Action in pairs({...}) do self:StoreAction(Action) end
     return self
 end
 
@@ -16,7 +19,7 @@ function ActionHandler:StoreAction(Action)
     self.Actions[Action.Name] = Action
 end
 
-function ActionHandler:GetAction(state: string, InputState: EnumItem, InputObject: EnumItem)
+function ActionHandler:GetAction(state: string, InputState, InputObject)
     if not state then state = "nil" end -- tables cannot have nil indexes
     local ActionName = self.InputInfo[state] and self.InputInfo[state][InputState] and self.InputInfo[state][InputState][InputObject] and self.InputInfo[state][InputState][InputObject].Name
     if ActionName then
@@ -25,6 +28,16 @@ function ActionHandler:GetAction(state: string, InputState: EnumItem, InputObjec
         return getmetatable(self):GetAction(state, InputState, InputObject)
     end
 end
+
+-- function ActionHandler:IsA(name) : boolean
+--     if self.Name == name then
+--          return true
+--     elseif getmetatable(self) ~= ActionHandler then
+--         return getmetatable(self):IsA(name)
+--     else
+--        return false
+--     end
+-- end
 
 function ParseInput(AvaliableInputs)
     local new = {}

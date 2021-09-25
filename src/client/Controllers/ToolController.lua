@@ -59,7 +59,6 @@ function ToolController:CreateToolInput(toolId: string, inputs: table)
                     inputToSend = inputObject.UserInputType
                 end
                 
-                print(inputToSend)
                 ToolInput:Fire(toolId,inputState,inputToSend)
             end, 
             true,

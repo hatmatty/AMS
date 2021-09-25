@@ -6,7 +6,6 @@ local Signal = require(Knit.Util.Signal)
 local Action = {}
 Action.__index = Action
 
-
 function Action.new(name, Start, End, priority)
     local self = setmetatable({}, Action)
     self._janitor = Janitor.new()
@@ -18,11 +17,11 @@ function Action.new(name, Start, End, priority)
     self._janitor:Add(self.Ended)
     
     self.Name = name
-    -- functions
+
     self._Start = Start
     self._End = End
 
-	self.Priority = Priority or 0
+    self.Priority = priority or 0
 
 
     self.State = "Created"
@@ -31,7 +30,7 @@ function Action.new(name, Start, End, priority)
 end
 
 function Action:Clone()
-    local ClonedAction = Action.new(self.Name, self._Start, self._Cancel, self._End)
+    local ClonedAction = Action.new(self.Name, self._Start, self._End, self.priority)
     ClonedAction:SetPrimaryTool(self.PrimaryTool)
     return ClonedAction
 end
@@ -42,19 +41,19 @@ end
 
 function Action:Start() -- caller : the object which calls :stop on this action can be tracked as it will pass itself as the first argument, usually a tool
     self.State = "Started"
-    self:_Start()
+    self:_Start(self.PrimaryTool)
     self.Started:Fire()
 end
 
 function Action:End()
     self.State = "Ended"
-    if self._End then self:_End() end
+    if self._End then self:_End(self.PrimaryTool) end
     self.Ended:Fire()
     self._janitor:Destroy()
 end
 
 -- all actions share this because almost all actions play an animation
-function Action._playAnim(character, animation, animInfo)
+function Action.playAnim(character, animation, animInfo)
     if typeof(animation) == "number" then
         animation = tostring(animation)
     end
@@ -72,7 +71,7 @@ function Action._playAnim(character, animation, animInfo)
 		local animator = humanoid:FindFirstChildOfClass("Animator")
 		if animator then
 			local animationTrack = animator:LoadAnimation(animation)
-            animationTrack.Looped = animInfo["Looped"]
+            if animInfo then animationTrack.Looped = animInfo["Looped"] end
 			animationTrack:Play()
 			return animationTrack
 		end

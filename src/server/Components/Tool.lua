@@ -18,6 +18,14 @@ Tool.Tag = "Tool"
 Tool.SendInput = Signal.new()
 Tool.GetInput = Signal.new()
 
+Tool.CameraDirection = Signal.new()
+Tool.CameraDirections = {}
+
+Tool.CameraDirection:Connect(function(player: Player, direction: string)
+    assert(typeof(direction) == "string" and (direction == "Up" or direction == "Down"))
+    Tool.CameraDirections[player] = direction
+end)
+
 function Tool.new(instance)
 
     local self = setmetatable({}, Tool)
@@ -69,7 +77,7 @@ end
 function Tool:ManageInputs()
     self.Inputs = {}
     self.PlayerJanitor:Add(self.StateChanged:Connect(function()
-        Tool:UpdateInputs()
+        self:UpdateInputs()
     end))
 end
 
@@ -85,7 +93,7 @@ function Tool:Lock(signal, actionHandler)
 	self.Locked = true
 	self.ActionHandler = actionHandler
 	
-	signal:Connect(function() 
+	signal.Fired:Connect(function() 
 		self.Locked = nil
 		self.ActionHandler = self.DefaultHandler	
 	end) 
@@ -99,21 +107,16 @@ function Tool:ManageSiblings()
 	local function TryAddSibling(child)
 		if Tools[child] then
 			self.Siblings[child] = Tools[child]
-			ManageHandler(sibling)
 		end
 	end
-	
-	local function TryRemoveSibling(child)
-		if not self.Siblings[child] return 
-		self.Siblings[child].HandlerChanged
-		self.Siblings[child] = nil
-	end
-	
-	self.PlayerJanitor:Add(self.Character.ChildAdded:Connect(TryAddSibling)
 
-	self.PlayerJanitor:Add(self.Character.ChildRemoved:Connect(TryRemoveSibling)
+    self.PlayerJanitor:Add(self.Character.ChildAdded:Connect(TryAddSibling))
+	self.PlayerJanitor:Add(self.Character.ChildRemoved:Connect(function(child)
+        if not self.Siblings[child] then return end  
+		self.Siblings[child] = nil
+    end))
 	
-	for _,child in pairs(self.Character) do TryAddSibling(child) end
+	for _,child in pairs(self.Character:GetChildren()) do TryAddSibling(child) end
 end
 
 function Tool:CharacterDestroy()
