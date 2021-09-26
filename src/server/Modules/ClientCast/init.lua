@@ -169,9 +169,14 @@ local ClientCaster = {}
 
 local TrailTransparency = NumberSequence.new({
 	NumberSequenceKeypoint.new(0, 0.9925),
-	NumberSequenceKeypoint.new(0.5, 0.995),
+	NumberSequenceKeypoint.new(0.1, 0.994),
+	NumberSequenceKeypoint.new(0.2, 0.995),
+	NumberSequenceKeypoint.new(0.3, 0.996),
+	NumberSequenceKeypoint.new(0.4, 0.997),
+	NumberSequenceKeypoint.new(0.5, 1),
 	NumberSequenceKeypoint.new(1, 1)
 })
+
 local AttachmentOffset = Vector3.new(0, 0, 0.1)
 
 function ClientCaster:DisableDebug()

@@ -1,47 +1,10 @@
 local ActionHandler = require(script.Parent)
 local Action = require(script.Parent.Parent)
 
-local Essential = ActionHandler.new({
-    ["nil"] = {
-        [Enum.UserInputState.None] = {
-            [Enum.UserInputState.None] = {Name = "Setup"}
-        },
-    },
-    ["Holstered"] = {
-        [Enum.UserInputState.Begin] = {
-            [Enum.KeyCode.One] = {Name = "Equip"}
-        },
-    },
-    ["Equipped"] = {
-        [Enum.UserInputState.Begin] = {
-            [Enum.KeyCode.One] = {Name = "Holster"}
-        },
-    },
-})
-
--- Setup Action
-function StartSetup(Action, tool)
-    local model = tool.Instance
-
-    local upperTorso = tool.Character.UpperTorso
-    local bodyAttach = model.BodyAttach
-
-    local Motor6D = Instance.new("Motor6D")
-    Motor6D.Name = model.Name .. "Grip"
-    Motor6D.Part0 = upperTorso
-    Motor6D.Part1 = bodyAttach
-    Motor6D.Parent = model
-
-    tool.Motor6D = Motor6D
-
-    tool:Queue(Essential.Actions.Holster:Clone(), Action)
-    Action:End()
-end
-
-Essential:StoreAction(Action.new("Setup", StartSetup))
-
-function createPlayAnimStartFunction(name, limb)
+-- Equip & Holster Actions
+local function createPlayAnimStartFunction(name)
     return function(Action, tool)
+        local limb = tool.DefaultHandler[name .. "Limb"]
         local character = tool.Character
         local bodyPart = character:FindFirstChild(limb)
 
@@ -61,14 +24,54 @@ function createPlayAnimStartFunction(name, limb)
     end
 end
 
--- Holster Action
-StartHolster = createPlayAnimStartFunction("Holster", "UpperTorso")
+local HolsterAction = Action.new("Holster",createPlayAnimStartFunction("Holster"))
+local EquipAction = Action.new("Equip",createPlayAnimStartFunction("Equip"))
 
-Essential:StoreAction(Action.new("Holster", StartHolster))
+-- Setup Action
+local function StartSetup(Action, tool)
+    local model = tool.Instance
 
--- Equip Action
-StartEquip = createPlayAnimStartFunction("Equip", "RightHand")
+    local upperTorso = tool.Character.UpperTorso
+    local bodyAttach = model.BodyAttach
 
-Essential:StoreAction(Action.new("Equip", StartEquip))
+    local Motor6D = Instance.new("Motor6D")
+    Motor6D.Name = model.Name .. "Grip"
+    Motor6D.Part0 = upperTorso
+    Motor6D.Part1 = bodyAttach
+    Motor6D.Parent = model
 
-return Essential
+    tool.Motor6D = Motor6D
+
+    tool:Queue(HolsterAction:Clone(), Action)
+    Action:End()
+end
+
+local SetupAction = Action.new("Setup", StartSetup)
+
+return function(EnableButton)
+    local Essential = ActionHandler.new({
+        ["nil"] = {
+            [Enum.UserInputState.None] = {
+                [Enum.UserInputState.None] = {Name = "Setup"}
+            },
+        },
+        ["Holstered"] = {
+            [Enum.UserInputState.Begin] = {
+                [EnableButton] = {Name = "Equip"}
+            },
+        },
+        ["Equipped"] = {
+            [Enum.UserInputState.Begin] = {
+                [EnableButton] = {Name = "Holster"}
+            },
+        },
+    })
+    
+    Essential:StoreAction(SetupAction)
+    Essential:StoreAction(HolsterAction)
+    Essential:StoreAction(EquipAction)
+    
+    return Essential
+end
+
+

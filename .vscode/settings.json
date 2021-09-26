@@ -1,9 +1,12 @@
 {
     "robloxLsp.diagnostics.globals": [
+        "Vector3",
+        "TweenInfo",
+        "CFrame",
+        "Random",
         "Instance",
-        "Instance"
-    ],
-    "robloxLsp.diagnostics.disable": [
-        "undefined-global"
+        "RaycastParams",
+        "NumberSequenceKeypoint",
+        "NumberSequence"
     ]
 }

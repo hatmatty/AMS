@@ -19,14 +19,20 @@ function ActionHandler:StoreAction(Action)
     self.Actions[Action.Name] = Action
 end
 
-function ActionHandler:GetAction(state: string, InputState, InputObject)
-    if not state then state = "nil" end -- tables cannot have nil indexes
-    local ActionName = self.InputInfo[state] and self.InputInfo[state][InputState] and self.InputInfo[state][InputState][InputObject] and self.InputInfo[state][InputState][InputObject].Name
+function ActionHandler:GetAction(state, InputState, InputObject)
+    if not state then state = "nil" end
+    local InputInfo = self.InputInfo
+    local ActionName = InputInfo[state] and InputInfo[state][InputState] and InputInfo[state][InputState][InputObject] and InputInfo[state][InputState][InputObject].Name
     if ActionName then
         return self.Actions[ActionName]:Clone()
     elseif getmetatable(self) ~= ActionHandler then
         return getmetatable(self):GetAction(state, InputState, InputObject)
     end
+end
+
+function ActionHandler:GetInputInfo(tool)
+    if typeof(self.InputInfo) == "table" then return self.InputInfo -- static
+    elseif typeof(self.InputInfo) == "function" then return self.InputInfo(tool) end -- dynamic (uses variable buttons)
 end
 
 -- function ActionHandler:IsA(name) : boolean
@@ -49,7 +55,7 @@ function ParseInput(AvaliableInputs)
     return new
 end
 
-function ActionHandler:GetAvaliableInputs(state: string) : table
+function ActionHandler:GetAvaliableInputs(state) : table
     local AvaliableInputs = self.InputInfo[state] or {}
     AvaliableInputs = ParseInput(AvaliableInputs)
     if getmetatable(self) ~= ActionHandler then

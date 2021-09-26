@@ -71,8 +71,8 @@ function Action.playAnim(character, animation, animInfo)
 		local animator = humanoid:FindFirstChildOfClass("Animator")
 		if animator then
 			local animationTrack = animator:LoadAnimation(animation)
-            if animInfo then animationTrack.Looped = animInfo["Looped"] end
-			animationTrack:Play()
+            animationTrack.Looped = (animInfo and animInfo["Looped"]) or false
+			animationTrack:Play(animInfo and animInfo.fadeTime)
 			return animationTrack
 		end
 	end

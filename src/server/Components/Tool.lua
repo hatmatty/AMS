@@ -1,4 +1,5 @@
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local Network = require(game:GetService("ReplicatedStorage").Network)
 local HttpService = game:GetService("HttpService")
 local Config = require(game:GetService("ReplicatedStorage").Config)
 local Janitor = require(Knit.Util.Janitor)
@@ -16,7 +17,6 @@ local Tool = {}
 Tool.__index = Tool
 Tool.Tag = "Tool"
 Tool.SendInput = Signal.new()
-Tool.GetInput = Signal.new()
 
 Tool.CameraDirection = Signal.new()
 Tool.CameraDirections = {}
@@ -41,6 +41,7 @@ function Tool.new(instance)
 	self.DefaultHandler = self.ActionHandler
 	
     self.Id = HttpService:GenerateGUID()
+    self.Buttons = {}
 
     Tools[instance] = self
     Tools[self.Id] = self
@@ -58,6 +59,8 @@ function Tool:Init()
 end
 
 function Tool:CharacterSetup(player: Player) -- setup tool for usage as a child of a character
+    self.Mode = "Player"
+
     self.PlayerJanitor = Janitor.new() 
     self._janitor:Add(self.PlayerJanitor)
 
@@ -75,30 +78,32 @@ function Tool:CharacterSetup(player: Player) -- setup tool for usage as a child 
 end
 
 function Tool:ManageInputs()
-    self.Inputs = {}
-    self.PlayerJanitor:Add(self.StateChanged:Connect(function()
-        self:UpdateInputs()
-    end))
+    self.InputEnabled = true
+    if not Tools[self.Player] then
+        Tools[self.Player] = {}
+    end
+    table.insert(Tools[self.Player], self)
+    print(Tools[self.Player])
 end
 
-function Tool:UpdateInputs()
-	local updatedInputs = self.ActionHandler:GetAvaliableInputs(self.State)
-	self.SendInput:Fire(self.Player, self.Id, "Destroy", self.Inputs)
-	self.Inputs = updatedInputs
-	self.SendInput:Fire(self.Player, self.Id, "Create", self.Inputs)
-end
 
 function Tool:Lock(signal, actionHandler)
 	if self.Locked then error("cannot lock when already locked") end
 	self.Locked = true
 	self.ActionHandler = actionHandler
 	
-	signal.Fired:Connect(function() 
+	signal:Connect(function() 
 		self.Locked = nil
-		self.ActionHandler = self.DefaultHandler	
-	end) 
+        self:ChangeHandler(self.DefaultHandler)
+	end)
 	
-	self:UpdateInputs()
+end
+
+function Tool:Damage(humanoid,damage)
+    humanoid:TakeDamage(damage)
+    local damagedPlayer = Players:GetPlayerFromCharacter(humanoid.Parent)
+    if damagedPlayer then Network:FireClient(damagedPlayer, "Damaged") end
+    Network:FireClient(self.Player, "Hit")
 end
 
 function Tool:ManageSiblings()
@@ -120,18 +125,23 @@ function Tool:ManageSiblings()
 end
 
 function Tool:CharacterDestroy()
+    table.remove(Tools[self.Player], table.find(Tools[self.Player], self))
+    print(Tools[self.Player])
+    self.Mode = nil
     self.PlayerJanitor:Destroy()
 end
 
 function Tool.handleInput() -- DNT (do not trust) : recieved by client
-    Tool.GetInput:Connect(function(player: Player, toolId: string, inputState: Enum, inputObject: Enum )
-        assert(typeof(toolId) == "string")
-        local Tool = Tools[toolId]
-        if Tool and Tool.Player == player then
-            assert(typeof(inputObject) == "EnumItem" and typeof(inputState) == "EnumItem")
-            Tool:Input(inputState, inputObject) 
+    Network:BindEvents({
+        Input = function(player, inputState, inputObject)
+            if Tools[player] then
+                assert(typeof(inputObject) == "EnumItem" and typeof(inputState) == "EnumItem")
+                for _, tool in pairs(Tools[player]) do
+                    tool:Input(inputState,inputObject)
+                end
+            end
         end
-    end)
+    })
 end
 
 function Tool:ChangeHandler(handler)
@@ -140,7 +150,11 @@ function Tool:ChangeHandler(handler)
 end
 
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
+    
     local Action = self.ActionHandler:GetAction(self.State, inputState, inputObject)
+    if self.Config.ActionHandler == "Shield" and self.State == "Blocking" and Action then
+        print(Action)
+    end
     if Action then self:AddAction(Action) end
 end
 
@@ -167,6 +181,9 @@ end
 
 
 function Tool:Destroy()
+    if self.Mode == "Player" then
+        self:CharacterDestroy()
+    end
     Tools[self.Instance] = nil
     Tools[self.Id] = nil
     self._janitor:Destroy()

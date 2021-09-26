@@ -663,6 +663,7 @@ if IsServer then
 		end
 		
 		local pos = self:GetPlayerPosition(client)
+		
 		if not pos then
 			return
 		end

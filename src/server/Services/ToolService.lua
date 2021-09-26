@@ -60,7 +60,7 @@ end
 
 function ToolService:ManagePlayer(player)
     if player.Character then self:AddTool(player.Character) end
-    player.CharacterAppearanceLoaded:Connect(function(character) self:AddTool(character, "Test") end)
+    player.CharacterAppearanceLoaded:Connect(function(character) self:AddTool(character, "Test") self:AddTool(character, "Test2") end)
 end
 
 
