@@ -41,8 +41,7 @@ function SpringCamera:StartCamera()
 
     local spring = Spring.new(subject.Position)
     spring.Speed = 60
-    spring.Damper = 0.8
-    print(spring.Speed, spring.Damper)
+    spring.Damper = 1
 
     local function updateSubject()
         if (camera.CFrame.Position - subject.Position).Magnitude < 1 or (camera.CFrame.Position - head.Position).Magnitude < 1 then

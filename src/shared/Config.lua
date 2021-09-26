@@ -35,6 +35,9 @@ Config.CameraShake = true
 Config.Sprinting = true
 Config.SpringCamera = true
 
+Config.WalkingSpeed = 16
+Config.SprintingSpeed = 18
+
 Config.Tools = {
 	["Test"] = {
 		ActionHandler = "Weapon",

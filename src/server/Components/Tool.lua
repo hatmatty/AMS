@@ -83,7 +83,6 @@ function Tool:ManageInputs()
         Tools[self.Player] = {}
     end
     table.insert(Tools[self.Player], self)
-    print(Tools[self.Player])
 end
 
 
@@ -126,7 +125,6 @@ end
 
 function Tool:CharacterDestroy()
     table.remove(Tools[self.Player], table.find(Tools[self.Player], self))
-    print(Tools[self.Player])
     self.Mode = nil
     self.PlayerJanitor:Destroy()
 end
@@ -152,9 +150,6 @@ end
 function Tool:Input(inputState : EnumItem?, inputObject: EnumItem?)
     
     local Action = self.ActionHandler:GetAction(self.State, inputState, inputObject)
-    if self.Config.ActionHandler == "Shield" and self.State == "Blocking" and Action then
-        print(Action)
-    end
     if Action then self:AddAction(Action) end
 end
 

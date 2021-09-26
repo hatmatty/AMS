@@ -26,7 +26,6 @@ Shield.EquipLimb = "LeftUpperArm"
 Shield.HolsterLimb = "UpperTorso"
 
 local function StartBlock(Action, tool)
-    print("started")
     tool:ChangeState("Blocking")
 
     Action.BlockAnimation = Action.playAnim(tool.Character, tool.Config.Animations.Block, {Looped = true, fadeTime = 0.4})
@@ -37,7 +36,6 @@ local function EndBlock(Action, tool)
     Action.BlockAnimation:Stop(0.2)
 
     tool:ChangeState("Equipped")
-    print("Destroyed")
 end
 
 Shield:StoreAction(Action.new("Block", StartBlock, EndBlock))

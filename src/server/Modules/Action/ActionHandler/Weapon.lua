@@ -42,14 +42,14 @@ local BlockOverideHandler = ActionHandler.new({
     }
 })
 
-BlockOverideHandler:StoreAction(Action.new("DenyResume", function(Action, tool) print("false") tool.ResumeBlock = nil end))
-BlockOverideHandler:StoreAction(Action.new("Resume", function(Action, tool) print("true2") tool.ResumeBlock = true end))
+BlockOverideHandler:StoreAction(Action.new("DenyResume", function(Action, tool) tool.ResumeBlock = nil end))
+BlockOverideHandler:StoreAction(Action.new("Resume", function(Action, tool) tool.ResumeBlock = true end))
 
 function StartDraw(Action, tool)
     tool:ChangeState("Drawing")
-    local BaseDamage = 20
+    local BaseDamage = 15
     local dmgInterval = 1
-    local maxDmg = 90
+    local maxDmg = 50
 
     for _,sibling in pairs(tool.Siblings) do
         if sibling.Config.ActionHandler == "Shield" then
@@ -57,7 +57,6 @@ function StartDraw(Action, tool)
             if Action.LockedShield then error("more than 1 shield is equipped") end
 
             if sibling.Actions["Block"] then 
-                print("true")
                 sibling.ResumeBlock = true 
                 sibling.Actions["Block"]:End() 
             end

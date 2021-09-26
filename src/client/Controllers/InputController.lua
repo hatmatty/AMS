@@ -22,6 +22,7 @@ local function createInputEvent(event, inputState)
         end
 
         Network:FireServer("Input", inputState,inputToSend)
+        Network:FireServer("Input2", inputState,inputToSend) -- channel for another script cause network module is dumb, will fix soon
     end)
 end
 
