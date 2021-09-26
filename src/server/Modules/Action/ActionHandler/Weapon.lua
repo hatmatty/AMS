@@ -203,6 +203,7 @@ function ReleaseStart(Action, tool)
             local shield = Tool:GetFromInstance(hit.Parent)
             if shield then
                 if shield.State == "Blocking" then
+                    Action.Caster:Stop()
                     Action.Animation:Stop()
                     Network:FireClient(tool.Player, "Blocked")
                     Stun(tool.Character, Direction)
