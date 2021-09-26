@@ -3,7 +3,7 @@ local Players = game:GetService("Players")
 local Network = require(game:GetService("ReplicatedStorage").Network)
 local Config = require(game:GetService("ReplicatedStorage").Config)
 local TweenService = game:GetService("TweenService")
-local TweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In) --sine is ma fav!
+local TweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In) --sine is ma fav!
 
 
 local SprintingService = Knit.CreateService {
