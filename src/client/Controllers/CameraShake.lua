@@ -19,6 +19,7 @@ function CameraShake:KnitStart()
     local function smallbump() self.camShake:Shake(CameraShaker.Presets.SmallBump) end
 
     Network:BindEvents({
+        Blocked = largeBump,
         Damaged = largeBump,
         Hit = bump,
         Swing = smallbump,

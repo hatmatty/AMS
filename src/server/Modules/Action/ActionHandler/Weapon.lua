@@ -204,6 +204,7 @@ function ReleaseStart(Action, tool)
             if shield then
                 if shield.State == "Blocking" then
                     Action.Animation:Stop()
+                    Network:FireClient(tool.Player, "Blocked")
                     Stun(tool.Character, Direction)
                     EmitSparks(tool.Instance.DmgPart)
                     PlaySound(tool.Instance.DmgPart, "Blocked")
