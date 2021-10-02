@@ -18,29 +18,35 @@ AET plans to change this by introducing a combat system which has almost no init
 
 ### Config
 > Files: [Config]
-- This is where you can edit gametype (such as R15/R6), and enable or disable various toggleable game componnets. 
+- This is where you can edit game components by enabling or disabling them (such as gore, body rotation, sprinting, etc),
 
-### Camera
-> Files: [CameraController]
-- Manages various cameras such as the first person and spring camera and ensures that they do not have to directly interact with each other. 
-	#### First Person Camera | low priority 
-	> Toggleable, Files: [FirstPerson]
-	- Manages the creation and destruction of a first person camera on the player.
-	#### Spring Camera
-	> Toggleable, Files: [Spring]
+### InputController
+> Files [InputController]
+- Manages the sending of player input to the server through the network. Currently only compatible for pc. We are planning mobile compatible later on.
+
+### Camera Controllers
+- Various camera controllers...
+	#### SpringCamera
+	> Toggleable, Files: [SpringCamera]
 	- Manages the creation and destruction of a spring camera on the player. Utilizes spring module. 
+	#### CameraShake
+	> Toggleable, Files: [CameraShake]
+	- Listens to events such as "hit", "blocked", "swing", and adds a shake effect to the camera.
+	#### CameraDirection
+	> Toggleable, Files: [CameraDirection]
+	- Tracks the player camera and fires a signal giving info on the player's camera direction (up or down).
 
 ### BodyRotator
-> Toggleable, Files: [BodyRotaterService, BodyRotaterController]
+> Toggleable, Files: [RotationController, RotationService]
 - Tracks camera rotation and rotates the body accordingly. This is what allows for the directional combat however it can be completely disabled.
 
 ### Sprinting 
-> Toggleable, Files: [SprintingService, SprintingController]
+> Toggleable, Files: [SprintingService]
 - Player should be able to toggle sprinting across the map. Sprinting will not have to interact with many modules of the game allowing it to easily be disabled and enabled by game devs. 
 
-### Tools
+### ToolService
 > Files: [ToolService]
-- There tool service handles the giving of tools (weapons, shields, etc) to players. This system is diverse and flexible, allowing for the creation of spears, bow & arrows, etc. 
+- There tool service handles the giving of tools (weapons, shields, etc) to players through checking for models in the player's backpack which have a tool's name and then creating the tool on that character.
 	#### Tool
 	> Files: [Tool]
 	- This is a component which attaches to the a tool model and directly utilizes actionpacks.
