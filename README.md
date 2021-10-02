@@ -25,8 +25,7 @@ AET plans to change this by introducing a combat system which has almost no init
 - Manages the sending of player input to the server through the network. Currently only compatible for pc. We are planning mobile compatible later on.
 
 ### Camera Controllers
-Various camera controllers...
-
+- Various camera controllers...
 	#### SpringCamera
 	> Toggleable, Files: [SpringCamera]
 	- Manages the creation and destruction of a spring camera on the player. Utilizes spring module. 
