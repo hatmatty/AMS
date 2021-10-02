@@ -16,15 +16,16 @@ local Tools = {}
 local Tool = {}
 Tool.__index = Tool
 Tool.Tag = "Tool"
-Tool.SendInput = Signal.new()
 
 Tool.CameraDirection = Signal.new()
 Tool.CameraDirections = {}
 
-Tool.CameraDirection:Connect(function(player: Player, direction: string)
-    assert(typeof(direction) == "string" and (direction == "Up" or direction == "Down"))
-    Tool.CameraDirections[player] = direction
-end)
+Network:BindEvents({
+    CameraDirection = function(player: Player, direction: string)
+        assert(typeof(direction) == "string" and (direction == "Up" or direction == "Down"))
+        Tool.CameraDirections[player] = direction
+    end
+})
 
 function Tool.new(instance)
 

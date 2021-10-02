@@ -9,6 +9,7 @@
 --]]
 
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
+local Janitor = require(Knit.Util.Janitor)
 local Promise = require(Knit.Util.Promise)
 local RemoteSignal = require(Knit.Util.Remote.RemoteSignal)
 local Tool = require(script.Parent.Parent.Components.Tool)
@@ -32,42 +33,59 @@ local ToolService = Knit.CreateService {
 
 function ToolService:KnitStart() 
     Knit.OnComponentsLoaded()
-
-    --[[
-    Since remote signals can only be created in services inside of client tables, the Tool component
-    has a signal which is redirected to a remote event which the Tool Service houses and that remote
-    event is redirected to the signal
-    --]]
-
-    local GetInput = Tool.GetInput
-    local SendInput = Tool.SendInput
-    local ToolInputRemote = self.Client.ToolInput
-    SendInput:Connect(function(...)
-        ToolInputRemote:Fire(...)
-    end)
-    ToolInputRemote:Connect(function(...)
-        GetInput:Fire(...)
-    end)
+    self.Players = {}
 
     for _,player in pairs(Players:GetPlayers()) do self:ManagePlayer(player) end
-    Players.PlayerAdded:Connect(function(...) self:ManagePlayer(...) end)
-
-    self.Client.CameraDirection:Connect(function(...)
-        Tool.CameraDirection:Fire(...)
+    Players.PlayerAdded:Connect(function(player) 
+        self.Players[player] = self:ManagePlayer(player) 
     end)
+
+    Players.PlayerRemoving:Connect(function(player)
+        if self.Players[player] then self.Players[player]:Destroy() self.Players[player] = nil end
+    end)
+
+end
+
+---@diagnostic disable-next-line: undefined-type
+function ToolService:ManagePlayer(player) : Janitor
+    local playerJanitor = Janitor.new()
+    local charJanitor = Janitor.new()
+    playerJanitor:Add(charJanitor)
+
+    local function InitiateTool(item)
+        if item:IsA("Model") then
+            if ToolModels:FindFirstChild(item.Name) then
+                local model = ToolService:AddTool(player.Character, item.Name)
+                charJanitor:Add(item.AncestryChanged:Connect(function()
+                    if not item:IsDescendantOf(game) then
+                        model:Destroy()
+                    end
+                end))
+            else
+                warn("if you are intentionally adding models in starterpack that don't correspond to tools then delete this")
+            end
+        end
+    end
+
+    local function InitiateCharacter(character)
+        for _,item in pairs(player.Backpack:GetChildren()) do
+            InitiateTool(item)
+        end
+        charJanitor:Add(player.Backpack.ChildAdded:Connect(InitiateTool))
+    end
+
+    if player.Character then InitiateCharacter(player.Character) end
+    playerJanitor:Add(player.CharacterAppearanceLoaded:Connect(InitiateCharacter))
+
+    return playerJanitor
 end
 
 
-function ToolService:ManagePlayer(player)
-    if player.Character then self:AddTool(player.Character) end
-    player.CharacterAppearanceLoaded:Connect(function(character) self:AddTool(character, "Test") self:AddTool(character, "Test2") end)
-end
-
-
-function ToolService:AddTool(character: Model, toolName: string)
+function ToolService:AddTool(character: Model, toolName: string) : Model
     local model = ToolModels:FindFirstChild(toolName):Clone()
     model.Parent = character
     CollectionService:AddTag(model, "Tool")
+    return model
 end
 
 function ToolService:KnitInit()

@@ -38,15 +38,19 @@ Config.SpringCamera = true
 Config.WalkingSpeed = 14
 Config.SprintingSpeed = 18
 
+local DefaultShield = {
+	ActionHandler = "Shield",
+	Animations = DefaultShieldAnims,
+}
+
 Config.Tools = {
-	["Test"] = {
+	["Kopis"] = {
 		ActionHandler = "Weapon",
 		Animations = DefaultWeaponAnims
 	},
-	["Test2"] = {
-		ActionHandler = "Shield",
-		Animations = DefaultShieldAnims,
-	}
+	["Shield"] = DefaultShield,
+	["Sparta"] = DefaultShield,
+	["Athens"] = DefaultShield,
 }
 
 return Config

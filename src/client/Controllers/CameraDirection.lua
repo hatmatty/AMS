@@ -2,8 +2,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
 local Network = require(game:GetService("ReplicatedStorage").Network)
 
-local SendCameraInfo = Knit.GetService("ToolService").CameraDirection
-
 local CameraDirection = Knit.CreateController { Name = "CameraDirectionController" }
 
 function CameraDirection:KnitStart()
@@ -22,7 +20,7 @@ function CameraDirection:KnitStart()
                 if self.Beats > 3 then -- has been moving in a new direction for 20 heartbeats
                     self.Beats = 0
                     self.Direction = currentDirection
-                    SendCameraInfo:Fire(self.Direction)
+                    Network:FireServer("CameraDirection", self.Direction)
                 end
             else
                 if self.Beats and self.Beats > 0 then self.Beats -= 1 end -- they moved in current direction
@@ -36,7 +34,7 @@ end
 function CameraDirection:KnitInit()
     self.Camera = game.Workspace.CurrentCamera
     self.Direction = "Down"
-    SendCameraInfo:Fire(self.Direction)
+    Network:FireServer("CameraDirection", self.Direction)
     local x,y,z = self.Camera.CFrame:ToEulerAnglesXYZ()
     self.prevX = x
 end
