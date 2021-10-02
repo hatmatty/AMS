@@ -43,21 +43,19 @@ local function StartSetup(Action, tool)
     tool.Motor6D = Motor6D
 
     if tool.Config.ActionHandler == "Shield" then
-        local BodyAttach = tool.Instance.BodyAttach
-
         local Blocker = Instance.new("Part")
         Blocker.Name = "Blocker"
         Blocker.Transparency = 1
         Blocker.CanCollide = false
         Blocker.CanTouch = true
         Blocker.Anchored = false
-        Blocker.Position = BodyAttach.Position
+        Blocker.Position = bodyAttach.Position
         Blocker.Size = Vector3.new(1.5,1.5,1.5) -- CONFIG :: BLOCK HITBOX SIZE
 
         local BlockerWeld = Instance.new("Weld")
         BlockerWeld.Name = "Blocker"
         BlockerWeld.Parent = bodyAttach
-        BlockerWeld.Part0 = BodyAttach
+        BlockerWeld.Part0 = bodyAttach
         BlockerWeld.Part1 = Blocker
 
         Blocker.Parent = bodyAttach.Parent
