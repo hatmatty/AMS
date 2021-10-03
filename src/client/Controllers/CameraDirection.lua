@@ -7,7 +7,7 @@ local CameraDirection = Knit.CreateController { Name = "CameraDirectionControlle
 function CameraDirection:KnitStart()
     game:GetService("RunService").Heartbeat:Connect(function()
         local x,y,z = self.Camera.CFrame:ToOrientation()
-        if self.prevX ~= x and math.abs(self.prevX-x) >= 0.03 then
+        if self.prevX ~= x and math.abs(self.prevX-x) >= 0.02 then
             local currentDirection
             if self.prevX < x then
                 currentDirection = "Down"
@@ -17,7 +17,7 @@ function CameraDirection:KnitStart()
 
             if currentDirection ~= self.Direction then
                 if self.Beats then self.Beats += 1 else self.Beats = 1 end
-                if self.Beats > 3 then -- has been moving in a new direction for 20 heartbeats
+                if self.Beats > 2 then -- has been moving in a new direction for 20 heartbeats
                     self.Beats = 0
                     self.Direction = currentDirection
                     Network:FireServer("CameraDirection", self.Direction)

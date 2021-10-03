@@ -10,6 +10,7 @@ local Particles = game:GetService("ReplicatedStorage").Particles
 local Sounds = game:GetService("ReplicatedStorage").Sounds
 local Signal = require(Knit.Util.Signal)
 local Timer = require(Knit.Util.Timer)
+local Janitor = require(Knit.Util.Janitor)
 local ClientCast = require(script.Parent.Parent.Parent.ClientCast)
 local Component = require(Knit.Util.Component)
 local Tool = Component.FromTag("Tool")
@@ -45,8 +46,12 @@ local BlockOverideHandler = ActionHandler.new({
 BlockOverideHandler:StoreAction(Action.new("DenyResume", function(Action, tool) tool.ResumeBlock = nil end))
 BlockOverideHandler:StoreAction(Action.new("Resume", function(Action, tool) tool.ResumeBlock = true end))
 
+-- an action handler with no actions
+local NilHandler = ActionHandler.new({})
+
 function StartDraw(Action, tool)
     tool:ChangeState("Drawing")
+
     local BaseDamage = 15
     local dmgInterval = 1
     local maxDmg = 50
@@ -68,46 +73,53 @@ function StartDraw(Action, tool)
         end
     end
 
-    Action.Direction = tool.CameraDirections[tool.Player]
-    if not Action.Direction then error("direction required") end
+    local Direction = tool.CameraDirections[tool.Player]
+    if not Direction then error("direction required") end
 
-    if Action.Direction == "Up" then
-        Action.Direction = "Stab"
-    elseif Action.Direction == "Down" then
+    if Direction == "Up" then
+        Direction = "Stab"
+    elseif Direction == "Down" then
         if tool.PastDirection == "Right" then
-            Action.Direction = "Left"
+            Direction = "Left"
         else
-            Action.Direction = "Right"
+            Direction = "Right"
         end
-        tool.PastDirection = Action.Direction
+        tool.PastDirection = Direction
     end
+    Action.Direction = Direction
 
-    Action.Animation = Action.playAnim(tool.Character, tool.Config.Animations["Draw" .. Action.Direction])
-    Action.Stopped = Action.Animation.Stopped:Connect(function()
-        Action.Animation:Play(nil,nil,0)
-        Action.Animation.TimePosition = Action.Animation.Length-0.001
-    end)
+    if not tool["Attack" .. Direction] then
+        tool["Attack" .. Direction] = Action.playAnim(tool.Character, tool.Config.Animations[Direction])
+        tool.AttackAnimation = tool["Attack" .. Direction]
+    else
+        tool.AttackAnimation = tool["Attack" .. Direction]
+        tool.AttackAnimation:Play()
+    end
+    
+    Action._janitor:Add(tool.AttackAnimation:GetMarkerReachedSignal("DrawEnd"):Connect(function()
+        tool.AttackAnimation:AdjustSpeed(0)
+    end))
 
-    Action.Ticker = Timer.new(0.025)
+    local Ticker = Timer.new(0.025)
 
     local ticks = 0
     Action.Damage = BaseDamage
-    Action.Timer = Action.Ticker.Tick:Connect(function()
+
+    local Tick = Ticker.Tick:Connect(function()
         Action.Damage += dmgInterval
         ticks += 1
         if ticks >= (maxDmg-BaseDamage)/dmgInterval then
-            Action.Ticker:Stop()
+            Ticker:Stop()
         end
     end)
 
-    Action.Ticker:Start()
+    Action._janitor:Add(Tick)
+    Action._janitor:Add(Ticker)
+
+    Ticker:Start()
 end
 
 function EndDraw(Action, tool)
-    Action.Ticker:Destroy()
-    Action.Timer:Disconnect()
-    Action.Stopped:Disconnect()
-    Action.Animation:Stop()
     -- destroy references to objects
     Action.LockedShield = nil
     Action.UnlockSignal = nil
@@ -142,7 +154,7 @@ function EmitSparks(part: BasePart)
     part["SparkEmitter"]:Emit(5,15)
 end
 
-local function Stun(Character, direction)
+local function Stun(Character, direction, shouldLockTools)
     Action.playAnim(Character, Config.StunnedAnimations["Stun" .. direction])
 end
 
@@ -193,8 +205,10 @@ function ReleaseStart(Action, tool)
 
     local db = {}
 
-    Action.Caster = ClientCast.new(tool.Instance.DmgPart, raycastParams)
-    Action.ToolConnection = Action.Caster.Collided:Connect(function(result)
+    local Caster = ClientCast.new(tool.Instance.DmgPart, raycastParams)
+    Action._janitor:Add(Caster)
+
+    Action._janitor:Add(Caster.Collided:Connect(function(result)
         local hit = result.Instance
         if db[hit] then return end
         db[hit] = true
@@ -203,18 +217,28 @@ function ReleaseStart(Action, tool)
             local shield = Tool:GetFromInstance(hit.Parent)
             if shield then
                 if shield.State == "Blocking" then
-                    Action.Caster:Stop()
-                    Action.Animation:Stop()
-                    Network:FireClient(tool.Player, "Blocked")
+                    Caster:Stop()
                     Stun(tool.Character, Direction)
+                    -- THIS IS DONE SO THAT THE ATTACK DOES NOT END AND WAITS FOR IT TO FINISH ITS STUN
+                    local UnlockSignal = Signal.new()
+                    tool:Lock(UnlockSignal,NilHandler)
+                    tool.AttackAnimation:AdjustWeight(0)
+                    tool.AttackAnimation:AdjustSpeed(0)
+
+                    Network:FireClient(tool.Player, "Blocked")
                     EmitSparks(tool.Instance.DmgPart)
                     PlaySound(tool.Instance.DmgPart, "Blocked")
+
+                    wait(0.4)
+                    UnlockSignal:Fire()
+                    tool.AttackAnimation:Stop()
+                    
                 end
             end
         end
-    end)
+    end))
 
-    Action.HumanoidConnection = Action.Caster.HumanoidCollided:Connect(function(result, hitHumanoid)
+    Action._janitor:Add(Caster.HumanoidCollided:Connect(function(result, hitHumanoid)
         if db[hitHumanoid] then return end
         db[hitHumanoid] = true
 
@@ -223,33 +247,59 @@ function ReleaseStart(Action, tool)
         if Config.Gore then
             EmitGore(tool.Instance.DmgPart)
         end
-        Stun(hitHumanoid.Parent, Direction)
-    end)
 
-    Action.Caster:Start()
-    Action.Animation = Action.playAnim(tool.Character, tool.Config.Animations["Release" .. Direction])
+        -- disbale their attack because they should be stunned!
+        for _,v in pairs(hitHumanoid.Parent:GetChildren()) do
+            if v:IsA("Model") then
+                local tool = Tool:GetFromInstance(v)
+                if tool then
+                    if tool.State == "Drawing" then
+                        local DrawAction = tool.Actions["Draw"]
+                        local LockedShield = DrawAction.LockedShield
+                        local UnlockSignal = DrawAction.UnlockSignal
+                        tool:ChangeState("Equipped")
+                        UnlockShield(DrawAction, LockedShield, UnlockSignal)
+                        DrawAction:End()
+                        tool.AttackAnimation:Stop()
+                    elseif tool.State == "Releasing" then
+                        tool.Actions["Release"]:End()
+                    end
+                end
+            end
+        end
+        
+        Stun(hitHumanoid.Parent, Direction)
+    end))
+
+
+    Caster:Start()
     DrawAction:End()
 
-    Action.Animation.Stopped:Connect(function()
+    tool.AttackAnimation.TimePosition = 5
+    tool.AttackAnimation:AdjustSpeed(1)
+    
+    Action._janitor:Add(tool.AttackAnimation.Stopped:Connect(function()
         Action:End()
-    end)
+    end))
 end
 
-function ReleaseEnd(Action, tool)
-    tool:ChangeState("Equipped")
-    Action.Animation:Destroy()
-    Action.ToolConnection:Disconnect()
-    Action.HumanoidConnection:Disconnect()
-    Action.Caster:Destroy()
-    if Action.LockedShield then 
-        Action.UnlockSignal:Fire() 
-        Action.UnlockSignal:Destroy() 
-        if Action.LockedShield.ResumeBlock then
-            Action.LockedShield:Queue(Shield.Actions.Block:Clone(), Action)
+function UnlockShield(action, shield, signal)
+    if shield then 
+        signal:Fire() 
+        signal:Destroy() 
+        if shield.ResumeBlock then
+            shield:Queue(Shield.Actions.Block:Clone(), action)
         end
-        Action.LockedShield = nil
     end
 end
+
+local function ReleaseEnd(Action, tool)
+    tool:ChangeState("Equipped")
+    tool.AttackAnimation:Stop()
+
+    UnlockShield(Action, Action.LockedShield, Action.UnlockSignal)
+end
+
 
 Weapon:StoreAction(Action.new("Release", ReleaseStart, ReleaseEnd))
 

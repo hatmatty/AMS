@@ -27,7 +27,27 @@ Shield.HolsterLimb = "UpperTorso"
 
 local function StartBlock(Action, tool)
     tool:ChangeState("Blocking")
+    
+    if not tool.Instance:FindFirstChild("Blocker") then
+        local bodyAttach = tool.Instance.BodyAttach
+        local blocker = Instance.new("Part")
+        blocker.Name = "Blocker"
+        blocker.Transparency = 1
+        blocker.CanCollide = false
+        blocker.CanTouch = true
+        blocker.Anchored = false
+        blocker.Position = bodyAttach.Position
+        blocker.Size = Vector3.new(2,2,1) -- CONFIG :: BLOCK HITBOX SIZE
 
+        local BlockerWeld = Instance.new("Weld")
+        BlockerWeld.Name = "Blocker"
+        BlockerWeld.Parent = bodyAttach
+        BlockerWeld.Part0 = bodyAttach
+        BlockerWeld.Part1 = blocker
+
+        blocker.Parent = bodyAttach.Parent
+    end
+    
     Action.BlockAnimation = Action.playAnim(tool.Character, tool.Config.Animations.Block, {Looped = true, fadeTime = 0.4})
 end
 

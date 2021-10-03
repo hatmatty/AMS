@@ -8,13 +8,15 @@ Config.StunnedAnimations = {
 
 local DefaultWeaponAnims = {
 	-- Weapon
-	DrawLeft = 7563073150,
 	DrawRight = 7561804876,
 	DrawStab = 7566841005,
 
-	ReleaseLeft = 7563124930,
 	ReleaseRight = 7562183296, 
 	ReleaseStab = 7571425026,
+
+	Left = 7632564332,
+	Right = 7632959453,
+	Stab = 7632993927,
 
 	-- Essential 
 	--InitHolster = 7554818252,
