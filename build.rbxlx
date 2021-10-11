@@ -1,0 +1,7032 @@
+<roblox version="4">
+  <Item class="HttpService" referent="0">
+    <Properties>
+      <string name="Name">HttpService</string>
+      <bool name="HttpEnabled">true</bool>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="1">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="2">
+      <Properties>
+        <string name="Name">TS</string>
+      </Properties>
+      <Item class="Folder" referent="3">
+        <Properties>
+          <string name="Name">components</string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="4">
+        <Properties>
+          <string name="Name">events</string>
+          <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("RuntimeLib"))
+local createNetworkingEvent = TS.import(script, TS.getModule(script, "@flamework", "networking").out.events.createNetworkingEvent).createNetworkingEvent
+local GlobalEvents = createNetworkingEvent("shared/events@GlobalEvents", {}, {})
+return {
+	GlobalEvents = GlobalEvents,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="5">
+        <Properties>
+          <string name="Name">module</string>
+          <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local function makeHello(name)
+	return "Hello from " .. name .. "!"
+end
+return {
+	makeHello = makeHello,
+}
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="6">
+      <Properties>
+        <string name="Name">rbxts_include</string>
+      </Properties>
+      <Item class="ModuleScript" referent="7">
+        <Properties>
+          <string name="Name">Promise</string>
+          <string name="Source"><![CDATA[--[[
+	An implementation of Promises similar to Promise/A+.
+]]
+
+local ERROR_NON_PROMISE_IN_LIST = "Non-promise value passed into %s at index %s"
+local ERROR_NON_LIST = "Please pass a list of promises to %s"
+local ERROR_NON_FUNCTION = "Please pass a handler function to %s!"
+local MODE_KEY_METATABLE = {__mode = "k"}
+
+--[[
+	Creates an enum dictionary with some metamethods to prevent common mistakes.
+]]
+local function makeEnum(enumName, members)
+	local enum = {}
+
+	for _, memberName in ipairs(members) do
+		enum[memberName] = memberName
+	end
+
+	return setmetatable(enum, {
+		__index = function(_, k)
+			error(string.format("%s is not in %s!", k, enumName), 2)
+		end,
+		__newindex = function()
+			error(string.format("Creating new members in %s is not allowed!", enumName), 2)
+		end,
+	})
+end
+
+--[[
+	An object to represent runtime errors that occur during execution.
+	Promises that experience an error like this will be rejected with
+	an instance of this object.
+]]
+local Error do
+	Error = {
+		Kind = makeEnum("Promise.Error.Kind", {
+			"ExecutionError",
+			"AlreadyCancelled",
+			"NotResolvedInTime",
+			"TimedOut",
+		}),
+	}
+	Error.__index = Error
+
+	function Error.new(options, parent)
+		options = options or {}
+		return setmetatable({
+			error = tostring(options.error) or "[This error has no error text.]",
+			trace = options.trace,
+			context = options.context,
+			kind = options.kind,
+			parent = parent,
+			createdTick = os.clock(),
+			createdTrace = debug.traceback(),
+		}, Error)
+	end
+
+	function Error.is(anything)
+		if type(anything) == "table" then
+			local metatable = getmetatable(anything)
+
+			if type(metatable) == "table" then
+				return rawget(anything, "error") ~= nil and type(rawget(metatable, "extend")) == "function"
+			end
+		end
+
+		return false
+	end
+
+	function Error.isKind(anything, kind)
+		assert(kind ~= nil, "Argument #2 to Promise.Error.isKind must not be nil")
+
+		return Error.is(anything) and anything.kind == kind
+	end
+
+	function Error:extend(options)
+		options = options or {}
+
+		options.kind = options.kind or self.kind
+
+		return Error.new(options, self)
+	end
+
+	function Error:getErrorChain()
+		local runtimeErrors = { self }
+
+		while runtimeErrors[#runtimeErrors].parent do
+			table.insert(runtimeErrors, runtimeErrors[#runtimeErrors].parent)
+		end
+
+		return runtimeErrors
+	end
+
+	function Error:__tostring()
+		local errorStrings = {
+			string.format("-- Promise.Error(%s) --", self.kind or "?"),
+		}
+
+		for _, runtimeError in ipairs(self:getErrorChain()) do
+			table.insert(errorStrings, table.concat({
+				runtimeError.trace or runtimeError.error,
+				runtimeError.context,
+			}, "\n"))
+		end
+
+		return table.concat(errorStrings, "\n")
+	end
+end
+
+--[[
+	Packs a number of arguments into a table and returns its length.
+
+	Used to cajole varargs without dropping sparse values.
+]]
+local function pack(...)
+	return select("#", ...), { ... }
+end
+
+--[[
+	Returns first value (success), and packs all following values.
+]]
+local function packResult(success, ...)
+	return success, select("#", ...), { ... }
+end
+
+
+local function makeErrorHandler(traceback)
+	assert(traceback ~= nil)
+
+	return function(err)
+		-- If the error object is already a table, forward it directly.
+		-- Should we extend the error here and add our own trace?
+
+		if type(err) == "table" then
+			return err
+		end
+
+		return Error.new({
+			error = err,
+			kind = Error.Kind.ExecutionError,
+			trace = debug.traceback(tostring(err), 2),
+			context = "Promise created at:\n\n" .. traceback,
+		})
+	end
+end
+
+--[[
+	Calls a Promise executor with error handling.
+]]
+local function runExecutor(traceback, callback, ...)
+	return packResult(xpcall(callback, makeErrorHandler(traceback), ...))
+end
+
+--[[
+	Creates a function that invokes a callback with correct error handling and
+	resolution mechanisms.
+]]
+local function createAdvancer(traceback, callback, resolve, reject)
+	return function(...)
+		local ok, resultLength, result = runExecutor(traceback, callback, ...)
+
+		if ok then
+			resolve(unpack(result, 1, resultLength))
+		else
+			reject(result[1])
+		end
+	end
+end
+
+local function isEmpty(t)
+	return next(t) == nil
+end
+
+local Promise = {
+	Error = Error,
+	Status = makeEnum("Promise.Status", {"Started", "Resolved", "Rejected", "Cancelled"}),
+	_getTime = os.clock,
+	_timeEvent = game:GetService("RunService").Heartbeat,
+}
+Promise.prototype = {}
+Promise.__index = Promise.prototype
+
+--[[
+	Constructs a new Promise with the given initializing callback.
+
+	This is generally only called when directly wrapping a non-promise API into
+	a promise-based version.
+
+	The callback will receive 'resolve' and 'reject' methods, used to start
+	invoking the promise chain.
+
+	Second parameter, parent, is used internally for tracking the "parent" in a
+	promise chain. External code shouldn't need to worry about this.
+]]
+function Promise._new(traceback, callback, parent)
+	if parent ~= nil and not Promise.is(parent) then
+		error("Argument #2 to Promise.new must be a promise or nil", 2)
+	end
+
+	local self = {
+		-- Used to locate where a promise was created
+		_source = traceback,
+
+		_status = Promise.Status.Started,
+
+		-- A table containing a list of all results, whether success or failure.
+		-- Only valid if _status is set to something besides Started
+		_values = nil,
+
+		-- Lua doesn't like sparse arrays very much, so we explicitly store the
+		-- length of _values to handle middle nils.
+		_valuesLength = -1,
+
+		-- Tracks if this Promise has no error observers..
+		_unhandledRejection = true,
+
+		-- Queues representing functions we should invoke when we update!
+		_queuedResolve = {},
+		_queuedReject = {},
+		_queuedFinally = {},
+
+		-- The function to run when/if this promise is cancelled.
+		_cancellationHook = nil,
+
+		-- The "parent" of this promise in a promise chain. Required for
+		-- cancellation propagation upstream.
+		_parent = parent,
+
+		-- Consumers are Promises that have chained onto this one.
+		-- We track them for cancellation propagation downstream.
+		_consumers = setmetatable({}, MODE_KEY_METATABLE),
+	}
+
+	if parent and parent._status == Promise.Status.Started then
+		parent._consumers[self] = true
+	end
+
+	setmetatable(self, Promise)
+
+	local function resolve(...)
+		self:_resolve(...)
+	end
+
+	local function reject(...)
+		self:_reject(...)
+	end
+
+	local function onCancel(cancellationHook)
+		if cancellationHook then
+			if self._status == Promise.Status.Cancelled then
+				cancellationHook()
+			else
+				self._cancellationHook = cancellationHook
+			end
+		end
+
+		return self._status == Promise.Status.Cancelled
+	end
+
+	coroutine.wrap(function()
+		local ok, _, result = runExecutor(
+			self._source,
+			callback,
+			resolve,
+			reject,
+			onCancel
+		)
+
+		if not ok then
+			reject(result[1])
+		end
+	end)()
+
+	return self
+end
+
+function Promise.new(executor)
+	return Promise._new(debug.traceback(nil, 2), executor)
+end
+
+function Promise:__tostring()
+	return string.format("Promise(%s)", self:getStatus())
+end
+
+--[[
+	Promise.new, except pcall on a new thread is automatic.
+]]
+function Promise.defer(callback)
+	local traceback = debug.traceback(nil, 2)
+	local promise
+	promise = Promise._new(traceback, function(resolve, reject, onCancel)
+		local connection
+		connection = Promise._timeEvent:Connect(function()
+			connection:Disconnect()
+			local ok, _, result = runExecutor(traceback, callback, resolve, reject, onCancel)
+
+			if not ok then
+				reject(result[1])
+			end
+		end)
+	end)
+
+	return promise
+end
+
+-- Backwards compatibility
+Promise.async = Promise.defer
+
+--[[
+	Create a promise that represents the immediately resolved value.
+]]
+function Promise.resolve(...)
+	local length, values = pack(...)
+	return Promise._new(debug.traceback(nil, 2), function(resolve)
+		resolve(unpack(values, 1, length))
+	end)
+end
+
+--[[
+	Create a promise that represents the immediately rejected value.
+]]
+function Promise.reject(...)
+	local length, values = pack(...)
+	return Promise._new(debug.traceback(nil, 2), function(_, reject)
+		reject(unpack(values, 1, length))
+	end)
+end
+
+--[[
+	Runs a non-promise-returning function as a Promise with the
+  given arguments.
+]]
+function Promise._try(traceback, callback, ...)
+	local valuesLength, values = pack(...)
+
+	return Promise._new(traceback, function(resolve)
+		resolve(callback(unpack(values, 1, valuesLength)))
+	end)
+end
+
+--[[
+	Begins a Promise chain, turning synchronous errors into rejections.
+]]
+function Promise.try(...)
+	return Promise._try(debug.traceback(nil, 2), ...)
+end
+
+--[[
+	Returns a new promise that:
+		* is resolved when all input promises resolve
+		* is rejected if ANY input promises reject
+]]
+function Promise._all(traceback, promises, amount)
+	if type(promises) ~= "table" then
+		error(string.format(ERROR_NON_LIST, "Promise.all"), 3)
+	end
+
+	-- We need to check that each value is a promise here so that we can produce
+	-- a proper error rather than a rejected promise with our error.
+	for i, promise in pairs(promises) do
+		if not Promise.is(promise) then
+			error(string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.all", tostring(i)), 3)
+		end
+	end
+
+	-- If there are no values then return an already resolved promise.
+	if #promises == 0 or amount == 0 then
+		return Promise.resolve({})
+	end
+
+	return Promise._new(traceback, function(resolve, reject, onCancel)
+		-- An array to contain our resolved values from the given promises.
+		local resolvedValues = {}
+		local newPromises = {}
+
+		-- Keep a count of resolved promises because just checking the resolved
+		-- values length wouldn't account for promises that resolve with nil.
+		local resolvedCount = 0
+		local rejectedCount = 0
+		local done = false
+
+		local function cancel()
+			for _, promise in ipairs(newPromises) do
+				promise:cancel()
+			end
+		end
+
+		-- Called when a single value is resolved and resolves if all are done.
+		local function resolveOne(i, ...)
+			if done then
+				return
+			end
+
+			resolvedCount = resolvedCount + 1
+
+			if amount == nil then
+				resolvedValues[i] = ...
+			else
+				resolvedValues[resolvedCount] = ...
+			end
+
+			if resolvedCount >= (amount or #promises) then
+				done = true
+				resolve(resolvedValues)
+				cancel()
+			end
+		end
+
+		onCancel(cancel)
+
+		-- We can assume the values inside `promises` are all promises since we
+		-- checked above.
+		for i, promise in ipairs(promises) do
+			newPromises[i] = promise:andThen(
+				function(...)
+					resolveOne(i, ...)
+				end,
+				function(...)
+					rejectedCount = rejectedCount + 1
+
+					if amount == nil or #promises - rejectedCount < amount then
+						cancel()
+						done = true
+
+						reject(...)
+					end
+				end
+			)
+		end
+
+		if done then
+			cancel()
+		end
+	end)
+end
+
+function Promise.all(promises)
+	return Promise._all(debug.traceback(nil, 2), promises)
+end
+
+function Promise.fold(list, callback, initialValue)
+	assert(type(list) == "table", "Bad argument #1 to Promise.fold: must be a table")
+	assert(type(callback) == "function", "Bad argument #2 to Promise.fold: must be a function")
+
+	local accumulator = Promise.resolve(initialValue)
+	return Promise.each(list, function(resolvedElement, i)
+		accumulator = accumulator:andThen(function(previousValueResolved)
+			return callback(previousValueResolved, resolvedElement, i)
+		end)
+	end):andThenReturn(accumulator)
+end
+
+function Promise.some(promises, amount)
+	assert(type(amount) == "number", "Bad argument #2 to Promise.some: must be a number")
+
+	return Promise._all(debug.traceback(nil, 2), promises, amount)
+end
+
+function Promise.any(promises)
+	return Promise._all(debug.traceback(nil, 2), promises, 1):andThen(function(values)
+		return values[1]
+	end)
+end
+
+function Promise.allSettled(promises)
+	if type(promises) ~= "table" then
+		error(string.format(ERROR_NON_LIST, "Promise.allSettled"), 2)
+	end
+
+	-- We need to check that each value is a promise here so that we can produce
+	-- a proper error rather than a rejected promise with our error.
+	for i, promise in pairs(promises) do
+		if not Promise.is(promise) then
+			error(string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.allSettled", tostring(i)), 2)
+		end
+	end
+
+	-- If there are no values then return an already resolved promise.
+	if #promises == 0 then
+		return Promise.resolve({})
+	end
+
+	return Promise._new(debug.traceback(nil, 2), function(resolve, _, onCancel)
+		-- An array to contain our resolved values from the given promises.
+		local fates = {}
+		local newPromises = {}
+
+		-- Keep a count of resolved promises because just checking the resolved
+		-- values length wouldn't account for promises that resolve with nil.
+		local finishedCount = 0
+
+		-- Called when a single value is resolved and resolves if all are done.
+		local function resolveOne(i, ...)
+			finishedCount = finishedCount + 1
+
+			fates[i] = ...
+
+			if finishedCount >= #promises then
+				resolve(fates)
+			end
+		end
+
+		onCancel(function()
+			for _, promise in ipairs(newPromises) do
+				promise:cancel()
+			end
+		end)
+
+		-- We can assume the values inside `promises` are all promises since we
+		-- checked above.
+		for i, promise in ipairs(promises) do
+			newPromises[i] = promise:finally(
+				function(...)
+					resolveOne(i, ...)
+				end
+			)
+		end
+	end)
+end
+
+--[[
+	Races a set of Promises and returns the first one that resolves,
+	cancelling the others.
+]]
+function Promise.race(promises)
+	assert(type(promises) == "table", string.format(ERROR_NON_LIST, "Promise.race"))
+
+	for i, promise in pairs(promises) do
+		assert(Promise.is(promise), string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.race", tostring(i)))
+	end
+
+	return Promise._new(debug.traceback(nil, 2), function(resolve, reject, onCancel)
+		local newPromises = {}
+		local finished = false
+
+		local function cancel()
+			for _, promise in ipairs(newPromises) do
+				promise:cancel()
+			end
+		end
+
+		local function finalize(callback)
+			return function (...)
+				cancel()
+				finished = true
+				return callback(...)
+			end
+		end
+
+		if onCancel(finalize(reject)) then
+			return
+		end
+
+		for i, promise in ipairs(promises) do
+			newPromises[i] = promise:andThen(finalize(resolve), finalize(reject))
+		end
+
+		if finished then
+			cancel()
+		end
+	end)
+end
+
+--[[
+	Iterates serially over the given an array of values, calling the predicate callback on each before continuing.
+	If the predicate returns a Promise, we wait for that Promise to resolve before continuing to the next item
+	in the array. If the Promise the predicate returns rejects, the Promise from Promise.each is also rejected with
+	the same value.
+
+	Returns a Promise containing an array of the return values from the predicate for each item in the original list.
+]]
+function Promise.each(list, predicate)
+	assert(type(list) == "table", string.format(ERROR_NON_LIST, "Promise.each"))
+	assert(type(predicate) == "function", string.format(ERROR_NON_FUNCTION, "Promise.each"))
+
+	return Promise._new(debug.traceback(nil, 2), function(resolve, reject, onCancel)
+		local results = {}
+		local promisesToCancel = {}
+
+		local cancelled = false
+
+		local function cancel()
+			for _, promiseToCancel in ipairs(promisesToCancel) do
+				promiseToCancel:cancel()
+			end
+		end
+
+		onCancel(function()
+			cancelled = true
+
+			cancel()
+		end)
+
+		-- We need to preprocess the list of values and look for Promises.
+		-- If we find some, we must register our andThen calls now, so that those Promises have a consumer
+		-- from us registered. If we don't do this, those Promises might get cancelled by something else
+		-- before we get to them in the series because it's not possible to tell that we plan to use it
+		-- unless we indicate it here.
+
+		local preprocessedList = {}
+
+		for index, value in ipairs(list) do
+			if Promise.is(value) then
+				if value:getStatus() == Promise.Status.Cancelled then
+					cancel()
+					return reject(Error.new({
+						error = "Promise is cancelled",
+						kind = Error.Kind.AlreadyCancelled,
+						context = string.format(
+							"The Promise that was part of the array at index %d passed into Promise.each was already cancelled when Promise.each began.\n\nThat Promise was created at:\n\n%s",
+							index,
+							value._source
+						),
+					}))
+				elseif value:getStatus() == Promise.Status.Rejected then
+					cancel()
+					return reject(select(2, value:await()))
+				end
+
+				-- Chain a new Promise from this one so we only cancel ours
+				local ourPromise = value:andThen(function(...)
+					return ...
+				end)
+
+				table.insert(promisesToCancel, ourPromise)
+				preprocessedList[index] = ourPromise
+			else
+				preprocessedList[index] = value
+			end
+		end
+
+		for index, value in ipairs(preprocessedList) do
+			if Promise.is(value) then
+				local success
+				success, value = value:await()
+
+				if not success then
+					cancel()
+					return reject(value)
+				end
+			end
+
+			if cancelled then
+				return
+			end
+
+			local predicatePromise = Promise.resolve(predicate(value, index))
+
+			table.insert(promisesToCancel, predicatePromise)
+
+			local success, result = predicatePromise:await()
+
+			if not success then
+				cancel()
+				return reject(result)
+			end
+
+			results[index] = result
+		end
+
+		resolve(results)
+	end)
+end
+
+--[[
+	Is the given object a Promise instance?
+]]
+function Promise.is(object)
+	if type(object) ~= "table" then
+		return false
+	end
+
+	local objectMetatable = getmetatable(object)
+
+	if objectMetatable == Promise then
+		-- The Promise came from this library.
+		return true
+	elseif objectMetatable == nil then
+		-- No metatable, but we should still chain onto tables with andThen methods
+		return type(object.andThen) == "function"
+	elseif
+		type(objectMetatable) == "table"
+		and type(rawget(objectMetatable, "__index")) == "table"
+		and type(rawget(rawget(objectMetatable, "__index"), "andThen")) == "function"
+	then
+		-- Maybe this came from a different or older Promise library.
+		return true
+	end
+
+	return false
+end
+
+--[[
+	Converts a yielding function into a Promise-returning one.
+]]
+function Promise.promisify(callback)
+	return function(...)
+		return Promise._try(debug.traceback(nil, 2), callback, ...)
+	end
+end
+
+--[[
+	Creates a Promise that resolves after given number of seconds.
+]]
+do
+	-- uses a sorted doubly linked list (queue) to achieve O(1) remove operations and O(n) for insert
+
+	-- the initial node in the linked list
+	local first
+	local connection
+
+	function Promise.delay(seconds)
+		assert(type(seconds) == "number", "Bad argument #1 to Promise.delay, must be a number.")
+		-- If seconds is -INF, INF, NaN, or less than 1 / 60, assume seconds is 1 / 60.
+		-- This mirrors the behavior of wait()
+		if not (seconds >= 1 / 60) or seconds == math.huge then
+			seconds = 1 / 60
+		end
+
+		return Promise._new(debug.traceback(nil, 2), function(resolve, _, onCancel)
+			local startTime = Promise._getTime()
+			local endTime = startTime + seconds
+
+			local node = {
+				resolve = resolve,
+				startTime = startTime,
+				endTime = endTime,
+			}
+
+			if connection == nil then -- first is nil when connection is nil
+				first = node
+				connection = Promise._timeEvent:Connect(function()
+					local threadStart = Promise._getTime()
+
+					while first ~= nil and first.endTime < threadStart do
+						local current = first
+						first = current.next
+
+						if first == nil then
+							connection:Disconnect()
+							connection = nil
+						else
+							first.previous = nil
+						end
+
+						current.resolve(Promise._getTime() - current.startTime)
+					end
+				end)
+			else -- first is non-nil
+				if first.endTime < endTime then -- if `node` should be placed after `first`
+					-- we will insert `node` between `current` and `next`
+					-- (i.e. after `current` if `next` is nil)
+					local current = first
+					local next = current.next
+
+					while next ~= nil and next.endTime < endTime do
+						current = next
+						next = current.next
+					end
+
+					-- `current` must be non-nil, but `next` could be `nil` (i.e. last item in list)
+					current.next = node
+					node.previous = current
+
+					if next ~= nil then
+						node.next = next
+						next.previous = node
+					end
+				else
+					-- set `node` to `first`
+					node.next = first
+					first.previous = node
+					first = node
+				end
+			end
+
+			onCancel(function()
+				-- remove node from queue
+				local next = node.next
+
+				if first == node then
+					if next == nil then -- if `node` is the first and last
+						connection:Disconnect()
+						connection = nil
+					else -- if `node` is `first` and not the last
+						next.previous = nil
+					end
+					first = next
+				else
+					local previous = node.previous
+					-- since `node` is not `first`, then we know `previous` is non-nil
+					previous.next = next
+
+					if next ~= nil then
+						next.previous = previous
+					end
+				end
+			end)
+		end)
+	end
+end
+
+--[[
+	Rejects the promise after `seconds` seconds.
+]]
+function Promise.prototype:timeout(seconds, rejectionValue)
+	local traceback = debug.traceback(nil, 2)
+
+	return Promise.race({
+		Promise.delay(seconds):andThen(function()
+			return Promise.reject(rejectionValue == nil and Error.new({
+				kind = Error.Kind.TimedOut,
+				error = "Timed out",
+				context = string.format(
+					"Timeout of %d seconds exceeded.\n:timeout() called at:\n\n%s",
+					seconds,
+					traceback
+				),
+			}) or rejectionValue)
+		end),
+		self,
+	})
+end
+
+function Promise.prototype:getStatus()
+	return self._status
+end
+
+--[[
+	Creates a new promise that receives the result of this promise.
+
+	The given callbacks are invoked depending on that result.
+]]
+function Promise.prototype:_andThen(traceback, successHandler, failureHandler)
+	self._unhandledRejection = false
+
+	-- Create a new promise to follow this part of the chain
+	return Promise._new(traceback, function(resolve, reject)
+		-- Our default callbacks just pass values onto the next promise.
+		-- This lets success and failure cascade correctly!
+
+		local successCallback = resolve
+		if successHandler then
+			successCallback = createAdvancer(
+				traceback,
+				successHandler,
+				resolve,
+				reject
+			)
+		end
+
+		local failureCallback = reject
+		if failureHandler then
+			failureCallback = createAdvancer(
+				traceback,
+				failureHandler,
+				resolve,
+				reject
+			)
+		end
+
+		if self._status == Promise.Status.Started then
+			-- If we haven't resolved yet, put ourselves into the queue
+			table.insert(self._queuedResolve, successCallback)
+			table.insert(self._queuedReject, failureCallback)
+		elseif self._status == Promise.Status.Resolved then
+			-- This promise has already resolved! Trigger success immediately.
+			successCallback(unpack(self._values, 1, self._valuesLength))
+		elseif self._status == Promise.Status.Rejected then
+			-- This promise died a terrible death! Trigger failure immediately.
+			failureCallback(unpack(self._values, 1, self._valuesLength))
+		elseif self._status == Promise.Status.Cancelled then
+			-- We don't want to call the success handler or the failure handler,
+			-- we just reject this promise outright.
+			reject(Error.new({
+				error = "Promise is cancelled",
+				kind = Error.Kind.AlreadyCancelled,
+				context = "Promise created at\n\n" .. traceback,
+			}))
+		end
+	end, self)
+end
+
+function Promise.prototype:andThen(successHandler, failureHandler)
+	assert(
+		successHandler == nil or type(successHandler) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:andThen")
+	)
+	assert(
+		failureHandler == nil or type(failureHandler) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:andThen")
+	)
+
+	return self:_andThen(debug.traceback(nil, 2), successHandler, failureHandler)
+end
+
+--[[
+	Used to catch any errors that may have occurred in the promise.
+]]
+function Promise.prototype:catch(failureCallback)
+	assert(
+		failureCallback == nil or type(failureCallback) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:catch")
+	)
+	return self:_andThen(debug.traceback(nil, 2), nil, failureCallback)
+end
+
+--[[
+	Like andThen, but the value passed into the handler is also the
+	value returned from the handler.
+]]
+function Promise.prototype:tap(tapCallback)
+	assert(type(tapCallback) == "function", string.format(ERROR_NON_FUNCTION, "Promise:tap"))
+	return self:_andThen(debug.traceback(nil, 2), function(...)
+		local callbackReturn = tapCallback(...)
+
+		if Promise.is(callbackReturn) then
+			local length, values = pack(...)
+			return callbackReturn:andThen(function()
+				return unpack(values, 1, length)
+			end)
+		end
+
+		return ...
+	end)
+end
+
+--[[
+	Calls a callback on `andThen` with specific arguments.
+]]
+function Promise.prototype:andThenCall(callback, ...)
+	assert(type(callback) == "function", string.format(ERROR_NON_FUNCTION, "Promise:andThenCall"))
+	local length, values = pack(...)
+	return self:_andThen(debug.traceback(nil, 2), function()
+		return callback(unpack(values, 1, length))
+	end)
+end
+
+--[[
+	Shorthand for an andThen handler that returns the given value.
+]]
+function Promise.prototype:andThenReturn(...)
+	local length, values = pack(...)
+	return self:_andThen(debug.traceback(nil, 2), function()
+		return unpack(values, 1, length)
+	end)
+end
+
+--[[
+	Cancels the promise, disallowing it from rejecting or resolving, and calls
+	the cancellation hook if provided.
+]]
+function Promise.prototype:cancel()
+	if self._status ~= Promise.Status.Started then
+		return
+	end
+
+	self._status = Promise.Status.Cancelled
+
+	if self._cancellationHook then
+		self._cancellationHook()
+	end
+
+	if self._parent then
+		self._parent:_consumerCancelled(self)
+	end
+
+	for child in pairs(self._consumers) do
+		child:cancel()
+	end
+
+	self:_finalize()
+end
+
+--[[
+	Used to decrease the number of consumers by 1, and if there are no more,
+	cancel this promise.
+]]
+function Promise.prototype:_consumerCancelled(consumer)
+	if self._status ~= Promise.Status.Started then
+		return
+	end
+
+	self._consumers[consumer] = nil
+
+	if next(self._consumers) == nil then
+		self:cancel()
+	end
+end
+
+--[[
+	Used to set a handler for when the promise resolves, rejects, or is
+	cancelled. Returns a new promise chained from this promise.
+]]
+function Promise.prototype:_finally(traceback, finallyHandler, onlyOk)
+	if not onlyOk then
+		self._unhandledRejection = false
+	end
+
+	-- Return a promise chained off of this promise
+	return Promise._new(traceback, function(resolve, reject)
+		local finallyCallback = resolve
+		if finallyHandler then
+			finallyCallback = createAdvancer(
+				traceback,
+				finallyHandler,
+				resolve,
+				reject
+			)
+		end
+
+		if onlyOk then
+			local callback = finallyCallback
+			finallyCallback = function(...)
+				if self._status == Promise.Status.Rejected then
+					return resolve(self)
+				end
+
+				return callback(...)
+			end
+		end
+
+		if self._status == Promise.Status.Started then
+			-- The promise is not settled, so queue this.
+			table.insert(self._queuedFinally, finallyCallback)
+		else
+			-- The promise already settled or was cancelled, run the callback now.
+			finallyCallback(self._status)
+		end
+	end, self)
+end
+
+function Promise.prototype:finally(finallyHandler)
+	assert(
+		finallyHandler == nil or type(finallyHandler) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:finally")
+	)
+	return self:_finally(debug.traceback(nil, 2), finallyHandler)
+end
+
+--[[
+	Calls a callback on `finally` with specific arguments.
+]]
+function Promise.prototype:finallyCall(callback, ...)
+	assert(type(callback) == "function", string.format(ERROR_NON_FUNCTION, "Promise:finallyCall"))
+	local length, values = pack(...)
+	return self:_finally(debug.traceback(nil, 2), function()
+		return callback(unpack(values, 1, length))
+	end)
+end
+
+--[[
+	Shorthand for a finally handler that returns the given value.
+]]
+function Promise.prototype:finallyReturn(...)
+	local length, values = pack(...)
+	return self:_finally(debug.traceback(nil, 2), function()
+		return unpack(values, 1, length)
+	end)
+end
+
+--[[
+	Similar to finally, except rejections are propagated through it.
+]]
+function Promise.prototype:done(finallyHandler)
+	assert(
+		finallyHandler == nil or type(finallyHandler) == "function",
+		string.format(ERROR_NON_FUNCTION, "Promise:done")
+	)
+	return self:_finally(debug.traceback(nil, 2), finallyHandler, true)
+end
+
+--[[
+	Calls a callback on `done` with specific arguments.
+]]
+function Promise.prototype:doneCall(callback, ...)
+	assert(type(callback) == "function", string.format(ERROR_NON_FUNCTION, "Promise:doneCall"))
+	local length, values = pack(...)
+	return self:_finally(debug.traceback(nil, 2), function()
+		return callback(unpack(values, 1, length))
+	end, true)
+end
+
+--[[
+	Shorthand for a done handler that returns the given value.
+]]
+function Promise.prototype:doneReturn(...)
+	local length, values = pack(...)
+	return self:_finally(debug.traceback(nil, 2), function()
+		return unpack(values, 1, length)
+	end, true)
+end
+
+--[[
+	Yield until the promise is completed.
+
+	This matches the execution model of normal Roblox functions.
+]]
+function Promise.prototype:awaitStatus()
+	self._unhandledRejection = false
+
+	if self._status == Promise.Status.Started then
+		local bindable = Instance.new("BindableEvent")
+
+		self:finally(function()
+			bindable:Fire()
+		end)
+
+		bindable.Event:Wait()
+		bindable:Destroy()
+	end
+
+	if self._status == Promise.Status.Resolved then
+		return self._status, unpack(self._values, 1, self._valuesLength)
+	elseif self._status == Promise.Status.Rejected then
+		return self._status, unpack(self._values, 1, self._valuesLength)
+	end
+
+	return self._status
+end
+
+local function awaitHelper(status, ...)
+	return status == Promise.Status.Resolved, ...
+end
+
+--[[
+	Calls awaitStatus internally, returns (isResolved, values...)
+]]
+function Promise.prototype:await()
+	return awaitHelper(self:awaitStatus())
+end
+
+local function expectHelper(status, ...)
+	if status ~= Promise.Status.Resolved then
+		error((...) == nil and "Expected Promise rejected with no value." or (...), 3)
+	end
+
+	return ...
+end
+
+--[[
+	Calls await and only returns if the Promise resolves.
+	Throws if the Promise rejects or gets cancelled.
+]]
+function Promise.prototype:expect()
+	return expectHelper(self:awaitStatus())
+end
+
+-- Backwards compatibility
+Promise.prototype.awaitValue = Promise.prototype.expect
+
+--[[
+	Intended for use in tests.
+
+	Similar to await(), but instead of yielding if the promise is unresolved,
+	_unwrap will throw. This indicates an assumption that a promise has
+	resolved.
+]]
+function Promise.prototype:_unwrap()
+	if self._status == Promise.Status.Started then
+		error("Promise has not resolved or rejected.", 2)
+	end
+
+	local success = self._status == Promise.Status.Resolved
+
+	return success, unpack(self._values, 1, self._valuesLength)
+end
+
+function Promise.prototype:_resolve(...)
+	if self._status ~= Promise.Status.Started then
+		if Promise.is((...)) then
+			(...):_consumerCancelled(self)
+		end
+		return
+	end
+
+	-- If the resolved value was a Promise, we chain onto it!
+	if Promise.is((...)) then
+		-- Without this warning, arguments sometimes mysteriously disappear
+		if select("#", ...) > 1 then
+			local message = string.format(
+				"When returning a Promise from andThen, extra arguments are " ..
+				"discarded! See:\n\n%s",
+				self._source
+			)
+			warn(message)
+		end
+
+		local chainedPromise = ...
+
+		local promise = chainedPromise:andThen(
+			function(...)
+				self:_resolve(...)
+			end,
+			function(...)
+				local maybeRuntimeError = chainedPromise._values[1]
+
+				-- Backwards compatibility < v2
+				if chainedPromise._error then
+					maybeRuntimeError = Error.new({
+						error = chainedPromise._error,
+						kind = Error.Kind.ExecutionError,
+						context = "[No stack trace available as this Promise originated from an older version of the Promise library (< v2)]",
+					})
+				end
+
+				if Error.isKind(maybeRuntimeError, Error.Kind.ExecutionError) then
+					return self:_reject(maybeRuntimeError:extend({
+						error = "This Promise was chained to a Promise that errored.",
+						trace = "",
+						context = string.format(
+							"The Promise at:\n\n%s\n...Rejected because it was chained to the following Promise, which encountered an error:\n",
+							self._source
+						),
+					}))
+				end
+
+				self:_reject(...)
+			end
+		)
+
+		if promise._status == Promise.Status.Cancelled then
+			self:cancel()
+		elseif promise._status == Promise.Status.Started then
+			-- Adopt ourselves into promise for cancellation propagation.
+			self._parent = promise
+			promise._consumers[self] = true
+		end
+
+		return
+	end
+
+	self._status = Promise.Status.Resolved
+	self._valuesLength, self._values = pack(...)
+
+	-- We assume that these callbacks will not throw errors.
+	for _, callback in ipairs(self._queuedResolve) do
+		coroutine.wrap(callback)(...)
+	end
+
+	self:_finalize()
+end
+
+function Promise.prototype:_reject(...)
+	if self._status ~= Promise.Status.Started then
+		return
+	end
+
+	self._status = Promise.Status.Rejected
+	self._valuesLength, self._values = pack(...)
+
+	-- If there are any rejection handlers, call those!
+	if not isEmpty(self._queuedReject) then
+		-- We assume that these callbacks will not throw errors.
+		for _, callback in ipairs(self._queuedReject) do
+			coroutine.wrap(callback)(...)
+		end
+	else
+		-- At this point, no one was able to observe the error.
+		-- An error handler might still be attached if the error occurred
+		-- synchronously. We'll wait one tick, and if there are still no
+		-- observers, then we should put a message in the console.
+
+		local err = tostring((...))
+
+		coroutine.wrap(function()
+			Promise._timeEvent:Wait()
+
+			-- Someone observed the error, hooray!
+			if not self._unhandledRejection then
+				return
+			end
+
+			-- Build a reasonable message
+			local message = string.format(
+				"Unhandled Promise rejection:\n\n%s\n\n%s",
+				err,
+				self._source
+			)
+
+			if Promise.TEST then
+				-- Don't spam output when we're running tests.
+				return
+			end
+
+			warn(message)
+		end)()
+	end
+
+	self:_finalize()
+end
+
+--[[
+	Calls any :finally handlers. We need this to be a separate method and
+	queue because we must call all of the finally callbacks upon a success,
+	failure, *and* cancellation.
+]]
+function Promise.prototype:_finalize()
+	for _, callback in ipairs(self._queuedFinally) do
+		-- Purposefully not passing values to callbacks here, as it could be the
+		-- resolved values, or rejected errors. If the developer needs the values,
+		-- they should use :andThen or :catch explicitly.
+		coroutine.wrap(callback)(self._status)
+	end
+
+	self._queuedFinally = nil
+	self._queuedReject = nil
+	self._queuedResolve = nil
+
+	-- Clear references to other Promises to allow gc
+	if not Promise.TEST then
+		self._parent = nil
+		self._consumers = nil
+	end
+end
+
+--[[
+	Chains a Promise from this one that is resolved if this Promise is
+	resolved, and rejected if it is not resolved.
+]]
+function Promise.prototype:now(rejectionValue)
+	local traceback = debug.traceback(nil, 2)
+	if self:getStatus() == Promise.Status.Resolved then
+		return self:_andThen(traceback, function(...)
+			return ...
+		end)
+	else
+		return Promise.reject(rejectionValue == nil and Error.new({
+			kind = Error.Kind.NotResolvedInTime,
+			error = "This Promise was not resolved in time for :now()",
+			context = ":now() was called at:\n\n" .. traceback,
+		}) or rejectionValue)
+	end
+end
+
+--[[
+	Retries a Promise-returning callback N times until it succeeds.
+]]
+function Promise.retry(callback, times, ...)
+	assert(type(callback) == "function", "Parameter #1 to Promise.retry must be a function")
+	assert(type(times) == "number", "Parameter #2 to Promise.retry must be a number")
+
+	local args, length = {...}, select("#", ...)
+
+	return Promise.resolve(callback(...)):catch(function(...)
+		if times > 0 then
+			return Promise.retry(callback, times - 1, unpack(args, 1, length))
+		else
+			return Promise.reject(...)
+		end
+	end)
+end
+
+--[[
+	Converts an event into a Promise with an optional predicate
+]]
+function Promise.fromEvent(event, predicate)
+	predicate = predicate or function()
+		return true
+	end
+
+	return Promise._new(debug.traceback(nil, 2), function(resolve, reject, onCancel)
+		local connection
+		local shouldDisconnect = false
+
+		local function disconnect()
+			connection:Disconnect()
+			connection = nil
+		end
+
+		-- We use shouldDisconnect because if the callback given to Connect is called before
+		-- Connect returns, connection will still be nil. This happens with events that queue up
+		-- events when there's nothing connected, such as RemoteEvents
+
+		connection = event:Connect(function(...)
+			local callbackValue = predicate(...)
+
+			if callbackValue == true then
+				resolve(...)
+
+				if connection then
+					disconnect()
+				else
+					shouldDisconnect = true
+				end
+			elseif type(callbackValue) ~= "boolean" then
+				error("Promise.fromEvent predicate should always return a boolean")
+			end
+		end)
+
+		if shouldDisconnect and connection then
+			return disconnect()
+		end
+
+		onCancel(function()
+			disconnect()
+		end)
+	end)
+end
+
+return Promise
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="8">
+        <Properties>
+          <string name="Name">RuntimeLib</string>
+          <string name="Source"><![CDATA[local Promise = require(script.Parent.Promise)
+
+local RunService = game:GetService("RunService")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
+
+local TS = {}
+
+TS.Promise = Promise
+
+local function isPlugin(object)
+	return RunService:IsStudio() and object:FindFirstAncestorWhichIsA("Plugin") ~= nil
+end
+
+function TS.getModule(object, scope, moduleName)
+	if moduleName == nil then
+		moduleName = scope
+		scope = "@rbxts"
+	end
+
+	if RunService:IsRunning() and object:IsDescendantOf(ReplicatedFirst) then
+		warn("roblox-ts packages should not be used from ReplicatedFirst!")
+	end
+
+	-- ensure modules have fully replicated
+	if RunService:IsRunning() and RunService:IsClient() and not isPlugin(object) and not game:IsLoaded() then
+		game.Loaded:Wait()
+	end
+
+	local globalModules = script.Parent:FindFirstChild("node_modules")
+	if not globalModules then
+		error("Could not find any modules!", 2)
+	end
+
+	repeat
+		local modules = object:FindFirstChild("node_modules")
+		if modules and modules ~= globalModules then
+			modules = modules:FindFirstChild("@rbxts")
+		end
+		if modules then
+			local module = modules:FindFirstChild(moduleName)
+			if module then
+				return module
+			end
+		end
+		object = object.Parent
+	until object == nil or object == globalModules
+
+	local scopedModules = globalModules:FindFirstChild(scope or "@rbxts");
+	return (scopedModules or globalModules):FindFirstChild(moduleName) or error("Could not find module: " .. moduleName, 2)
+end
+
+-- This is a hash which TS.import uses as a kind of linked-list-like history of [Script who Loaded] -> Library
+local currentlyLoading = {}
+local registeredLibraries = {}
+
+function TS.import(caller, module, ...)
+	for i = 1, select("#", ...) do
+		module = module:WaitForChild((select(i, ...)))
+	end
+
+	if module.ClassName ~= "ModuleScript" then
+		error("Failed to import! Expected ModuleScript, got " .. module.ClassName, 2)
+	end
+
+	currentlyLoading[caller] = module
+
+	-- Check to see if a case like this occurs:
+	-- module -> Module1 -> Module2 -> module
+
+	-- WHERE currentlyLoading[module] is Module1
+	-- and currentlyLoading[Module1] is Module2
+	-- and currentlyLoading[Module2] is module
+
+	local currentModule = module
+	local depth = 0
+
+	while currentModule do
+		depth = depth + 1
+		currentModule = currentlyLoading[currentModule]
+
+		if currentModule == module then
+			local str = currentModule.Name -- Get the string traceback
+
+			for _ = 1, depth do
+				currentModule = currentlyLoading[currentModule]
+				str = str .. "  ⇒ " .. currentModule.Name
+			end
+
+			error("Failed to import! Detected a circular dependency chain: " .. str, 2)
+		end
+	end
+
+	if not registeredLibraries[module] then
+		if _G[module] then
+			error(
+				"Invalid module access! Do you have two TS runtimes trying to import this? " .. module:GetFullName(),
+				2
+			)
+		end
+
+		_G[module] = TS
+		registeredLibraries[module] = true -- register as already loaded for subsequent calls
+	end
+
+	local data = require(module)
+
+	if currentlyLoading[caller] == module then -- Thread-safe cleanup!
+		currentlyLoading[caller] = nil
+	end
+
+	return data
+end
+
+function TS.instanceof(obj, class)
+	-- custom Class.instanceof() check
+	if type(class) == "table" and type(class.instanceof) == "function" then
+		return class.instanceof(obj)
+	end
+
+	-- metatable check
+	if type(obj) == "table" then
+		obj = getmetatable(obj)
+		while obj ~= nil do
+			if obj == class then
+				return true
+			end
+			local mt = getmetatable(obj)
+			if mt then
+				obj = mt.__index
+			else
+				obj = nil
+			end
+		end
+	end
+
+	return false
+end
+
+function TS.async(callback)
+	return function(...)
+		local n = select("#", ...)
+		local args = { ... }
+		return Promise.new(function(resolve, reject)
+			coroutine.wrap(function()
+				local ok, result = pcall(callback, unpack(args, 1, n))
+				if ok then
+					resolve(result)
+				else
+					reject(result)
+				end
+			end)()
+		end)
+	end
+end
+
+function TS.await(promise)
+	if not Promise.is(promise) then
+		return promise
+	end
+
+	local status, value = promise:awaitStatus()
+	if status == Promise.Status.Resolved then
+		return value
+	elseif status == Promise.Status.Rejected then
+		error(value, 2)
+	else
+		error("The awaited Promise was cancelled", 2)
+	end
+end
+
+function TS.bit_lrsh(a, b)
+	local absA = math.abs(a)
+	local result = bit32.rshift(absA, b)
+	if a == absA then
+		return result
+	else
+		return -result - 1
+	end
+end
+
+TS.TRY_RETURN = 1
+TS.TRY_BREAK = 2
+TS.TRY_CONTINUE = 3
+
+function TS.try(func, catch, finally)
+	local err, traceback
+	local success, exitType, returns = xpcall(
+		func,
+		function(errInner)
+			err = errInner
+			traceback = debug.traceback()
+		end
+	)
+	if not success and catch then
+		local newExitType, newReturns = catch(err, traceback)
+		if newExitType then
+			exitType, returns = newExitType, newReturns
+		end
+	end
+	if finally then
+		local newExitType, newReturns = finally()
+		if newExitType then
+			exitType, returns = newExitType, newReturns
+		end
+	end
+	return exitType, returns
+end
+
+function TS.generator(callback)
+	local co = coroutine.create(callback)
+	return {
+		next = function(...)
+			if coroutine.status(co) == "dead" then
+				return { done = true }
+			else
+				local success, value = coroutine.resume(co, ...)
+				if success == false then
+					error(value, 2)
+				end
+				return {
+					value = value,
+					done = coroutine.status(co) == "dead",
+				}
+			end
+		end,
+	}
+end
+
+return TS
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="9">
+        <Properties>
+          <string name="Name">node_modules</string>
+        </Properties>
+        <Item class="Folder" referent="10">
+          <Properties>
+            <string name="Name">compiler-types</string>
+          </Properties>
+          <Item class="Folder" referent="11">
+            <Properties>
+              <string name="Name">types</string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="12">
+          <Properties>
+            <string name="Name">flamework</string>
+          </Properties>
+          <Item class="ModuleScript" referent="13">
+            <Properties>
+              <string name="Name">out</string>
+              <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.1.1-dev.28798ed
+local TS = _G[script]
+local exports = {}
+local _flamework_0 = TS.import(script, script, "flamework")
+exports.Component = _flamework_0.Component
+exports.Controller = _flamework_0.Controller
+exports.Dependency = _flamework_0.Dependency
+exports.External = _flamework_0.External
+exports.Service = _flamework_0.Service
+exports.Flamework = _flamework_0.Flamework
+exports.Networking = TS.import(script, script, "networking").Networking
+local _components_1 = TS.import(script, script, "components")
+exports.BaseComponent = _components_1.BaseComponent
+exports.Components = _components_1.Components
+return exports
+]]></string>
+            </Properties>
+            <Item class="ModuleScript" referent="14">
+              <Properties>
+                <string name="Name">components</string>
+                <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.1.1-dev.28798ed
+local TS = _G[script]
+local Maid = TS.import(script, TS.getModule(script, "maid").Maid)
+local CollectionService = TS.import(script, TS.getModule(script, "services")).CollectionService
+local Flamework = TS.import(script, script.Parent, "flamework").Flamework
+-- xpcall types are broken, so this is a workaround
+local xpcall2 = xpcall
+local BaseComponent
+do
+	BaseComponent = setmetatable({}, {
+		__tostring = function()
+			return "BaseComponent"
+		end,
+	})
+	BaseComponent.__index = BaseComponent
+	function BaseComponent.new(...)
+		local self = setmetatable({}, BaseComponent)
+		self:constructor(...)
+		return self
+	end
+	function BaseComponent:constructor()
+		self.maid = Maid.new()
+		self._attributeChangeHandlers = {}
+	end
+	function BaseComponent:setInstance(instance)
+		self.instance = instance
+		self.attributes = instance:GetAttributes()
+	end
+	function BaseComponent:onAttributeChanged(name, cb)
+		local _0 = self._attributeChangeHandlers
+		local _1 = name
+		local list = _0[_1]
+		if not list then
+			local _2 = self._attributeChangeHandlers
+			local _3 = name
+			list = {}
+			local _4 = list
+			-- ▼ Map.set ▼
+			_2[_3] = _4
+			-- ▲ Map.set ▲
+		end
+		local _2 = list
+		local _3 = cb
+		-- ▼ Array.push ▼
+		_2[#_2 + 1] = _3
+		-- ▲ Array.push ▲
+	end
+	function BaseComponent:destroy()
+		self.maid:Destroy()
+	end
+end
+--[[
+	*
+	* This class is responsible for loading and managing
+	* all components in the game.
+]]
+local Components
+do
+	Components = setmetatable({}, {
+		__tostring = function()
+			return "Components"
+		end,
+	})
+	Components.__index = Components
+	function Components.new(...)
+		local self = setmetatable({}, Components)
+		self:constructor(...)
+		return self
+	end
+	function Components:constructor()
+		self.components = {}
+		self.activeComponents = {}
+		self.tick = {}
+		self.physics = {}
+		self.render = {}
+	end
+	function Components:onInit()
+		local components = {}
+		for ctor, metadata in pairs(Flamework.metadata) do
+			local _0 = metadata.decorators
+			local _1 = function(x)
+				return x.config
+			end
+			-- ▼ ReadonlyArray.map ▼
+			local _2 = table.create(#_0)
+			for _k_3, _v_4 in ipairs(_0) do
+				_2[_k_3] = _1(_v_4, _k_3 - 1, _0)
+			end
+			-- ▲ ReadonlyArray.map ▲
+			local _3 = function(x)
+				return x.type == "Component"
+			end
+			-- ▼ ReadonlyArray.find ▼
+			local _4 = nil
+			for _i_5, _v_6 in ipairs(_2) do
+				if _3(_v_6, _i_5 - 1, _2) == true then
+					_4 = _v_6
+					break
+				end
+			end
+			-- ▲ ReadonlyArray.find ▲
+			local component = _4
+			if component then
+				local _5 = components
+				local _6 = ctor
+				local _7 = {
+					metadata = metadata,
+					ctor = ctor,
+					config = component,
+				}
+				-- ▼ Map.set ▼
+				_5[_6] = _7
+				-- ▲ Map.set ▲
+			end
+		end
+		self.components = components
+	end
+	function Components:onStart()
+		for _, _binding_0 in pairs(self.components) do
+			local config = _binding_0.config
+			local ctor = _binding_0.ctor
+			local metadata = _binding_0.metadata
+			if config.tag ~= nil then
+				CollectionService:GetInstanceAddedSignal(config.tag):Connect(function(instance)
+					self:addComponent(instance, ctor)
+				end)
+				CollectionService:GetInstanceRemovedSignal(config.tag):Connect(function(instance)
+					self:removeComponent(instance, ctor)
+				end)
+				for _, instance in ipairs(CollectionService:GetTagged(config.tag)) do
+					self:safeCall("Failed to instantiate " .. tostring(instance), function()
+						return self:addComponent(instance, ctor)
+					end)
+				end
+			end
+		end
+	end
+	function Components:onTick(dt)
+		for component in pairs(self.tick) do
+			local name = component.instance:GetFullName()
+			self:safeCall("Component failed to tick " .. name, function()
+				return component:onTick(dt)
+			end)
+		end
+	end
+	function Components:onRender(dt)
+		for component in pairs(self.render) do
+			local name = component.instance:GetFullName()
+			self:safeCall("Component failed to tick " .. name, function()
+				return component:onRender(dt)
+			end)
+		end
+	end
+	function Components:onPhysics(dt, time)
+		for component in pairs(self.physics) do
+			local name = component.instance:GetFullName()
+			self:safeCall("Component failed to tick " .. name, function()
+				return component:onPhysics(dt, time)
+			end)
+		end
+	end
+	function Components:getAttributes(ctor)
+		local attributes = {}
+		local _0 = self.components
+		local _1 = ctor
+		local metadata = _0[_1]
+		if metadata then
+			if metadata.config.attributes ~= nil then
+				for attribute, guard in pairs(metadata.config.attributes) do
+					local _2 = attributes
+					local _3 = attribute
+					local _4 = guard
+					-- ▼ Map.set ▼
+					_2[_3] = _4
+					-- ▲ Map.set ▲
+				end
+			end
+			local parentCtor = getmetatable(ctor)
+			if parentCtor.__index ~= nil then
+				for attribute, guard in pairs(self:getAttributes(parentCtor.__index)) do
+					local _2 = attributes
+					local _3 = attribute
+					if not (_2[_3] ~= nil) then
+						local _4 = attributes
+						local _5 = attribute
+						local _6 = guard
+						-- ▼ Map.set ▼
+						_4[_5] = _6
+						-- ▲ Map.set ▲
+					end
+				end
+			end
+		end
+		return attributes
+	end
+	function Components:getInstanceGuard(ctor)
+		local _0 = self.components
+		local _1 = ctor
+		local metadata = _0[_1]
+		if metadata then
+			if metadata.config.instanceGuard ~= nil then
+				return metadata.config.instanceGuard
+			end
+			local parentCtor = getmetatable(ctor)
+			if parentCtor.__index ~= nil then
+				return self:getInstanceGuard(parentCtor.__index)
+			end
+		end
+	end
+	function Components:validateAttributes(instance, guards)
+		local attributes = instance:GetAttributes()
+		for key, guard in pairs(guards) do
+			local attribute = attributes[key]
+			if not guard(attribute) then
+				return false
+			end
+		end
+		return true
+	end
+	function Components:safeCall(message, func)
+		coroutine.wrap(function()
+			xpcall2(func, function(err)
+				local _0 = err
+				if type(_0) == "string" then
+					local stack = debug.traceback(err, 2)
+					warn(message)
+					warn(stack)
+				else
+					warn(message)
+					warn(err)
+					warn(debug.traceback(nil, 2))
+				end
+			end)
+		end)()
+	end
+	function Components:setupComponent(instance, component, _param_0)
+		local config = _param_0.config
+		local ctor = _param_0.ctor
+		component:setInstance(instance)
+		if Flamework._implements(component, "$:4R") then
+			local name = instance:GetFullName()
+			self:safeCall("Component failed to start " .. name, function()
+				return component:onStart()
+			end)
+		end
+		if Flamework._implements(component, "$:Q0") then
+			local _1 = self.render
+			local _2 = component
+			-- ▼ Set.add ▼
+			_1[_2] = true
+			-- ▲ Set.add ▲
+			component.maid:GiveTask(function()
+				local _3 = self.render
+				local _4 = component
+				-- ▼ Set.delete ▼
+				local _5 = _3[_4] ~= nil
+				_3[_4] = nil
+				-- ▲ Set.delete ▲
+				return _5
+			end)
+		end
+		if Flamework._implements(component, "$:yM") then
+			local _1 = self.physics
+			local _2 = component
+			-- ▼ Set.add ▼
+			_1[_2] = true
+			-- ▲ Set.add ▲
+			component.maid:GiveTask(function()
+				local _3 = self.physics
+				local _4 = component
+				-- ▼ Set.delete ▼
+				local _5 = _3[_4] ~= nil
+				_3[_4] = nil
+				-- ▲ Set.delete ▲
+				return _5
+			end)
+		end
+		if Flamework._implements(component, "$:l2") then
+			local _1 = self.tick
+			local _2 = component
+			-- ▼ Set.add ▼
+			_1[_2] = true
+			-- ▲ Set.add ▲
+			component.maid:GiveTask(function()
+				local _3 = self.tick
+				local _4 = component
+				-- ▼ Set.delete ▼
+				local _5 = _3[_4] ~= nil
+				_3[_4] = nil
+				-- ▲ Set.delete ▲
+				return _5
+			end)
+		end
+		if config.refreshAttributes == nil or config.refreshAttributes then
+			local attributes = self:getAttributes(ctor)
+			for attribute, guard in pairs(attributes) do
+				local _1 = attribute
+				if type(_1) == "string" then
+					component.maid:GiveTask(instance:GetAttributeChangedSignal(attribute):Connect(function()
+						local _2 = component._attributeChangeHandlers
+						local _3 = attribute
+						local handlers = _2[_3]
+						local value = instance:GetAttribute(attribute)
+						local attributes = component.attributes
+						if guard(value) then
+							if handlers then
+								for _, handler in ipairs(handlers) do
+									self:safeCall("Failed to call onAttributeChanged for " .. attribute, function()
+										local _4 = attributes
+										local _5 = attribute
+										return handler(value, _4[_5])
+									end)
+								end
+							end
+							local _4 = attributes
+							local _5 = attribute
+							local _6 = value
+							-- ▼ Map.set ▼
+							_4[_5] = _6
+							-- ▲ Map.set ▲
+						end
+					end))
+				end
+			end
+		end
+	end
+	function Components:getComponentFromSpecifier(componentSpecifier)
+		local _1 = componentSpecifier
+		local _result_2
+		if type(_1) == "string" then
+			local _3 = Flamework.idToTarget
+			local _4 = componentSpecifier
+			_result_2 = (_3[_4])
+		else
+			_result_2 = componentSpecifier
+		end
+		return _result_2
+	end
+	function Components:getComponent(instance, componentSpecifier)
+		local component = self:getComponentFromSpecifier(componentSpecifier)
+		local _1 = component
+		assert(_1 ~= 0 and _1 == _1 and _1 ~= "" and _1, "Could not find component from specifier")
+		local _2 = self.activeComponents
+		local _3 = instance
+		local activeComponents = _2[_3]
+		if not activeComponents then
+			return nil
+		end
+		local _4 = activeComponents
+		local _5 = component
+		return _4[_5]
+	end
+	function Components:addComponent(instance, componentSpecifier)
+		local component = self:getComponentFromSpecifier(componentSpecifier)
+		local _1 = component
+		assert(_1 ~= 0 and _1 == _1 and _1 ~= "" and _1, "Could not find component from specifier")
+		local _2 = self.components
+		local _3 = component
+		local componentInfo = _2[_3]
+		local _4 = componentInfo
+		assert(_4, "Provided componentSpecifier does not exist")
+		local attributeGuards = self:getAttributes(component)
+		if attributeGuards ~= nil then
+			local _5 = self:validateAttributes(instance, attributeGuards)
+			local _6 = instance:GetFullName() .. " has invalid attributes for " .. componentInfo.metadata.identifier
+			assert(_5, _6)
+		end
+		local instanceGuard = self:getInstanceGuard(component)
+		if instanceGuard ~= nil then
+			local _5 = instanceGuard(instance)
+			local _6 = instance:GetFullName() .. " did not pass instance guard check"
+			assert(_5, _6)
+		end
+		local _5 = self.activeComponents
+		local _6 = instance
+		local activeComponents = _5[_6]
+		if not activeComponents then
+			local _7 = self.activeComponents
+			activeComponents = {}
+			local _8 = instance
+			local _9 = activeComponents
+			-- ▼ Map.set ▼
+			_7[_8] = _9
+			-- ▲ Map.set ▲
+		end
+		local _7 = activeComponents
+		local _8 = component
+		local existingComponent = _7[_8]
+		if existingComponent ~= nil then
+			return existingComponent
+		end
+		local componentInstance = Flamework.createDependency(component)
+		local _9 = activeComponents
+		local _10 = component
+		local _11 = componentInstance
+		-- ▼ Map.set ▼
+		_9[_10] = _11
+		-- ▲ Map.set ▲
+		self:setupComponent(instance, componentInstance, componentInfo)
+		return componentInstance
+	end
+	function Components:removeComponent(instance, componentSpecifier)
+		local component = self:getComponentFromSpecifier(componentSpecifier)
+		local _1 = component
+		assert(_1 ~= 0 and _1 == _1 and _1 ~= "" and _1, "Could not find component from specifier")
+		local _2 = self.activeComponents
+		local _3 = instance
+		local activeComponents = _2[_3]
+		if not activeComponents then
+			return nil
+		end
+		local _4 = activeComponents
+		local _5 = component
+		local existingComponent = _4[_5]
+		if not existingComponent then
+			return nil
+		end
+		existingComponent:destroy()
+		local _6 = activeComponents
+		local _7 = component
+		-- ▼ Map.delete ▼
+		_6[_7] = nil
+		-- ▲ Map.delete ▲
+		-- ▼ ReadonlyMap.size ▼
+		local _8 = 0
+		for _ in pairs(activeComponents) do
+			_8 += 1
+		end
+		-- ▲ ReadonlyMap.size ▲
+		if _8 == 0 then
+			local _9 = self.activeComponents
+			local _10 = instance
+			-- ▼ Map.delete ▼
+			_9[_10] = nil
+			-- ▲ Map.delete ▲
+		end
+	end
+end
+Flamework.registerMetadata(Components, {
+	identifier = "$:p2",
+	isExternal = false,
+	decorators = { {
+		identifier = "$:dz",
+		config = {
+			type = "Service",
+			loadOrder = 0,
+		},
+	}, {
+		identifier = "$:8j",
+		config = {
+			type = "Controller",
+			loadOrder = 0,
+		},
+	} },
+	implements = { "$:7w", "$:4R", "$:l2", "$:yM", "$:Q0" },
+})
+return {
+	BaseComponent = BaseComponent,
+	Components = Components,
+}
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="15">
+              <Properties>
+                <string name="Name">flamework</string>
+                <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.1.1-dev.28798ed
+local TS = _G[script]
+local _services_0 = TS.import(script, TS.getModule(script, "services"))
+local Players = _services_0.Players
+local RunService = _services_0.RunService
+local Flamework
+local Flamework = {}
+do
+	local _container_1 = Flamework
+	local flameworkConfig = {
+		isDefault = true,
+	}
+	_container_1.flameworkConfig = flameworkConfig
+	_container_1.isInitialized = false
+	local metadata = {}
+	_container_1.metadata = metadata
+	local targetToId = {}
+	_container_1.targetToId = targetToId
+	local idToTarget = {}
+	_container_1.idToTarget = idToTarget
+	-- * @hidden
+	local function registerMetadata(target, data)
+		local ctor = target
+		local _2 = metadata
+		local _3 = ctor
+		local _4 = data
+		-- ▼ Map.set ▼
+		_2[_3] = _4
+		-- ▲ Map.set ▲
+		local _5 = targetToId
+		local _6 = ctor
+		local _7 = data.identifier
+		-- ▼ Map.set ▼
+		_5[_6] = _7
+		-- ▲ Map.set ▲
+		local _8 = idToTarget
+		local _9 = data.identifier
+		local _10 = ctor
+		-- ▼ Map.set ▼
+		_8[_9] = _10
+		-- ▲ Map.set ▲
+	end
+	_container_1.registerMetadata = registerMetadata
+	local resolvedDependencies = {}
+	local loadingList = {}
+	-- * @hidden
+	local id, resolveDependency
+	local function createDependency(ctor)
+		local _2 = loadingList
+		local _3 = ctor
+		if table.find(_2, _3) ~= nil then
+			-- ▼ ReadonlyArray.join ▼
+			local _4 = " <=> "
+			if _4 == nil then
+				_4 = ", "
+			end
+			local _5 = table.create(#loadingList)
+			for _k_6, _v_7 in ipairs(loadingList) do
+				_5[_k_6] = tostring(_v_7)
+			end
+			-- ▲ ReadonlyArray.join ▲
+			error("Circular dependency detected " .. table.concat(_5, _4) .. " <=> " .. tostring(ctor))
+		end
+		local _4 = loadingList
+		local _5 = ctor
+		-- ▼ Array.push ▼
+		_4[#_4 + 1] = _5
+		-- ▲ Array.push ▲
+		local _6 = metadata
+		local _7 = ctor
+		local dependencyMetadata = _6[_7]
+		if not dependencyMetadata then
+			error("Dependency " .. tostring(id) .. " metadata is missing.")
+		end
+		local constructorDependencies = {}
+		if dependencyMetadata.dependencies then
+			for index, dependencyId in pairs(dependencyMetadata.dependencies) do
+				local dependency = resolveDependency(dependencyId)
+				constructorDependencies[index - 1 + 1] = dependency
+			end
+		end
+		local dependency = ctor.new(unpack(constructorDependencies))
+		-- ▼ Array.pop ▼
+		loadingList[#loadingList] = nil
+		-- ▲ Array.pop ▲
+		return dependency
+	end
+	_container_1.createDependency = createDependency
+	-- * @hidden
+	function resolveDependency(id)
+		local _2 = resolvedDependencies
+		local _3 = id
+		local resolvedDependency = _2[_3]
+		if resolvedDependency ~= nil then
+			return resolvedDependency
+		end
+		local _4 = idToTarget
+		local _5 = id
+		local ctor = _4[_5]
+		if ctor == nil then
+			error("Dependency " .. id .. " could not be found.")
+		end
+		local dependency = createDependency(ctor)
+		local _6 = resolvedDependencies
+		local _7 = id
+		local _8 = dependency
+		-- ▼ Map.set ▼
+		_6[_7] = _8
+		-- ▲ Map.set ▲
+		return dependency
+	end
+	_container_1.resolveDependency = resolveDependency
+	-- * @hidden
+	local function _addPaths(...)
+		local args = { ... }
+		local preloadPaths = {}
+		for _, arg in ipairs(args) do
+			local service = table.remove(arg, 1)
+			local currentPath = game:GetService(service)
+			if service == "StarterPlayer" then
+				if arg[1] ~= "StarterPlayerScripts" then
+					error("StarterPlayer only supports StarterPlayerScripts")
+				end
+				if not RunService:IsClient() then
+					error("The server cannot load StarterPlayer content")
+				end
+				currentPath = Players.LocalPlayer:WaitForChild("PlayerScripts")
+				table.remove(arg, 1)
+			end
+			do
+				local _2 = false
+				local _i_3 = 0
+				local _4 = _i_3
+				_i_3 = _4
+				while true do
+					local i = _i_3
+					if _2 then
+						i += 1
+					else
+						_2 = true
+					end
+					if not (i < #arg) then
+						break
+					end
+					currentPath = currentPath:WaitForChild(arg[i + 1])
+					_i_3 = i
+				end
+			end
+			local _2 = preloadPaths
+			local _3 = currentPath
+			-- ▼ Array.push ▼
+			_2[#_2 + 1] = _3
+			-- ▲ Array.push ▲
+		end
+		local preload = function(moduleScript)
+			local start = os.clock()
+			local _2 = require
+			local _3 = moduleScript
+			local _success_4, _valueOrError_5 = pcall(_2, _3)
+			local result = _success_4 and {
+				success = true,
+				value = _valueOrError_5,
+			} or {
+				success = false,
+				error = _valueOrError_5,
+			}
+			local endTime = math.floor((os.clock() - start) * 1000)
+			if not result.success then
+				error(moduleScript:GetFullName() .. " failed to preload (" .. tostring(endTime) .. "ms): " .. result.error)
+			end
+			print("Preloaded " .. moduleScript:GetFullName() .. " (" .. tostring(endTime) .. "ms)")
+		end
+		for _, path in ipairs(preloadPaths) do
+			if path:IsA("ModuleScript") then
+				preload(path)
+			end
+			for _, instance in ipairs(path:GetDescendants()) do
+				if instance:IsA("ModuleScript") then
+					preload(instance)
+				end
+			end
+		end
+	end
+	_container_1._addPaths = _addPaths
+	-- * @hidden
+	local function _implements(object, id)
+		local objectMetadata
+		while objectMetadata == nil and object ~= nil do
+			local _2 = metadata
+			local _3 = object
+			objectMetadata = _2[_3]
+			if objectMetadata then
+				break
+			end
+			local mt = getmetatable(object)
+			if mt then
+				object = mt.__index
+			else
+				object = nil
+			end
+		end
+		if not objectMetadata then
+			return false
+		end
+		if not objectMetadata.implements then
+			return false
+		end
+		local _2 = objectMetadata.implements
+		local _3 = id
+		return table.find(_2, _3) ~= nil
+	end
+	_container_1._implements = _implements
+	local function getDecorator(ctor, configType)
+		local _2 = metadata
+		local _3 = ctor
+		local objectMetadata = _2[_3]
+		if not objectMetadata then
+			return nil
+		end
+		for _, decorator in ipairs(objectMetadata.decorators) do
+			if decorator.config.type == configType then
+				return decorator
+			end
+		end
+	end
+	local function fastSpawn(func)
+		local bindable = Instance.new("BindableEvent")
+		bindable.Event:Connect(func)
+		bindable:Fire()
+		bindable:Destroy()
+	end
+	local externalClasses = {}
+	--[[
+		*
+		* Allow an external module to be bootstrapped by Flamework.ignite()
+	]]
+	local function registerExternalClass(ctor)
+		local _2 = externalClasses
+		local _3 = ctor
+		-- ▼ Set.add ▼
+		_2[_3] = true
+		-- ▲ Set.add ▲
+	end
+	_container_1.registerExternalClass = registerExternalClass
+	local hasFlameworkIgnited = false
+	--[[
+		*
+		* Initialize Flamework.
+		*
+		* This will start up the lifecycle events on all currently registered
+		* classes.
+		*
+		* You should preload all necessary directories before calling this
+		* as newly registered classes will not run their lifecycle events.
+		*
+		* @returns All the dependencies that have been loaded.
+	]]
+	local function ignite(patchedConfig)
+		if hasFlameworkIgnited then
+			error("Flamework.ignite() should only be called once")
+		end
+		hasFlameworkIgnited = true
+		if patchedConfig then
+			for key, value in pairs(patchedConfig) do
+				flameworkConfig[key] = value
+			end
+		end
+		for ctor, objectMetadata in pairs(metadata) do
+			local _condition_2 = flameworkConfig.loadOverride
+			if _condition_2 then
+				local _3 = flameworkConfig.loadOverride
+				local _4 = ctor
+				_condition_2 = not (table.find(_3, _4) ~= nil)
+			end
+			if _condition_2 then
+				if not objectMetadata.isPatched then
+					continue
+				end
+			end
+			resolveDependency(objectMetadata.identifier)
+		end
+		local dependencies = {}
+		local decoratorType = RunService:IsServer() and "Service" or "Controller"
+		for id in pairs(resolvedDependencies) do
+			local _2 = idToTarget
+			local _3 = id
+			local ctor = _2[_3]
+			if ctor == nil then
+				error("Could not find constructor for " .. id)
+			end
+			local _4 = metadata
+			local _5 = ctor
+			local objectMetadata = _4[_5]
+			if objectMetadata == nil then
+				error("Could not find metadata for " .. id)
+			end
+			local decorator = getDecorator(ctor, decoratorType)
+			if not decorator then
+				continue
+			end
+			local _condition_6 = objectMetadata.isExternal
+			if _condition_6 then
+				local _7 = externalClasses
+				local _8 = ctor
+				_condition_6 = not (_7[_8] ~= nil)
+			end
+			if _condition_6 then
+				continue
+			end
+			local dependency = resolveDependency(objectMetadata.identifier)
+			local _7 = dependencies
+			local _8 = { dependency, objectMetadata, decorator.config }
+			-- ▼ Array.push ▼
+			_7[#_7 + 1] = _8
+			-- ▲ Array.push ▲
+		end
+		local start = {}
+		local init = {}
+		local tick = {}
+		local render = {}
+		local physics = {}
+		local _2 = dependencies
+		local _3 = function(_param_4, _param_5)
+			local a = _param_4[3]
+			local b = _param_5[3]
+			local _condition_6 = a.loadOrder
+			if _condition_6 == nil then
+				_condition_6 = 1
+			end
+			local _condition_7 = b.loadOrder
+			if _condition_7 == nil then
+				_condition_7 = 1
+			end
+			return _condition_6 < _condition_7
+		end
+		-- ▼ Array.sort ▼
+		table.sort(_2, _3)
+		-- ▲ Array.sort ▲
+		for _, _binding_6 in ipairs(dependencies) do
+			local dependency = _binding_6[1]
+			local objectMetadata = _binding_6[2]
+			local config = _binding_6[3]
+			if Flamework._implements(dependency, "$:7w") then
+				local _7 = init
+				local _8 = { dependency, objectMetadata, config }
+				-- ▼ Array.push ▼
+				_7[#_7 + 1] = _8
+				-- ▲ Array.push ▲
+			end
+			if Flamework._implements(dependency, "$:4R") then
+				local _7 = start
+				local _8 = { dependency, objectMetadata, config }
+				-- ▼ Array.push ▼
+				_7[#_7 + 1] = _8
+				-- ▲ Array.push ▲
+			end
+			if Flamework._implements(dependency, "$:l2") then
+				local _7 = tick
+				local _8 = dependency
+				-- ▼ Array.push ▼
+				_7[#_7 + 1] = _8
+				-- ▲ Array.push ▲
+			end
+			if Flamework._implements(dependency, "$:yM") then
+				local _7 = physics
+				local _8 = dependency
+				-- ▼ Array.push ▼
+				_7[#_7 + 1] = _8
+				-- ▲ Array.push ▲
+			end
+			if Flamework._implements(dependency, "$:Q0") then
+				local _7 = render
+				local _8 = dependency
+				-- ▼ Array.push ▼
+				_7[#_7 + 1] = _8
+				-- ▲ Array.push ▲
+			end
+		end
+		for _, _binding_6 in ipairs(init) do
+			local dependency = _binding_6[1]
+			local initResult = dependency:onInit()
+			if TS.Promise.is(initResult) then
+				initResult:await()
+			end
+		end
+		_container_1.isInitialized = true
+		RunService.Heartbeat:Connect(function(dt)
+			for _, dependency in ipairs(tick) do
+				coroutine.wrap(function()
+					return dependency:onTick(dt)
+				end)()
+			end
+		end)
+		RunService.Stepped:Connect(function(time, dt)
+			for _, dependency in ipairs(physics) do
+				coroutine.wrap(function()
+					return dependency:onPhysics(dt, time)
+				end)()
+			end
+		end)
+		if RunService:IsClient() then
+			RunService.RenderStepped:Connect(function(dt)
+				for _, dependency in ipairs(render) do
+					coroutine.wrap(function()
+						return dependency:onRender(dt)
+					end)()
+				end
+			end)
+		end
+		for _, _binding_6 in ipairs(start) do
+			local dependency = _binding_6[1]
+			fastSpawn(function()
+				return dependency:onStart()
+			end)
+		end
+		return dependencies
+	end
+	_container_1.ignite = ignite
+	--[[
+		*
+		* Preload the specified paths by requiring all ModuleScript descendants.
+	]]
+	--[[
+		*
+		* Retrieve the identifier for the specified type.
+	]]
+	--[[
+		*
+		* Check if object implements the specified interface.
+	]]
+	--[[
+		*
+		* Creates a type guard from any arbitrary type.
+	]]
+	--[[
+		*
+		* Creates a type guard from any arbitrary type.
+	]]
+	--[[
+		*
+		* Hash a function using the method used internally by Flamework.
+		* If a context is provided, then Flamework will create a new hash
+		* if the specified string does not have one in that context.
+		* @param str The string to hash
+		* @param context A scope for the hash
+	]]
+	--[[
+		*
+		* Utility for use in test suites, not recommended for anything else.
+	]]
+	local Testing = {}
+	do
+		local _container_2 = Testing
+		local function patchDependency(patchedClass, id)
+			if id == nil then
+				error("Patching failed, no ID")
+			end
+			local _3 = resolvedDependencies
+			local _4 = id
+			if _3[_4] ~= nil then
+				error(id .. " has already been resolved, continuing is unsafe")
+			end
+			local _5 = idToTarget
+			local _6 = id
+			local idCtor = _5[_6]
+			if idCtor == nil then
+				error("Dependency " .. id .. " was not found and cannot be patched.")
+			end
+			local _7 = metadata
+			local _8 = idCtor
+			local classMetadata = _7[_8]
+			if not classMetadata then
+				error("Dependency " .. id .. " has no existing metadata.")
+			end
+			classMetadata.isPatched = true
+			local _9 = metadata
+			local _10 = idCtor
+			-- ▼ Map.delete ▼
+			_9[_10] = nil
+			-- ▲ Map.delete ▲
+			local _11 = metadata
+			local _12 = patchedClass
+			local _13 = classMetadata
+			-- ▼ Map.set ▼
+			_11[_12] = _13
+			-- ▲ Map.set ▲
+			local _14 = targetToId
+			local _15 = patchedClass
+			local _16 = id
+			-- ▼ Map.set ▼
+			_14[_15] = _16
+			-- ▲ Map.set ▲
+			local _17 = idToTarget
+			local _18 = id
+			local _19 = patchedClass
+			-- ▼ Map.set ▼
+			_17[_18] = _19
+			-- ▲ Map.set ▲
+		end
+		_container_2.patchDependency = patchDependency
+	end
+	_container_1.Testing = Testing
+end
+-- eslint-disable-next-line @typescript-eslint/no-explicit-any
+--[[
+	*
+	* Register a class as a Component.
+]]
+--[[
+	*
+	* Register a class as a Service.
+	*
+	* @server
+]]
+--[[
+	*
+	* Register a class as a Controller.
+	*
+	* @client
+]]
+--[[
+	*
+	* Marks this class as an external class.
+	*
+	* External classes are designed for packages and won't be
+	* bootstrapped unless explicitly specified. Excluding this
+	* inside of a package will make the class load as long as
+	* it has been loaded.
+]]
+--[[
+	*
+	* Hook into the OnInit lifecycle event.
+]]
+--[[
+	*
+	* Hook into the OnStart lifecycle event.
+]]
+--[[
+	*
+	* Hook into the OnTick lifecycle event.
+	* Equivalent to: RunService.Heartbeat
+]]
+--[[
+	*
+	* Hook into the OnPhysics lifecycle event.
+	* Equivalent to: RunService.Stepped
+]]
+--[[
+	*
+	* Hook into the OnRender lifecycle event.
+	* Equivalent to: RunService.RenderStepped
+	*
+	* @client
+]]
+return {
+	Flamework = Flamework,
+}
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="16">
+              <Properties>
+                <string name="Name">networking</string>
+                <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.1.1-dev.28798ed
+local TS = _G[script]
+local Object = TS.import(script, TS.getModule(script, "object-utils"))
+local _services_0 = TS.import(script, TS.getModule(script, "services"))
+local Players = _services_0.Players
+local ReplicatedStorage = _services_0.ReplicatedStorage
+local RunService = _services_0.RunService
+local Networking = {}
+do
+	local _container_1 = Networking
+	local Sink = {}
+	_container_1.Sink = Sink
+	local function populateEvents(names, map)
+		for _, name in ipairs(names) do
+			if RunService:IsClient() then
+				local instance = ReplicatedStorage:WaitForChild(name)
+				if instance:IsA("RemoteEvent") then
+					local _2 = map
+					local _3 = name
+					local _4 = instance
+					-- ▼ Map.set ▼
+					_2[_3] = _4
+					-- ▲ Map.set ▲
+				end
+			else
+				local instance = ReplicatedStorage:FindFirstChild(name)
+				if instance then
+					if not instance:IsA("RemoteEvent") then
+						error("Found " .. name .. " but it is not a remote.")
+					end
+					local _2 = map
+					local _3 = name
+					local _4 = instance
+					-- ▼ Map.set ▼
+					_2[_3] = _4
+					-- ▲ Map.set ▲
+				else
+					local remote = Instance.new("RemoteEvent")
+					remote.Name = name
+					remote.Parent = ReplicatedStorage
+					local _2 = map
+					local _3 = name
+					local _4 = remote
+					-- ▼ Map.set ▼
+					_2[_3] = _4
+					-- ▲ Map.set ▲
+				end
+			end
+		end
+	end
+	local function createEvent(_serverGuards, _clientGuards, serverMiddleware, clientMiddleware)
+		local serverGuards = _serverGuards
+		local clientGuards = _clientGuards
+		local globalEvents = {}
+		local remotes = {}
+		populateEvents(Object.keys(serverGuards), remotes)
+		populateEvents(Object.keys(clientGuards), remotes)
+		local _result_2
+		if RunService:IsServer() then
+			_result_2 = serverMiddleware
+		else
+			_result_2 = clientMiddleware
+		end
+		local middleware = _result_2
+		local connections = {}
+		local eventExecutors = {}
+		for name in pairs(remotes) do
+			local executor = function(player, ...)
+				local args = { ... }
+				local _3 = connections
+				local _4 = name
+				local bindable = _3[_4]
+				if not bindable then
+					return warn("no bindable for", name)
+				end
+				return bindable:Fire(player, unpack(args))
+			end
+			local startingExecutor = executor
+			local _3 = middleware
+			if _3 ~= nil then
+				_3 = _3[name]
+			end
+			local eventMiddleware = _3
+			if eventMiddleware ~= nil then
+				do
+					local _4 = false
+					local _i_5 = #eventMiddleware - 1
+					local _6 = _i_5
+					_i_5 = _6
+					while true do
+						local i = _i_5
+						if _4 then
+							i -= 1
+						else
+							_4 = true
+						end
+						if not (i >= 0) then
+							break
+						end
+						local middleware = eventMiddleware[i + 1](startingExecutor, {
+							name = name,
+						})
+						startingExecutor = middleware
+						_i_5 = i
+					end
+				end
+			end
+			local _4 = eventExecutors
+			local _5 = name
+			local _6 = startingExecutor
+			-- ▼ Map.set ▼
+			_4[_5] = _6
+			-- ▲ Map.set ▲
+		end
+		local function fireConnections(event, player, ...)
+			local args = { ... }
+			local _3 = eventExecutors
+			local _4 = event
+			local executor = _3[_4]
+			if executor ~= nil then
+				return executor(player, unpack(args))
+			end
+		end
+		if RunService:IsServer() then
+			globalEvents.server = {}
+			globalEvents.server.connect = function(self, event, cb, additionalGuards)
+				local _3 = remotes
+				local _4 = event
+				local remote = _3[_4]
+				local guards = serverGuards[event]
+				if not remote then
+					error("Could not find remote " .. tostring(event))
+				end
+				if not guards then
+					error("Could not find guards for " .. tostring(event))
+				end
+				local _5 = connections
+				local _6 = event
+				local bindable = _5[_6]
+				if not bindable then
+					local _7 = connections
+					local _8 = event
+					bindable = Instance.new("BindableEvent")
+					local _9 = bindable
+					-- ▼ Map.set ▼
+					_7[_8] = _9
+					-- ▲ Map.set ▲
+				end
+				return bindable.Event:Connect(function(player, ...)
+					local args = { ... }
+					if additionalGuards then
+						do
+							local _7 = false
+							local _i_8 = 0
+							local _9 = _i_8
+							_i_8 = _9
+							while true do
+								local i = _i_8
+								if _7 then
+									i += 1
+								else
+									_7 = true
+								end
+								if not (i < #guards) then
+									break
+								end
+								local guard = additionalGuards[i + 1]
+								if guard ~= nil and not guard(args[i + 1]) then
+									return nil
+								end
+								_i_8 = i
+							end
+						end
+					end
+					return cb(player, unpack(args))
+				end)
+			end
+			for name in pairs(clientGuards) do
+				local _3 = remotes
+				local _4 = name
+				local remote = _3[_4]
+				local method = {
+					fire = function(self, player, ...)
+						local args = { ... }
+						remote:FireClient(player, unpack(args))
+					end,
+					broadcast = function(self, ...)
+						local args = { ... }
+						remote:FireAllClients(unpack(args))
+					end,
+					except = function(self, players, ...)
+						local args = { ... }
+						local _5 = players
+						if typeof(_5) == "Instance" then
+							players = { players }
+						end
+						for _, player in ipairs(Players:GetPlayers()) do
+							local _6 = players
+							local _7 = player
+							if not (table.find(_6, _7) ~= nil) then
+								self:fire(player, unpack(args))
+							end
+						end
+					end,
+				}
+				setmetatable(method, {
+					__call = function(method, player, ...)
+						local args = { ... }
+						local _5 = player
+						local _condition_6 = typeof(_5) == "Instance"
+						if _condition_6 then
+							_condition_6 = player:IsA("Player")
+						end
+						if _condition_6 then
+							method:fire(player, unpack(args))
+						end
+					end,
+				})
+				globalEvents.server[name] = method
+			end
+			for name, remote in pairs(remotes) do
+				remote.OnServerEvent:Connect(function(player, ...)
+					local args = { ... }
+					local guards = serverGuards[name]
+					if not guards then
+						error("Could not find guards for " .. name)
+					end
+					do
+						local _3 = false
+						local _i_4 = 0
+						local _5 = _i_4
+						_i_4 = _5
+						while true do
+							local i = _i_4
+							if _3 then
+								i += 1
+							else
+								_3 = true
+							end
+							if not (i < #guards) then
+								break
+							end
+							local guard = guards[i + 1]
+							if not guard(args[i + 1]) then
+								return nil
+							end
+							_i_4 = i
+						end
+					end
+					fireConnections(name, player, unpack(args))
+				end)
+			end
+		else
+			globalEvents.client = {}
+			globalEvents.client.connect = function(self, event, cb, additionalGuards)
+				local _3 = remotes
+				local _4 = event
+				local remote = _3[_4]
+				local guards = clientGuards[event]
+				if not remote then
+					error("Could not find remote " .. tostring(event))
+				end
+				if not guards then
+					error("Could not find guards for " .. tostring(event))
+				end
+				local _5 = connections
+				local _6 = event
+				local bindable = _5[_6]
+				if not bindable then
+					local _7 = connections
+					local _8 = event
+					bindable = Instance.new("BindableEvent")
+					local _9 = bindable
+					-- ▼ Map.set ▼
+					_7[_8] = _9
+					-- ▲ Map.set ▲
+				end
+				return bindable.Event:Connect(function(player, ...)
+					local args = { ... }
+					if additionalGuards then
+						do
+							local _7 = false
+							local _i_8 = 0
+							local _9 = _i_8
+							_i_8 = _9
+							while true do
+								local i = _i_8
+								if _7 then
+									i += 1
+								else
+									_7 = true
+								end
+								if not (i < #guards) then
+									break
+								end
+								local guard = additionalGuards[i + 1]
+								if guard ~= nil and not guard(args[i + 1]) then
+									return nil
+								end
+								_i_8 = i
+							end
+						end
+					end
+					return cb(unpack(args))
+				end)
+			end
+			for name in pairs(serverGuards) do
+				local _3 = remotes
+				local _4 = name
+				local remote = _3[_4]
+				globalEvents.client[name] = (function(...)
+					local args = { ... }
+					remote:FireServer(unpack(args))
+				end)
+			end
+			for name, remote in pairs(remotes) do
+				remote.OnClientEvent:Connect(function(...)
+					local args = { ... }
+					local guards = clientGuards[name]
+					if not guards then
+						error("Could not find guards for " .. name)
+					end
+					do
+						local _3 = false
+						local _i_4 = 0
+						local _5 = _i_4
+						_i_4 = _5
+						while true do
+							local i = _i_4
+							if _3 then
+								i += 1
+							else
+								_3 = true
+							end
+							if not (i < #guards) then
+								break
+							end
+							local guard = guards[i + 1]
+							if not guard(args[i + 1]) then
+								return nil
+							end
+							_i_4 = i
+						end
+					end
+					fireConnections(name, nil, unpack(args))
+				end)
+			end
+		end
+		return globalEvents
+	end
+	_container_1.createEvent = createEvent
+end
+return {
+	Networking = Networking,
+}
+]]></string>
+              </Properties>
+            </Item>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="17">
+          <Properties>
+            <string name="Name">maid</string>
+          </Properties>
+          <Item class="ModuleScript" referent="18">
+            <Properties>
+              <string name="Name">Maid</string>
+              <string name="Source">---	Manages the cleaning of events and other things.
+-- Useful for encapsulating state and make deconstructors easy
+-- @classmod Maid
+-- @see Signal
+
+local Maid = {}
+Maid.ClassName = "Maid"
+
+--- Returns a new Maid object
+-- @constructor Maid.new()
+-- @treturn Maid
+function Maid.new()
+	local self = {}
+
+	self._tasks = {}
+
+	return setmetatable(self, Maid)
+end
+
+--- Returns Maid[key] if not part of Maid metatable
+-- @return Maid[key] value
+function Maid:__index(index)
+	if Maid[index] then
+		return Maid[index]
+	else
+		return self._tasks[index]
+	end
+end
+
+--- Add a task to clean up
+-- @usage
+-- Maid[key] = (function)         Adds a task to perform
+-- Maid[key] = (event connection) Manages an event connection
+-- Maid[key] = (Maid)             Maids can act as an event connection, allowing a Maid to have other maids to clean up.
+-- Maid[key] = (Object)           Maids can cleanup objects with a `Destroy` method
+-- Maid[key] = nil                Removes a named task. If the task is an event, it is disconnected. If it is an object,
+--                                it is destroyed.
+function Maid:__newindex(index, newTask)
+	if Maid[index] ~= nil then
+		error(("'%s' is reserved"):format(tostring(index)), 2)
+	end
+
+	local tasks = self._tasks
+	local oldTask = tasks[index]
+	tasks[index] = newTask
+
+	if oldTask then
+		if type(oldTask) == "function" then
+			oldTask()
+		elseif typeof(oldTask) == "RBXScriptConnection" then
+			oldTask:Disconnect()
+		elseif oldTask.Destroy then
+			oldTask:Destroy()
+		end
+	end
+end
+
+--- Same as indexing, but uses an incremented number as a key.
+-- @param task An item to clean
+-- @treturn number taskId
+function Maid:GiveTask(task)
+	assert(task, "Task cannot be false or nil")
+
+	local taskId = #self._tasks+1
+	self[taskId] = task
+
+	if type(task) == "table" and (not task.Destroy) then
+		warn("[Maid.GiveTask] - Gave table task without .Destroy\n\n" .. debug.traceback())
+	end
+
+	return taskId
+end
+
+function Maid:GivePromise(promise)
+	if not promise:IsPending() then
+		return promise
+	end
+
+	local newPromise = promise.resolved(promise)
+	local id = self:GiveTask(newPromise)
+
+	-- Ensure GC
+	newPromise:Finally(function()
+		self[id] = nil
+	end)
+
+	return newPromise
+end
+
+--- Cleans up all tasks.
+-- @alias Destroy
+function Maid:DoCleaning()
+	local tasks = self._tasks
+
+	-- Disconnect all events first as we know this is safe
+	for index, task in pairs(tasks) do
+		if typeof(task) == "RBXScriptConnection" then
+			tasks[index] = nil
+			task:Disconnect()
+		end
+	end
+
+	-- Clear out tasks table completely, even if clean up tasks add more tasks to the maid
+	local index, task = next(tasks)
+	while task ~= nil do
+		tasks[index] = nil
+		if type(task) == "function" then
+			task()
+		elseif typeof(task) == "RBXScriptConnection" then
+			task:Disconnect()
+		elseif task.Destroy then
+			task:Destroy()
+		end
+		index, task = next(tasks)
+	end
+end
+
+--- Alias for DoCleaning()
+-- @function Destroy
+Maid.Destroy = Maid.DoCleaning
+
+return Maid</string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="ModuleScript" referent="19">
+          <Properties>
+            <string name="Name">object-utils</string>
+            <string name="Source"><![CDATA[local HttpService = game:GetService("HttpService")
+
+local Object = {}
+
+function Object.keys(object)
+	local result = table.create(#object)
+	for key in pairs(object) do
+		result[#result + 1] = key
+	end
+	return result
+end
+
+function Object.values(object)
+	local result = table.create(#object)
+	for _, value in pairs(object) do
+		result[#result + 1] = value
+	end
+	return result
+end
+
+function Object.entries(object)
+	local result = table.create(#object)
+	for key, value in pairs(object) do
+		result[#result + 1] = { key, value }
+	end
+	return result
+end
+
+function Object.assign(toObj, ...)
+	for i = 1, select("#", ...) do
+		local arg = select(i, ...)
+		if type(arg) == "table" then
+			for key, value in pairs(arg) do
+				toObj[key] = value
+			end
+		end
+	end
+	return toObj
+end
+
+function Object.copy(object)
+	local result = table.create(#object)
+	for k, v in pairs(object) do
+		result[k] = v
+	end
+	return result
+end
+
+local function deepCopyHelper(object, encountered)
+	local result = table.create(#object)
+	encountered[object] = result
+
+	for k, v in pairs(object) do
+		if type(k) == "table" then
+			k = encountered[k] or deepCopyHelper(k, encountered)
+		end
+
+		if type(v) == "table" then
+			v = encountered[v] or deepCopyHelper(v, encountered)
+		end
+
+		result[k] = v
+	end
+
+	return result
+end
+
+function Object.deepCopy(object)
+	return deepCopyHelper(object, {})
+end
+
+function Object.deepEquals(a, b)
+	-- a[k] == b[k]
+	for k in pairs(a) do
+		local av = a[k]
+		local bv = b[k]
+		if type(av) == "table" and type(bv) == "table" then
+			local result = Object.deepEquals(av, bv)
+			if not result then
+				return false
+			end
+		elseif av ~= bv then
+			return false
+		end
+	end
+
+	-- extra keys in b
+	for k in pairs(b) do
+		if a[k] == nil then
+			return false
+		end
+	end
+
+	return true
+end
+
+function Object.toString(data)
+	return HttpService:JSONEncode(data)
+end
+
+function Object.isEmpty(object)
+	return next(object) == nil
+end
+
+function Object.fromEntries(entries)
+	local entriesLen = #entries
+
+	local result = table.create(entriesLen)
+	if entries then
+		for i = 1, entriesLen do
+			local pair = entries[i]
+			result[pair[1]] = pair[2]
+		end
+	end
+	return result
+end
+
+return Object
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="20">
+          <Properties>
+            <string name="Name">services</string>
+            <string name="Source"><![CDATA[return setmetatable({}, {
+	__index = function(self, serviceName)
+		local service = game:GetService(serviceName)
+		self[serviceName] = service
+		return service
+	end,
+})
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="21">
+          <Properties>
+            <string name="Name">signal</string>
+            <string name="Source"><![CDATA[local Signal = {}
+Signal.__index = Signal
+
+function Signal.new()
+	return setmetatable({
+		Bindable = Instance.new("BindableEvent");
+	}, Signal)
+end
+
+function Signal:Connect(Callback)
+	return self.Bindable.Event:Connect(function(GetArguments)
+		Callback(GetArguments())
+	end)
+end
+
+function Signal:Fire(...)
+	local Arguments = { ... }
+	local n = select("#", ...)
+
+	self.Bindable:Fire(function()
+		return table.unpack(Arguments, 1, n)
+	end)
+end
+
+function Signal:Wait()
+	return self.Bindable.Event:Wait()()
+end
+
+function Signal:Destroy()
+	self.Bindable:Destroy()
+end
+
+return Signal
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="22">
+          <Properties>
+            <string name="Name">t</string>
+          </Properties>
+          <Item class="Folder" referent="23">
+            <Properties>
+              <string name="Name">lib</string>
+            </Properties>
+            <Item class="ModuleScript" referent="24">
+              <Properties>
+                <string name="Name">ts</string>
+                <string name="Source"><![CDATA[-- t: a runtime typechecker for Roblox
+
+-- regular lua compatibility
+local typeof = typeof or type
+
+local function primitive(typeName)
+	return function(value)
+		local valueType = typeof(value)
+		if valueType == typeName then
+			return true
+		else
+			return false
+		end
+	end
+end
+
+local t = {}
+
+--[[**
+	matches any type except nil
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+function t.any(value)
+	if value ~= nil then
+		return true
+	else
+		return false
+	end
+end
+
+--Lua primitives
+
+--[[**
+	ensures Lua primitive boolean type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.boolean = primitive("boolean")
+
+--[[**
+	ensures Lua primitive thread type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.thread = primitive("thread")
+
+--[[**
+	ensures Lua primitive callback type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.callback = primitive("function")
+t["function"] = t.callback
+
+--[[**
+	ensures Lua primitive none type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.none = primitive("nil")
+t["nil"] = t.none
+
+--[[**
+	ensures Lua primitive string type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.string = primitive("string")
+
+--[[**
+	ensures Lua primitive table type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.table = primitive("table")
+
+--[[**
+	ensures Lua primitive userdata type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.userdata = primitive("userdata")
+
+--[[**
+	ensures value is a number and non-NaN
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+function t.number(value)
+	local valueType = typeof(value)
+	if valueType == "number" then
+		if value == value then
+			return true
+		else
+			return false
+		end
+	else
+		return false
+	end
+end
+
+--[[**
+	ensures value is NaN
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+function t.nan(value)
+	if value ~= value then
+		return true
+	else
+		return false
+	end
+end
+
+-- roblox types
+
+--[[**
+	ensures Roblox Axes type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Axes = primitive("Axes")
+
+--[[**
+	ensures Roblox BrickColor type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.BrickColor = primitive("BrickColor")
+
+--[[**
+	ensures Roblox CFrame type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.CFrame = primitive("CFrame")
+
+--[[**
+	ensures Roblox Color3 type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Color3 = primitive("Color3")
+
+--[[**
+	ensures Roblox ColorSequence type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.ColorSequence = primitive("ColorSequence")
+
+--[[**
+	ensures Roblox ColorSequenceKeypoint type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.ColorSequenceKeypoint = primitive("ColorSequenceKeypoint")
+
+--[[**
+	ensures Roblox DockWidgetPluginGuiInfo type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.DockWidgetPluginGuiInfo = primitive("DockWidgetPluginGuiInfo")
+
+--[[**
+	ensures Roblox Faces type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Faces = primitive("Faces")
+
+--[[**
+	ensures Roblox Instance type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Instance = primitive("Instance")
+
+--[[**
+	ensures Roblox NumberRange type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.NumberRange = primitive("NumberRange")
+
+--[[**
+	ensures Roblox NumberSequence type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.NumberSequence = primitive("NumberSequence")
+
+--[[**
+	ensures Roblox NumberSequenceKeypoint type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.NumberSequenceKeypoint = primitive("NumberSequenceKeypoint")
+
+--[[**
+	ensures Roblox PathWaypoint type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.PathWaypoint = primitive("PathWaypoint")
+
+--[[**
+	ensures Roblox PhysicalProperties type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.PhysicalProperties = primitive("PhysicalProperties")
+
+--[[**
+	ensures Roblox Random type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Random = primitive("Random")
+
+--[[**
+	ensures Roblox Ray type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Ray = primitive("Ray")
+
+--[[**
+	ensures Roblox Rect type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Rect = primitive("Rect")
+
+--[[**
+	ensures Roblox Region3 type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Region3 = primitive("Region3")
+
+--[[**
+	ensures Roblox Region3int16 type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Region3int16 = primitive("Region3int16")
+
+--[[**
+	ensures Roblox TweenInfo type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.TweenInfo = primitive("TweenInfo")
+
+--[[**
+	ensures Roblox UDim type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.UDim = primitive("UDim")
+
+--[[**
+	ensures Roblox UDim2 type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.UDim2 = primitive("UDim2")
+
+--[[**
+	ensures Roblox Vector2 type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Vector2 = primitive("Vector2")
+
+--[[**
+	ensures Roblox Vector3 type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Vector3 = primitive("Vector3")
+
+--[[**
+	ensures Roblox Vector3int16 type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Vector3int16 = primitive("Vector3int16")
+
+-- roblox enum types
+
+--[[**
+	ensures Roblox Enum type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.Enum = primitive("Enum")
+
+--[[**
+	ensures Roblox EnumItem type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.EnumItem = primitive("EnumItem")
+
+--[[**
+	ensures Roblox RBXScriptSignal type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.RBXScriptSignal = primitive("RBXScriptSignal")
+
+--[[**
+	ensures Roblox RBXScriptConnection type
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+t.RBXScriptConnection = primitive("RBXScriptConnection")
+
+--[[**
+	ensures value is a given literal value
+
+	@param literal The literal to use
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.literal(...)
+	local size = select("#", ...)
+	if size == 1 then
+		local literal = ...
+		return function(value)
+			if value ~= literal then
+				return false
+			end
+
+			return true
+		end
+	else
+		local literals = {}
+		for i = 1, size do
+			local value = select(i, ...)
+			literals[i] = t.literal(value)
+		end
+
+		return t.union(table.unpack(literals, 1, size))
+	end
+end
+
+--[[**
+	DEPRECATED
+	Please use t.literal
+**--]]
+t.exactly = t.literal
+
+--[[**
+	Returns a t.union of each key in the table as a t.literal
+
+	@param keyTable The table to get keys from
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+function t.keyOf(keyTable)
+	local keys = {}
+	local length = 0
+	for key in pairs(keyTable) do
+		length = length + 1
+		keys[length] = key
+	end
+
+	return t.literal(table.unpack(keys, 1, length))
+end
+
+--[[**
+	Returns a t.union of each value in the table as a t.literal
+
+	@param valueTable The table to get values from
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+function t.valueOf(valueTable)
+	local values = {}
+	local length = 0
+	for _, value in pairs(valueTable) do
+		length = length + 1
+		values[length] = value
+	end
+
+	return t.literal(table.unpack(values, 1, length))
+end
+
+--[[**
+	ensures value is an integer
+
+	@param value The value to check against
+
+	@returns True iff the condition is satisfied, false otherwise
+**--]]
+function t.integer(value)
+	local success = t.number(value)
+	if not success then
+		return false
+	end
+
+	if value % 1 == 0 then
+		return true
+	else
+		return false
+	end
+end
+
+--[[**
+	ensures value is a number where min <= value
+
+	@param min The minimum to use
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.numberMin(min)
+	return function(value)
+		local success = t.number(value)
+		if not success then
+			return false
+		end
+
+		if value >= min then
+			return true
+		else
+			return false
+		end
+	end
+end
+
+--[[**
+	ensures value is a number where value <= max
+
+	@param max The maximum to use
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.numberMax(max)
+	return function(value)
+		local success = t.number(value)
+		if not success then
+			return false
+		end
+
+		if value <= max then
+			return true
+		else
+			return false
+		end
+	end
+end
+
+--[[**
+	ensures value is a number where min < value
+
+	@param min The minimum to use
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.numberMinExclusive(min)
+	return function(value)
+		local success = t.number(value)
+		if not success then
+			return false
+		end
+
+		if min < value then
+			return true
+		else
+			return false
+		end
+	end
+end
+
+--[[**
+	ensures value is a number where value < max
+
+	@param max The maximum to use
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.numberMaxExclusive(max)
+	return function(value)
+		local success = t.number(value)
+		if not success then
+			return false
+		end
+
+		if value < max then
+			return true
+		else
+			return false
+		end
+	end
+end
+
+--[[**
+	ensures value is a number where value > 0
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+t.numberPositive = t.numberMinExclusive(0)
+
+--[[**
+	ensures value is a number where value < 0
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+t.numberNegative = t.numberMaxExclusive(0)
+
+--[[**
+	ensures value is a number where min <= value <= max
+
+	@param min The minimum to use
+	@param max The maximum to use
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.numberConstrained(min, max)
+	assert(t.number(min))
+	assert(t.number(max))
+	local minCheck = t.numberMin(min)
+	local maxCheck = t.numberMax(max)
+
+	return function(value)
+		local minSuccess = minCheck(value)
+		if not minSuccess then
+			return false
+		end
+
+		local maxSuccess = maxCheck(value)
+		if not maxSuccess then
+			return false
+		end
+
+		return true
+	end
+end
+
+--[[**
+	ensures value is a number where min < value < max
+
+	@param min The minimum to use
+	@param max The maximum to use
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.numberConstrainedExclusive(min, max)
+	assert(t.number(min))
+	assert(t.number(max))
+	local minCheck = t.numberMinExclusive(min)
+	local maxCheck = t.numberMaxExclusive(max)
+
+	return function(value)
+		local minSuccess = minCheck(value)
+		if not minSuccess then
+			return false
+		end
+
+		local maxSuccess = maxCheck(value)
+		if not maxSuccess then
+			return false
+		end
+
+		return true
+	end
+end
+
+--[[**
+	ensures value matches string pattern
+
+	@param string pattern to check against
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.match(pattern)
+	assert(t.string(pattern))
+	return function(value)
+		local stringSuccess = t.string(value)
+		if not stringSuccess then
+			return false
+		end
+
+		if string.match(value, pattern) == nil then
+			return false
+		end
+
+		return true
+	end
+end
+
+--[[**
+	ensures value is either nil or passes check
+
+	@param check The check to use
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.optional(check)
+	assert(t.callback(check))
+	return function(value)
+		if value == nil then
+			return true
+		end
+
+		local success = check(value)
+		if success then
+			return true
+		else
+			return false
+		end
+	end
+end
+
+--[[**
+	matches given tuple against tuple type definition
+
+	@param ... The type definition for the tuples
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.tuple(...)
+	local checks = { ... }
+	return function(...)
+		local args = { ... }
+		for i, check in ipairs(checks) do
+			local success = check(args[i])
+			if success == false then
+				return false
+			end
+		end
+
+		return true
+	end
+end
+
+--[[**
+	ensures all keys in given table pass check
+
+	@param check The function to use to check the keys
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.keys(check)
+	assert(t.callback(check))
+	return function(value)
+		local tableSuccess = t.table(value)
+		if tableSuccess == false then
+			return false
+		end
+
+		for key in pairs(value) do
+			local success = check(key)
+			if success == false then
+				return false
+			end
+		end
+
+		return true
+	end
+end
+
+--[[**
+	ensures all values in given table pass check
+
+	@param check The function to use to check the values
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.values(check)
+	assert(t.callback(check))
+	return function(value)
+		local tableSuccess = t.table(value)
+		if tableSuccess == false then
+			return false
+		end
+
+		for _, val in pairs(value) do
+			local success = check(val)
+			if success == false then
+				return false
+			end
+		end
+
+		return true
+	end
+end
+
+--[[**
+	ensures value is a table and all keys pass keyCheck and all values pass valueCheck
+
+	@param keyCheck The function to use to check the keys
+	@param valueCheck The function to use to check the values
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.map(keyCheck, valueCheck)
+	assert(t.callback(keyCheck))
+	assert(t.callback(valueCheck))
+	local keyChecker = t.keys(keyCheck)
+	local valueChecker = t.values(valueCheck)
+
+	return function(value)
+		local keySuccess = keyChecker(value)
+		if not keySuccess then
+			return false
+		end
+
+		local valueSuccess = valueChecker(value)
+		if not valueSuccess then
+			return false
+		end
+
+		return true
+	end
+end
+
+--[[**
+	ensures value is a table and all keys pass valueCheck and all values are true
+
+	@param valueCheck The function to use to check the values
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.set(valueCheck)
+	return t.map(valueCheck, t.literal(true))
+end
+
+do
+	local arrayKeysCheck = t.keys(t.integer)
+--[[**
+		ensures value is an array and all values of the array match check
+
+		@param check The check to compare all values with
+
+		@returns A function that will return true iff the condition is passed
+	**--]]
+	function t.array(check)
+		assert(t.callback(check))
+		local valuesCheck = t.values(check)
+
+		return function(value)
+			local keySuccess = arrayKeysCheck(value)
+			if keySuccess == false then
+				return false
+			end
+
+			-- # is unreliable for sparse arrays
+			-- Count upwards using ipairs to avoid false positives from the behavior of #
+			local arraySize = 0
+
+			for _ in ipairs(value) do
+				arraySize = arraySize + 1
+			end
+
+			for key in pairs(value) do
+				if key < 1 or key > arraySize then
+					return false
+				end
+			end
+
+			local valueSuccess = valuesCheck(value)
+			if not valueSuccess then
+				return false
+			end
+
+			return true
+		end
+	end
+
+--[[**
+		ensures value is an array of a strict makeup and size
+
+		@param check The check to compare all values with
+
+		@returns A function that will return true iff the condition is passed
+	**--]]
+	function t.strictArray(...)
+		local valueTypes = { ... }
+		assert(t.array(t.callback)(valueTypes))
+
+		return function(value)
+			local keySuccess = arrayKeysCheck(value)
+			if keySuccess == false then
+				return false
+			end
+
+			-- If there's more than the set array size, disallow
+			if #valueTypes < #value then
+				return false
+			end
+
+			for idx, typeFn in pairs(valueTypes) do
+				local typeSuccess = typeFn(value[idx])
+				if not typeSuccess then
+					return false
+				end
+			end
+
+			return true
+		end
+	end
+end
+
+do
+	local callbackArray = t.array(t.callback)
+--[[**
+		creates a union type
+
+		@param ... The checks to union
+
+		@returns A function that will return true iff the condition is passed
+	**--]]
+	function t.union(...)
+		local checks = { ... }
+		assert(callbackArray(checks))
+
+		return function(value)
+			for _, check in ipairs(checks) do
+				if check(value) then
+					return true
+				end
+			end
+
+			return false
+		end
+	end
+
+--[[**
+		Alias for t.union
+	**--]]
+	t.some = t.union
+
+--[[**
+		creates an intersection type
+
+		@param ... The checks to intersect
+
+		@returns A function that will return true iff the condition is passed
+	**--]]
+	function t.intersection(...)
+		local checks = { ... }
+		assert(callbackArray(checks))
+
+		return function(value)
+			for _, check in ipairs(checks) do
+				local success = check(value)
+				if not success then
+					return false
+				end
+			end
+
+			return true
+		end
+	end
+
+--[[**
+		Alias for t.intersection
+	**--]]
+	t.every = t.intersection
+end
+
+do
+	local checkInterface = t.map(t.any, t.callback)
+--[[**
+		ensures value matches given interface definition
+
+		@param checkTable The interface definition
+
+		@returns A function that will return true iff the condition is passed
+	**--]]
+	function t.interface(checkTable)
+		assert(checkInterface(checkTable))
+		return function(value)
+			local tableSuccess = t.table(value)
+			if tableSuccess == false then
+				return false
+			end
+
+			for key, check in pairs(checkTable) do
+				local success = check(value[key])
+				if success == false then
+					return false
+				end
+			end
+
+			return true
+		end
+	end
+
+--[[**
+		ensures value matches given interface definition strictly
+
+		@param checkTable The interface definition
+
+		@returns A function that will return true iff the condition is passed
+	**--]]
+	function t.strictInterface(checkTable)
+		assert(checkInterface(checkTable))
+		return function(value)
+			local tableSuccess = t.table(value)
+			if tableSuccess == false then
+				return false
+			end
+
+			for key, check in pairs(checkTable) do
+				local success = check(value[key])
+				if success == false then
+					return false
+				end
+			end
+
+			for key in pairs(value) do
+				if not checkTable[key] then
+					return false
+				end
+			end
+
+			return true
+		end
+	end
+end
+
+--[[**
+	ensure value is an Instance and it's ClassName matches the given ClassName
+
+	@param className The class name to check for
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.instanceOf(className, childTable)
+	assert(t.string(className))
+
+	local childrenCheck
+	if childTable ~= nil then
+		childrenCheck = t.children(childTable)
+	end
+
+	return function(value)
+		local instanceSuccess = t.Instance(value)
+		if not instanceSuccess then
+			return false
+		end
+
+		if value.ClassName ~= className then
+			return false
+		end
+
+		if childrenCheck then
+			local childrenSuccess = childrenCheck(value)
+			if not childrenSuccess then
+				return false
+			end
+		end
+
+		return true
+	end
+end
+
+t.instance = t.instanceOf
+
+--[[**
+	ensure value is an Instance and it's ClassName matches the given ClassName by an IsA comparison
+
+	@param className The class name to check for
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.instanceIsA(className, childTable)
+	assert(t.string(className))
+
+	local childrenCheck
+	if childTable ~= nil then
+		childrenCheck = t.children(childTable)
+	end
+
+	return function(value)
+		local instanceSuccess = t.Instance(value)
+		if not instanceSuccess then
+			return false
+		end
+
+		if not value:IsA(className) then
+			return false
+		end
+
+		if childrenCheck then
+			local childrenSuccess = childrenCheck(value)
+			if not childrenSuccess then
+				return false
+			end
+		end
+
+		return true
+	end
+end
+
+--[[**
+	ensures value is an enum of the correct type
+
+	@param enum The enum to check
+
+	@returns A function that will return true iff the condition is passed
+**--]]
+function t.enum(enum)
+	assert(t.Enum(enum))
+	return function(value)
+		local enumItemSuccess = t.EnumItem(value)
+		if not enumItemSuccess then
+			return false
+		end
+
+		if value.EnumType == enum then
+			return true
+		else
+			return false
+		end
+	end
+end
+
+do
+	local checkWrap = t.tuple(t.callback, t.callback)
+
+--[[**
+		wraps a callback in an assert with checkArgs
+
+		@param callback The function to wrap
+		@param checkArgs The functon to use to check arguments in the assert
+
+		@returns A function that first asserts using checkArgs and then calls callback
+	**--]]
+	function t.wrap(callback, checkArgs)
+		assert(checkWrap(callback, checkArgs))
+		return function(...)
+			assert(checkArgs(...))
+			return callback(...)
+		end
+	end
+end
+
+--[[**
+	asserts a given check
+
+	@param check The function to wrap with an assert
+
+	@returns A function that simply wraps the given check in an assert
+**--]]
+function t.strict(check)
+	return function(...)
+		assert(check(...))
+	end
+end
+
+do
+	local checkChildren = t.map(t.string, t.callback)
+
+--[[**
+		Takes a table where keys are child names and values are functions to check the children against.
+		Pass an instance tree into the function.
+		If at least one child passes each check, the overall check passes.
+
+		Warning! If you pass in a tree with more than one child of the same name, this function will always return false
+
+		@param checkTable The table to check against
+
+		@returns A function that checks an instance tree
+	**--]]
+	function t.children(checkTable)
+		assert(checkChildren(checkTable))
+
+		return function(value)
+			local instanceSuccess = t.Instance(value)
+			if not instanceSuccess then
+				return false
+			end
+
+			local childrenByName = {}
+			for _, child in ipairs(value:GetChildren()) do
+				local name = child.Name
+				if checkTable[name] then
+					if childrenByName[name] then
+						return false
+					end
+
+					childrenByName[name] = child
+				end
+			end
+
+			for name, check in pairs(checkTable) do
+				local success = check(childrenByName[name])
+				if not success then
+					return false
+				end
+			end
+
+			return true
+		end
+	end
+end
+
+return { t = t }
+]]></string>
+              </Properties>
+            </Item>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="25">
+          <Properties>
+            <string name="Name">types</string>
+          </Properties>
+          <Item class="Folder" referent="26">
+            <Properties>
+              <string name="Name">include</string>
+            </Properties>
+            <Item class="Folder" referent="27">
+              <Properties>
+                <string name="Name">generated</string>
+              </Properties>
+            </Item>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="28">
+          <Properties>
+            <string name="Name">@flamework</string>
+          </Properties>
+          <Item class="Folder" referent="29">
+            <Properties>
+              <string name="Name">components</string>
+            </Properties>
+            <Item class="ModuleScript" referent="30">
+              <Properties>
+                <string name="Name">out</string>
+                <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local Maid = TS.import(script, TS.getModule(script, "@rbxts", "maid").Maid)
+local _services = TS.import(script, TS.getModule(script, "@rbxts", "services"))
+local CollectionService = _services.CollectionService
+local RunService = _services.RunService
+local _core = TS.import(script, TS.getModule(script, "@flamework", "core").out)
+local Flamework = _core.Flamework
+local Reflect = _core.Reflect
+-- eslint-disable-next-line @typescript-eslint/no-explicit-any
+--[[
+	*
+	* Register a class as a Component.
+]]
+local BaseComponent
+do
+	BaseComponent = setmetatable({}, {
+		__tostring = function()
+			return "BaseComponent"
+		end,
+	})
+	BaseComponent.__index = BaseComponent
+	function BaseComponent.new(...)
+		local self = setmetatable({}, BaseComponent)
+		return self:constructor(...) or self
+	end
+	function BaseComponent:constructor()
+		self.maid = Maid.new()
+		self._attributeChangeHandlers = {}
+	end
+	function BaseComponent:setInstance(instance, attributes)
+		self.instance = instance
+		self.attributes = attributes
+	end
+	function BaseComponent:setAttribute(key, value, postfix)
+		local previousValue = self.attributes[key]
+		self.attributes[key] = value
+		self.instance:SetAttribute(key, value)
+		local _result
+		if postfix then
+			_result = previousValue
+		else
+			_result = value
+		end
+		return _result
+	end
+	function BaseComponent:onAttributeChanged(name, cb)
+		local list = self._attributeChangeHandlers[name]
+		if not list then
+			local __attributeChangeHandlers = self._attributeChangeHandlers
+			local _exp = name
+			list = {}
+			local _list = list
+			-- ▼ Map.set ▼
+			__attributeChangeHandlers[_exp] = _list
+			-- ▲ Map.set ▲
+		end
+		-- ▼ Array.push ▼
+		list[#list + 1] = cb
+		-- ▲ Array.push ▲
+	end
+	function BaseComponent:destroy()
+		self.maid:Destroy()
+	end
+end
+--[[
+	*
+	* This class is responsible for loading and managing
+	* all components in the game.
+]]
+local Components
+do
+	Components = setmetatable({}, {
+		__tostring = function()
+			return "Components"
+		end,
+	})
+	Components.__index = Components
+	function Components.new(...)
+		local self = setmetatable({}, Components)
+		return self:constructor(...) or self
+	end
+	function Components:constructor()
+		self.components = {}
+		self.activeComponents = {}
+		self.reverseComponentsMapping = {}
+		self.tick = {}
+		self.physics = {}
+		self.render = {}
+	end
+	function Components:onInit()
+		local components = {}
+		for ctor, identifier in pairs(Reflect.objToId) do
+			local component = Reflect.getOwnMetadata(ctor, "flamework:decorators." .. "$c:init@Component")
+			if component then
+				local _arg1 = {
+					ctor = ctor,
+					config = component,
+					identifier = identifier,
+				}
+				-- ▼ Map.set ▼
+				components[ctor] = _arg1
+				-- ▲ Map.set ▲
+			end
+		end
+		self.components = components
+	end
+	function Components:onStart()
+		for _, _binding in pairs(self.components) do
+			local config = _binding.config
+			local ctor = _binding.ctor
+			local identifier = _binding.identifier
+			if config.tag ~= nil then
+				local instanceGuard = self:getInstanceGuard(ctor)
+				local addConnections = {}
+				local removeConnections = {}
+				local setupRemovedConnection
+				local setupAddedConnection = function(instance)
+					local connection
+					connection = instance.DescendantAdded:Connect(function()
+						if instanceGuard(instance) then
+							self:addComponent(instance, ctor, true)
+							connection:Disconnect()
+							-- ▼ Map.delete ▼
+							addConnections[instance] = nil
+							-- ▲ Map.delete ▲
+							setupRemovedConnection(instance)
+						end
+					end)
+					-- ▼ Map.set ▼
+					addConnections[instance] = connection
+					-- ▲ Map.set ▲
+				end
+				setupRemovedConnection = function(instance)
+					local connection
+					connection = instance.DescendantRemoving:Connect(function()
+						-- The parent does not change until the next frame, so the guard will
+						-- always succeed unless we yield.
+						RunService.Heartbeat:Wait()
+						if not instanceGuard(instance) then
+							self:removeComponent(instance, ctor)
+							connection:Disconnect()
+							-- ▼ Map.delete ▼
+							removeConnections[instance] = nil
+							-- ▲ Map.delete ▲
+							setupAddedConnection(instance)
+						end
+					end)
+					-- ▼ Map.set ▼
+					removeConnections[instance] = connection
+					-- ▲ Map.set ▲
+				end
+				local instanceAdded = function(instance)
+					if RunService:IsServer() or not instanceGuard then
+						return self:addComponent(instance, ctor)
+					end
+					if instanceGuard(instance) then
+						self:addComponent(instance, ctor, true)
+						setupRemovedConnection(instance)
+					else
+						setupAddedConnection(instance)
+					end
+				end
+				CollectionService:GetInstanceAddedSignal(config.tag):Connect(instanceAdded)
+				CollectionService:GetInstanceRemovedSignal(config.tag):Connect(function(instance)
+					local addConnection = addConnections[instance]
+					local removeConnection = removeConnections[instance]
+					-- ▼ Map.delete ▼
+					addConnections[instance] = nil
+					-- ▲ Map.delete ▲
+					-- ▼ Map.delete ▼
+					removeConnections[instance] = nil
+					-- ▲ Map.delete ▲
+					local _result = addConnection
+					if _result ~= nil then
+						_result:Disconnect()
+					end
+					local _result_1 = removeConnection
+					if _result_1 ~= nil then
+						_result_1:Disconnect()
+					end
+					self:removeComponent(instance, ctor)
+				end)
+				for _, instance in ipairs(CollectionService:GetTagged(config.tag)) do
+					self:safeCall("Failed to instantiate '" .. identifier .. "' for " .. tostring(instance), function()
+						return instanceAdded(instance)
+					end)
+				end
+			end
+		end
+	end
+	function Components:onTick(dt)
+		for component in pairs(self.tick) do
+			local name = component.instance:GetFullName()
+			local id = Reflect.getMetadata(component, "identifier")
+			self:safeCall("Component '" .. tostring(id) .. "' failed to tick " .. name, function()
+				return component:onTick(dt)
+			end)
+		end
+	end
+	function Components:onRender(dt)
+		for component in pairs(self.render) do
+			local name = component.instance:GetFullName()
+			local id = Reflect.getMetadata(component, "identifier")
+			self:safeCall("Component '" .. tostring(id) .. "' failed to render " .. name, function()
+				return component:onRender(dt)
+			end)
+		end
+	end
+	function Components:onPhysics(dt, time)
+		for component in pairs(self.physics) do
+			local name = component.instance:GetFullName()
+			local id = Reflect.getMetadata(component, "identifier")
+			self:safeCall("Component '" .. tostring(id) .. "' failed to step " .. name, function()
+				return component:onPhysics(dt, time)
+			end)
+		end
+	end
+	function Components:getAttributeGuards(ctor)
+		local attributes = {}
+		local metadata = self.components[ctor]
+		if metadata then
+			if metadata.config.attributes ~= nil then
+				for attribute, guard in pairs(metadata.config.attributes) do
+					-- ▼ Map.set ▼
+					attributes[attribute] = guard
+					-- ▲ Map.set ▲
+				end
+			end
+			local parentCtor = getmetatable(ctor)
+			if parentCtor.__index ~= nil then
+				for attribute, guard in pairs(self:getAttributeGuards(parentCtor.__index)) do
+					if not (attributes[attribute] ~= nil) then
+						-- ▼ Map.set ▼
+						attributes[attribute] = guard
+						-- ▲ Map.set ▲
+					end
+				end
+			end
+		end
+		return attributes
+	end
+	function Components:getAttributes(instance, componentInfo, guards)
+		local attributes = instance:GetAttributes()
+		local newAttributes = {}
+		local defaults = componentInfo.config.defaults
+		for key, guard in pairs(guards) do
+			local attribute = attributes[key]
+			if not guard(attribute) then
+				local _result = defaults
+				if _result ~= nil then
+					_result = _result[key]
+				end
+				if _result ~= nil then
+					local _arg1 = defaults[key]
+					-- ▼ Map.set ▼
+					newAttributes[key] = _arg1
+					-- ▲ Map.set ▲
+				else
+					error(instance:GetFullName() .. " has invalid attribute '" .. key .. "' for '" .. componentInfo.identifier .. "'")
+				end
+			else
+				-- ▼ Map.set ▼
+				newAttributes[key] = attribute
+				-- ▲ Map.set ▲
+			end
+		end
+		return newAttributes
+	end
+	function Components:getInstanceGuard(ctor)
+		local metadata = self.components[ctor]
+		if metadata then
+			if metadata.config.instanceGuard ~= nil then
+				return metadata.config.instanceGuard
+			end
+			local parentCtor = getmetatable(ctor)
+			if parentCtor.__index ~= nil then
+				return self:getInstanceGuard(parentCtor.__index)
+			end
+		end
+	end
+	function Components:safeCall(message, func)
+		task.spawn(function()
+			xpcall(func, function(err)
+				if type(err) == "string" then
+					local stack = debug.traceback(err, 2)
+					warn(message)
+					warn(stack)
+				else
+					warn(message)
+					warn(err)
+					warn(debug.traceback(nil, 2))
+				end
+			end)
+		end)
+	end
+	function Components:setupComponent(instance, attributes, component, _param)
+		local config = _param.config
+		local ctor = _param.ctor
+		local identifier = _param.identifier
+		component:setInstance(instance, attributes)
+		if Flamework._implements(component, "$:flamework@OnStart") then
+			local name = instance:GetFullName()
+			self:safeCall("Component '" .. identifier .. "' failed to start " .. name, function()
+				return component:onStart()
+			end)
+		end
+		if Flamework._implements(component, "$:flamework@OnRender") then
+			-- ▼ Set.add ▼
+			self.render[component] = true
+			-- ▲ Set.add ▲
+			component.maid:GiveTask(function()
+				-- ▼ Set.delete ▼
+				local _valueExisted = self.render[component] ~= nil
+				self.render[component] = nil
+				-- ▲ Set.delete ▲
+				return _valueExisted
+			end)
+		end
+		if Flamework._implements(component, "$:flamework@OnPhysics") then
+			-- ▼ Set.add ▼
+			self.physics[component] = true
+			-- ▲ Set.add ▲
+			component.maid:GiveTask(function()
+				-- ▼ Set.delete ▼
+				local _valueExisted = self.physics[component] ~= nil
+				self.physics[component] = nil
+				-- ▲ Set.delete ▲
+				return _valueExisted
+			end)
+		end
+		if Flamework._implements(component, "$:flamework@OnTick") then
+			-- ▼ Set.add ▼
+			self.tick[component] = true
+			-- ▲ Set.add ▲
+			component.maid:GiveTask(function()
+				-- ▼ Set.delete ▼
+				local _valueExisted = self.tick[component] ~= nil
+				self.tick[component] = nil
+				-- ▲ Set.delete ▲
+				return _valueExisted
+			end)
+		end
+		if config.refreshAttributes == nil or config.refreshAttributes then
+			local attributes = self:getAttributeGuards(ctor)
+			for attribute, guard in pairs(attributes) do
+				if type(attribute) == "string" then
+					component.maid:GiveTask(instance:GetAttributeChangedSignal(attribute):Connect(function()
+						local handlers = component._attributeChangeHandlers[attribute]
+						local value = instance:GetAttribute(attribute)
+						local attributes = component.attributes
+						if guard(value) then
+							if handlers then
+								for _, handler in ipairs(handlers) do
+									self:safeCall("Component '" .. identifier .. "' failed to call onAttributeChanged for " .. attribute, function()
+										return handler(value, attributes[attribute])
+									end)
+								end
+							end
+							-- ▼ Map.set ▼
+							attributes[attribute] = value
+							-- ▲ Map.set ▲
+						end
+					end))
+				end
+			end
+		end
+	end
+	function Components:getComponentFromSpecifier(componentSpecifier)
+		local _result
+		if type(componentSpecifier) == "string" then
+			_result = (Reflect.idToObj[componentSpecifier])
+		else
+			_result = componentSpecifier
+		end
+		return _result
+	end
+	function Components:getComponent(instance, componentSpecifier)
+		local component = self:getComponentFromSpecifier(componentSpecifier)
+		local _arg1 = "Could not find component from specifier: " .. tostring(componentSpecifier)
+		assert(component ~= 0 and component == component and component ~= "" and component, _arg1)
+		local activeComponents = self.activeComponents[instance]
+		if not activeComponents then
+			return nil
+		end
+		return activeComponents[component]
+	end
+	function Components:addComponent(instance, componentSpecifier, skipInstanceCheck)
+		local component = self:getComponentFromSpecifier(componentSpecifier)
+		local _arg1 = "Could not find component from specifier: " .. tostring(componentSpecifier)
+		assert(component ~= 0 and component == component and component ~= "" and component, _arg1)
+		local componentInfo = self.components[component]
+		assert(componentInfo, "Provided componentSpecifier does not exist")
+		local attributeGuards = self:getAttributeGuards(component)
+		local attributes = self:getAttributes(instance, componentInfo, attributeGuards)
+		if skipInstanceCheck ~= true then
+			local instanceGuard = self:getInstanceGuard(component)
+			if instanceGuard ~= nil then
+				local _arg0 = instanceGuard(instance)
+				local _arg1_1 = instance:GetFullName() .. " did not pass instance guard check for '" .. componentInfo.identifier .. "'"
+				assert(_arg0, _arg1_1)
+			end
+		end
+		local activeComponents = self.activeComponents[instance]
+		if not activeComponents then
+			local _activeComponents = self.activeComponents
+			activeComponents = {}
+			local _activeComponents_1 = activeComponents
+			-- ▼ Map.set ▼
+			_activeComponents[instance] = _activeComponents_1
+			-- ▲ Map.set ▲
+		end
+		local reverseMapping = self.reverseComponentsMapping[component]
+		if not reverseMapping then
+			local _reverseComponentsMapping = self.reverseComponentsMapping
+			reverseMapping = {}
+			local _reverseMapping = reverseMapping
+			-- ▼ Map.set ▼
+			_reverseComponentsMapping[component] = _reverseMapping
+			-- ▲ Map.set ▲
+		end
+		local existingComponent = activeComponents[component]
+		if existingComponent ~= nil then
+			return existingComponent
+		end
+		local componentInstance = Flamework.createDependency(component)
+		-- ▼ Map.set ▼
+		activeComponents[component] = componentInstance
+		-- ▲ Map.set ▲
+		-- ▼ Set.add ▼
+		reverseMapping[componentInstance] = true
+		-- ▲ Set.add ▲
+		self:setupComponent(instance, attributes, componentInstance, componentInfo)
+		return componentInstance
+	end
+	function Components:removeComponent(instance, componentSpecifier)
+		local component = self:getComponentFromSpecifier(componentSpecifier)
+		local _arg1 = "Could not find component from specifier: " .. tostring(componentSpecifier)
+		assert(component ~= 0 and component == component and component ~= "" and component, _arg1)
+		local activeComponents = self.activeComponents[instance]
+		if not activeComponents then
+			return nil
+		end
+		local existingComponent = activeComponents[component]
+		if not existingComponent then
+			return nil
+		end
+		local reverseMapping = self.reverseComponentsMapping[component]
+		if reverseMapping then
+			-- ▼ Set.delete ▼
+			reverseMapping[existingComponent] = nil
+			-- ▲ Set.delete ▲
+		end
+		existingComponent:destroy()
+		-- ▼ Map.delete ▼
+		activeComponents[component] = nil
+		-- ▲ Map.delete ▲
+		-- ▼ ReadonlyMap.size ▼
+		local _size = 0
+		for _ in pairs(activeComponents) do
+			_size += 1
+		end
+		-- ▲ ReadonlyMap.size ▲
+		if _size == 0 then
+			-- ▼ Map.delete ▼
+			self.activeComponents[instance] = nil
+			-- ▲ Map.delete ▲
+		end
+	end
+	function Components:getAllComponents(componentSpecifier)
+		local component = self:getComponentFromSpecifier(componentSpecifier)
+		local _arg1 = "Could not find component from specifier: " .. tostring(componentSpecifier)
+		assert(component ~= 0 and component == component and component ~= "" and component, _arg1)
+		local reverseMapping = self.reverseComponentsMapping[component]
+		if not reverseMapping then
+			return {}
+		end
+		local _ptr = {}
+		local _length = #_ptr
+		for _v in pairs(reverseMapping) do
+			_length += 1
+			_ptr[_length] = _v
+		end
+		return _ptr
+	end
+end
+-- (Flamework) Components metadata
+Reflect.defineMetadata(Components, "identifier", "$c:init@Components")
+Reflect.defineMetadata(Components, "flamework:isExternal", false)
+Reflect.defineMetadata(Components, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick", "$:flamework@OnPhysics", "$:flamework@OnRender" })
+Reflect.defineMetadata(Components, "flamework:decorators", { "$:flamework@Service", "$:flamework@Controller" })
+Reflect.defineMetadata(Components, "flamework:decorators.$:flamework@Service", {
+	type = "Service",
+	loadOrder = 0,
+})
+Reflect.defineMetadata(Components, "flamework:decorators.$:flamework@Controller", {
+	type = "Controller",
+	loadOrder = 0,
+})
+return {
+	BaseComponent = BaseComponent,
+	Components = Components,
+}
+]]></string>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="Folder" referent="31">
+            <Properties>
+              <string name="Name">core</string>
+            </Properties>
+            <Item class="ModuleScript" referent="32">
+              <Properties>
+                <string name="Name">out</string>
+                <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local exports = {}
+exports.Reflect = TS.import(script, script, "reflect").Reflect
+local _flamework = TS.import(script, script, "flamework")
+exports.Controller = _flamework.Controller
+exports.Dependency = _flamework.Dependency
+exports.External = _flamework.External
+exports.Service = _flamework.Service
+exports.Flamework = _flamework.Flamework
+return exports
+]]></string>
+              </Properties>
+              <Item class="ModuleScript" referent="33">
+                <Properties>
+                  <string name="Name">flamework</string>
+                  <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local _services = TS.import(script, TS.getModule(script, "@rbxts", "services"))
+local Players = _services.Players
+local RunService = _services.RunService
+local Reflect = TS.import(script, script.Parent, "reflect").Reflect
+local Flamework
+local Flamework = {}
+do
+	local _container = Flamework
+	local flameworkConfig = {
+		isDefault = true,
+	}
+	_container.flameworkConfig = flameworkConfig
+	_container.isInitialized = false
+	local resolvedDependencies = {}
+	local loadingList = {}
+	-- * @hidden
+	local resolveDependency
+	local function createDependency(ctor)
+		if table.find(loadingList, ctor) ~= nil then
+			-- ▼ ReadonlyArray.join ▼
+			local _arg0 = " <=> "
+			if _arg0 == nil then
+				_arg0 = ", "
+			end
+			local _result = table.create(#loadingList)
+			for _k, _v in ipairs(loadingList) do
+				_result[_k] = tostring(_v)
+			end
+			-- ▲ ReadonlyArray.join ▲
+			error("Circular dependency detected " .. table.concat(_result, _arg0) .. " <=> " .. tostring(ctor))
+		end
+		-- ▼ Array.push ▼
+		loadingList[#loadingList + 1] = ctor
+		-- ▲ Array.push ▲
+		local dependencies = Reflect.getMetadata(ctor, "flamework:dependencies")
+		local constructorDependencies = {}
+		if dependencies then
+			for index, dependencyId in pairs(dependencies) do
+				local dependency = resolveDependency(dependencyId)
+				constructorDependencies[index - 1 + 1] = dependency
+			end
+		end
+		local dependency = ctor.new(unpack(constructorDependencies))
+		-- ▼ Array.pop ▼
+		loadingList[#loadingList] = nil
+		-- ▲ Array.pop ▲
+		return dependency
+	end
+	_container.createDependency = createDependency
+	-- * @hidden
+	local isConstructor
+	function resolveDependency(id)
+		local resolvedDependency = resolvedDependencies[id]
+		if resolvedDependency ~= nil then
+			return resolvedDependency
+		end
+		local ctor = Reflect.idToObj[id]
+		if ctor == nil then
+			error("Dependency " .. id .. " could not be found.")
+		end
+		local _arg0 = isConstructor(ctor)
+		assert(_arg0)
+		local dependency = createDependency(ctor)
+		-- ▼ Map.set ▼
+		resolvedDependencies[id] = dependency
+		-- ▲ Map.set ▲
+		return dependency
+	end
+	_container.resolveDependency = resolveDependency
+	-- * @hidden
+	local function _addPaths(...)
+		local args = { ... }
+		local preloadPaths = {}
+		for _, arg in ipairs(args) do
+			local service = table.remove(arg, 1)
+			local currentPath = game:GetService(service)
+			if service == "StarterPlayer" then
+				if arg[1] ~= "StarterPlayerScripts" then
+					error("StarterPlayer only supports StarterPlayerScripts")
+				end
+				if not RunService:IsClient() then
+					error("The server cannot load StarterPlayer content")
+				end
+				currentPath = Players.LocalPlayer:WaitForChild("PlayerScripts")
+				table.remove(arg, 1)
+			end
+			do
+				local i = 0
+				local _shouldIncrement = false
+				while true do
+					if _shouldIncrement then
+						i += 1
+					else
+						_shouldIncrement = true
+					end
+					if not (i < #arg) then
+						break
+					end
+					currentPath = currentPath:WaitForChild(arg[i + 1])
+				end
+			end
+			local _currentPath = currentPath
+			-- ▼ Array.push ▼
+			preloadPaths[#preloadPaths + 1] = _currentPath
+			-- ▲ Array.push ▲
+		end
+		local preload = function(moduleScript)
+			local start = os.clock()
+			local _success, _valueOrError = pcall(require, moduleScript)
+			local result = _success and {
+				success = true,
+				value = _valueOrError,
+			} or {
+				success = false,
+				error = _valueOrError,
+			}
+			local endTime = math.floor((os.clock() - start) * 1000)
+			if not result.success then
+				error(moduleScript:GetFullName() .. " failed to preload (" .. tostring(endTime) .. "ms): " .. result.error)
+			end
+			print("Preloaded " .. moduleScript:GetFullName() .. " (" .. tostring(endTime) .. "ms)")
+		end
+		for _, path in ipairs(preloadPaths) do
+			if path:IsA("ModuleScript") then
+				preload(path)
+			end
+			for _, instance in ipairs(path:GetDescendants()) do
+				if instance:IsA("ModuleScript") then
+					preload(instance)
+				end
+			end
+		end
+	end
+	_container._addPaths = _addPaths
+	-- * @hidden
+	local function _implements(object, id)
+		local _exp = Reflect.getMetadatas(object, "flamework:implements")
+		local _arg0 = function(impl)
+			return table.find(impl, id) ~= nil
+		end
+		-- ▼ ReadonlyArray.some ▼
+		local _result = false
+		for _k, _v in ipairs(_exp) do
+			if _arg0(_v, _k - 1, _exp) then
+				_result = true
+				break
+			end
+		end
+		-- ▲ ReadonlyArray.some ▲
+		return _result
+	end
+	_container._implements = _implements
+	function isConstructor(obj)
+		return obj.new ~= nil and obj.constructor ~= nil
+	end
+	local function getDecorator(ctor, configType)
+		local decorators = Reflect.getMetadatas(ctor, "flamework:decorators")
+		if not decorators then
+			return nil
+		end
+		for _, decoratorIds in ipairs(decorators) do
+			for _, decoratorId in ipairs(decoratorIds) do
+				local config = Reflect.getMetadata(ctor, "flamework:decorators." .. decoratorId)
+				local _result = config
+				if _result ~= nil then
+					_result = _result.type
+				end
+				if _result == configType then
+					return config
+				end
+			end
+		end
+	end
+	local externalClasses = {}
+	--[[
+		*
+		* Allow an external module to be bootstrapped by Flamework.ignite()
+	]]
+	local function registerExternalClass(ctor)
+		-- ▼ Set.add ▼
+		externalClasses[ctor] = true
+		-- ▲ Set.add ▲
+	end
+	_container.registerExternalClass = registerExternalClass
+	local hasFlameworkIgnited = false
+	--[[
+		*
+		* Initialize Flamework.
+		*
+		* This will start up the lifecycle events on all currently registered
+		* classes.
+		*
+		* You should preload all necessary directories before calling this
+		* as newly registered classes will not run their lifecycle events.
+		*
+		* @returns All the dependencies that have been loaded.
+	]]
+	local function ignite(patchedConfig)
+		if hasFlameworkIgnited then
+			error("Flamework.ignite() should only be called once")
+		end
+		hasFlameworkIgnited = true
+		if patchedConfig then
+			for key, value in pairs(patchedConfig) do
+				flameworkConfig[key] = value
+			end
+		end
+		for ctor, identifier in pairs(Reflect.objToId) do
+			if not isConstructor(ctor) then
+				continue
+			end
+			local isPatched = Reflect.getOwnMetadata(ctor, "flamework:isPatched")
+			if flameworkConfig.loadOverride and not (table.find(flameworkConfig.loadOverride, ctor) ~= nil) then
+				if not isPatched then
+					continue
+				end
+			end
+			resolveDependency(identifier)
+		end
+		local dependencies = {}
+		local decoratorType = RunService:IsServer() and "Service" or "Controller"
+		for id in pairs(resolvedDependencies) do
+			local ctor = Reflect.idToObj[id]
+			if ctor == nil then
+				error("Could not find constructor for " .. id)
+			end
+			local decorator = getDecorator(ctor, decoratorType)
+			if not decorator then
+				continue
+			end
+			local isExternal = Reflect.getOwnMetadata(ctor, "flamework:isExternal")
+			if isExternal and not (externalClasses[ctor] ~= nil) then
+				continue
+			end
+			local dependency = resolveDependency(id)
+			local _arg0 = { dependency, decorator }
+			-- ▼ Array.push ▼
+			dependencies[#dependencies + 1] = _arg0
+			-- ▲ Array.push ▲
+		end
+		local start = {}
+		local init = {}
+		local tick = {}
+		local render = {}
+		local physics = {}
+		local _arg0 = function(_param, _param_1)
+			local a = _param[2]
+			local b = _param_1[2]
+			local _condition = a.loadOrder
+			if _condition == nil then
+				_condition = 1
+			end
+			local _condition_1 = b.loadOrder
+			if _condition_1 == nil then
+				_condition_1 = 1
+			end
+			return _condition < _condition_1
+		end
+		-- ▼ Array.sort ▼
+		table.sort(dependencies, _arg0)
+		-- ▲ Array.sort ▲
+		for _, _binding in ipairs(dependencies) do
+			local dependency = _binding[1]
+			if Flamework._implements(dependency, "$:flamework@OnInit") then
+				-- ▼ Array.push ▼
+				init[#init + 1] = dependency
+				-- ▲ Array.push ▲
+			end
+			if Flamework._implements(dependency, "$:flamework@OnStart") then
+				-- ▼ Array.push ▼
+				start[#start + 1] = dependency
+				-- ▲ Array.push ▲
+			end
+			if Flamework._implements(dependency, "$:flamework@OnTick") then
+				-- ▼ Array.push ▼
+				tick[#tick + 1] = dependency
+				-- ▲ Array.push ▲
+			end
+			if Flamework._implements(dependency, "$:flamework@OnPhysics") then
+				-- ▼ Array.push ▼
+				physics[#physics + 1] = dependency
+				-- ▲ Array.push ▲
+			end
+			if Flamework._implements(dependency, "$:flamework@OnRender") then
+				-- ▼ Array.push ▼
+				render[#render + 1] = dependency
+				-- ▲ Array.push ▲
+			end
+		end
+		for _, dependency in ipairs(init) do
+			local initResult = dependency:onInit()
+			if TS.Promise.is(initResult) then
+				initResult:await()
+			end
+		end
+		_container.isInitialized = true
+		RunService.Heartbeat:Connect(function(dt)
+			for _, dependency in ipairs(tick) do
+				task.spawn(function()
+					return dependency:onTick(dt)
+				end)
+			end
+		end)
+		RunService.Stepped:Connect(function(time, dt)
+			for _, dependency in ipairs(physics) do
+				task.spawn(function()
+					return dependency:onPhysics(dt, time)
+				end)
+			end
+		end)
+		if RunService:IsClient() then
+			RunService.RenderStepped:Connect(function(dt)
+				for _, dependency in ipairs(render) do
+					task.spawn(function()
+						return dependency:onRender(dt)
+					end)
+				end
+			end)
+		end
+		for _, dependency in ipairs(start) do
+			task.spawn(function()
+				return dependency:onStart()
+			end)
+		end
+		return dependencies
+	end
+	_container.ignite = ignite
+	--[[
+		*
+		* Preload the specified paths by requiring all ModuleScript descendants.
+	]]
+	--[[
+		*
+		* Retrieve the identifier for the specified type.
+	]]
+	--[[
+		*
+		* Check if object implements the specified interface.
+	]]
+	--[[
+		*
+		* Creates a type guard from any arbitrary type.
+	]]
+	--[[
+		*
+		* Hash a function using the method used internally by Flamework.
+		* If a context is provided, then Flamework will create a new hash
+		* if the specified string does not have one in that context.
+		* @param str The string to hash
+		* @param context A scope for the hash
+	]]
+	--[[
+		*
+		* Utility for use in test suites, not recommended for anything else.
+	]]
+	local Testing = {}
+	do
+		local _container_1 = Testing
+		local function patchDependency(patchedClass, id)
+			if id == nil then
+				error("Patching failed, no ID")
+			end
+			if resolvedDependencies[id] ~= nil then
+				error(id .. " has already been resolved, continuing is unsafe")
+			end
+			local idCtor = Reflect.idToObj[id]
+			if idCtor == nil then
+				error("Dependency " .. id .. " was not found and cannot be patched.")
+			end
+			local objMetadata = Reflect.metadata[idCtor]
+			if not objMetadata then
+				error("Dependency " .. id .. " has no existing metadata.")
+			end
+			Reflect.defineMetadata(idCtor, "flamework:isPatched", true)
+			-- ▼ Map.delete ▼
+			Reflect.metadata[idCtor] = nil
+			-- ▲ Map.delete ▲
+			-- ▼ Map.set ▼
+			Reflect.metadata[patchedClass] = objMetadata
+			-- ▲ Map.set ▲
+			-- ▼ Map.set ▼
+			Reflect.objToId[patchedClass] = id
+			-- ▲ Map.set ▲
+			-- ▼ Map.set ▼
+			Reflect.idToObj[id] = patchedClass
+			-- ▲ Map.set ▲
+		end
+		_container_1.patchDependency = patchDependency
+	end
+	_container.Testing = Testing
+end
+-- eslint-disable-next-line @typescript-eslint/no-explicit-any
+--[[
+	*
+	* Register a class as a Service.
+	*
+	* @server
+]]
+--[[
+	*
+	* Register a class as a Controller.
+	*
+	* @client
+]]
+--[[
+	*
+	* Marks this class as an external class.
+	*
+	* External classes are designed for packages and won't be
+	* bootstrapped unless explicitly specified. Excluding this
+	* inside of a package will make the class load as long as
+	* it has been loaded.
+]]
+--[[
+	*
+	* Hook into the OnInit lifecycle event.
+]]
+--[[
+	*
+	* Hook into the OnStart lifecycle event.
+]]
+--[[
+	*
+	* Hook into the OnTick lifecycle event.
+	* Equivalent to: RunService.Heartbeat
+]]
+--[[
+	*
+	* Hook into the OnPhysics lifecycle event.
+	* Equivalent to: RunService.Stepped
+]]
+--[[
+	*
+	* Hook into the OnRender lifecycle event.
+	* Equivalent to: RunService.RenderStepped
+	*
+	* @client
+]]
+return {
+	Flamework = Flamework,
+}
+]]></string>
+                </Properties>
+              </Item>
+              <Item class="ModuleScript" referent="34">
+                <Properties>
+                  <string name="Name">reflect</string>
+                  <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+--[[
+	*
+	* Reflection/metadata API
+]]
+local Reflect = {}
+do
+	local _container = Reflect
+	-- object -> property -> key -> value
+	local metadata = setmetatable({}, {
+		__mode = "k",
+	})
+	_container.metadata = metadata
+	local idToObj = {}
+	_container.idToObj = idToObj
+	local objToId = {}
+	_container.objToId = objToId
+	local NO_PROP_MARKER = {}
+	local function getObjMetadata(obj, prop, create)
+		local _condition = prop
+		if _condition == nil then
+			_condition = NO_PROP_MARKER
+		end
+		local realProp = _condition
+		if create then
+			local objMetadata = metadata[obj]
+			if not objMetadata then
+				objMetadata = {}
+				local _objMetadata = objMetadata
+				-- ▼ Map.set ▼
+				metadata[obj] = _objMetadata
+				-- ▲ Map.set ▲
+			end
+			local propMetadata = objMetadata[realProp]
+			if not propMetadata then
+				local _objMetadata = objMetadata
+				propMetadata = {}
+				local _propMetadata = propMetadata
+				-- ▼ Map.set ▼
+				_objMetadata[realProp] = _propMetadata
+				-- ▲ Map.set ▲
+			end
+			return propMetadata
+		else
+			local _result = metadata[obj]
+			if _result ~= nil then
+				_result = _result[realProp]
+			end
+			return _result
+		end
+	end
+	local function getParentConstructor(obj)
+		local metatable = getmetatable(obj)
+		if metatable and type(metatable) == "table" then
+			return rawget(metatable, "__index")
+		end
+	end
+	--[[
+		*
+		* Apply metadata onto this object.
+	]]
+	local function defineMetadata(obj, key, value, property)
+		-- 'identifier' is a special, unique ID across all metadata classes.
+		if key == "identifier" then
+			local _arg0 = type(value) == "string"
+			assert(_arg0, "identifier must be a string.")
+			local _arg0_1 = not (objToId[obj] ~= nil)
+			assert(_arg0_1, "obj is already registered.")
+			local _arg0_2 = not (idToObj[value] ~= nil)
+			assert(_arg0_2, "id is already registered.")
+			-- ▼ Map.set ▼
+			objToId[obj] = value
+			-- ▲ Map.set ▲
+			-- ▼ Map.set ▼
+			idToObj[value] = obj
+			-- ▲ Map.set ▲
+		end
+		local metadata = getObjMetadata(obj, property, true)
+		-- ▼ Map.set ▼
+		metadata[key] = value
+		-- ▲ Map.set ▲
+	end
+	_container.defineMetadata = defineMetadata
+	--[[
+		*
+		* Apply metadata in batch onto this object.
+	]]
+	local function defineMetadataBatch(obj, list, property)
+		local metadata = getObjMetadata(obj, property, true)
+		for key, value in pairs(list) do
+			-- ▼ Map.set ▼
+			metadata[key] = value
+			-- ▲ Map.set ▲
+		end
+	end
+	_container.defineMetadataBatch = defineMetadataBatch
+	--[[
+		*
+		* Delete metadata from this object.
+	]]
+	local function deleteMetadata(obj, key, property)
+		local metadata = getObjMetadata(obj, property)
+		local _result = metadata
+		if _result ~= nil then
+			-- ▼ Map.delete ▼
+			_result[key] = nil
+			-- ▲ Map.delete ▲
+		end
+	end
+	_container.deleteMetadata = deleteMetadata
+	--[[
+		*
+		* Get metadata from this object.
+		* Type parameter is an assertion.
+	]]
+	local function getOwnMetadata(obj, key, property)
+		local metadata = getObjMetadata(obj, property)
+		local _result = metadata
+		if _result ~= nil then
+			_result = _result[key]
+		end
+		return _result
+	end
+	_container.getOwnMetadata = getOwnMetadata
+	--[[
+		*
+		* Check if this object has the specified metadata key.
+	]]
+	local function hasOwnMetadata(obj, key, property)
+		local metadata = getObjMetadata(obj, property)
+		local _result = metadata
+		if _result ~= nil then
+			_result = _result[key] ~= nil
+		end
+		local _condition = _result
+		if _condition == nil then
+			_condition = false
+		end
+		return _condition
+	end
+	_container.hasOwnMetadata = hasOwnMetadata
+	--[[
+		*
+		* Retrieve all metadata keys for this object.
+	]]
+	local function getOwnMetadataKeys(obj, property)
+		local metadata = getObjMetadata(obj, property)
+		local keys = {}
+		local _result = metadata
+		if _result ~= nil then
+			local _arg0 = function(_, key)
+				-- ▼ Array.push ▼
+				local _length = #keys
+				keys[_length + 1] = key
+				-- ▲ Array.push ▲
+				return _length + 1
+			end
+			-- ▼ ReadonlyMap.forEach ▼
+			for _k, _v in pairs(_result) do
+				_arg0(_v, _k, _result)
+			end
+			-- ▲ ReadonlyMap.forEach ▲
+		end
+		return keys
+	end
+	_container.getOwnMetadataKeys = getOwnMetadataKeys
+	--[[
+		*
+		* Retrieve all values for the specified key from the object and its parents.
+		* Type parameter is an assertion.
+	]]
+	local function getMetadatas(obj, key, property)
+		local values = {}
+		local value = getOwnMetadata(obj, key, property)
+		if value ~= nil then
+			-- ▼ Array.push ▼
+			values[#values + 1] = value
+			-- ▲ Array.push ▲
+		end
+		local parent = getParentConstructor(obj)
+		if parent then
+			local _exp = getMetadatas(parent, key, property)
+			local _arg0 = function(value)
+				-- ▼ Array.push ▼
+				local _length = #values
+				values[_length + 1] = value
+				-- ▲ Array.push ▲
+				return _length + 1
+			end
+			-- ▼ ReadonlyArray.forEach ▼
+			for _k, _v in ipairs(_exp) do
+				_arg0(_v, _k - 1, _exp)
+			end
+			-- ▲ ReadonlyArray.forEach ▲
+		end
+		return values
+	end
+	_container.getMetadatas = getMetadatas
+	--[[
+		*
+		* Get metadata from this object or its parents.
+		* Type parameter is an assertion.
+	]]
+	local function getMetadata(obj, key, property)
+		local value = getOwnMetadata(obj, key, property)
+		if value ~= nil then
+			return value
+		end
+		local parent = getParentConstructor(obj)
+		if parent then
+			return getMetadata(parent, key, property)
+		end
+	end
+	_container.getMetadata = getMetadata
+	--[[
+		*
+		* Check if this object or any of its parents has the specified metadata key.
+	]]
+	local function hasMetadata(obj, key, property)
+		local value = hasOwnMetadata(obj, key, property)
+		if value then
+			return value
+		end
+		local parent = getParentConstructor(obj)
+		if parent then
+			return hasMetadata(parent, key, property)
+		end
+		return false
+	end
+	_container.hasMetadata = hasMetadata
+	--[[
+		*
+		* Retrieve all metadata keys for this object and its parents.
+	]]
+	local function getMetadataKeys(obj, property)
+		local _set = {}
+		for _, _v in ipairs(getOwnMetadataKeys(obj, property)) do
+			_set[_v] = true
+		end
+		local keys = _set
+		local parent = getParentConstructor(obj)
+		if parent then
+			local _exp = getMetadataKeys(parent, property)
+			local _arg0 = function(key)
+				-- ▼ Set.add ▼
+				keys[key] = true
+				-- ▲ Set.add ▲
+				return keys
+			end
+			-- ▼ ReadonlyArray.forEach ▼
+			for _k, _v in ipairs(_exp) do
+				_arg0(_v, _k - 1, _exp)
+			end
+			-- ▲ ReadonlyArray.forEach ▲
+		end
+		local _ptr = {}
+		local _length = #_ptr
+		for _v in pairs(keys) do
+			_length += 1
+			_ptr[_length] = _v
+		end
+		return _ptr
+	end
+	_container.getMetadataKeys = getMetadataKeys
+end
+return {
+	Reflect = Reflect,
+}
+]]></string>
+                </Properties>
+              </Item>
+            </Item>
+          </Item>
+          <Item class="Folder" referent="35">
+            <Properties>
+              <string name="Name">networking</string>
+            </Properties>
+            <Item class="ModuleScript" referent="36">
+              <Properties>
+                <string name="Name">out</string>
+                <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local NetworkingSkip = TS.import(script, script, "middleware", "skip").Skip
+local registerHandler = TS.import(script, script, "handlers").registerNetworkHandler
+local NetworkingFunctionError = TS.import(script, script, "functions", "errors").NetworkingFunctionError
+local Networking = {}
+do
+	local _container = Networking
+	--[[
+		*
+		* Creates a new event based off the supplied types.
+		* @param serverMiddleware Middleware for server events
+		* @param clientMiddleware Middleware for client events
+	]]
+	--[[
+		*
+		* Creates a new function event based off the supplied types.
+		* @param serverMiddleware Middleware for server events
+		* @param clientMiddleware Middleware for client events
+	]]
+	--[[
+		*
+		* Connects to a global network event.
+	]]
+	local registerNetworkHandler = registerHandler
+	_container.registerNetworkHandler = registerNetworkHandler
+	--[[
+		*
+		* Stops networking function middleware.
+	]]
+	local Skip = NetworkingSkip
+	_container.Skip = Skip
+	--[[
+		*
+		* A function that generates middleware.
+		* @hidden
+		* @deprecated Use {@link EventMiddleware} or {@link FunctionMiddleware}
+	]]
+	--[[
+		*
+		* A function that generates an event middleware.
+	]]
+	--[[
+		*
+		* A function that generates an event middleware.
+	]]
+end
+return {
+	Networking = Networking,
+	NetworkingFunctionError = NetworkingFunctionError,
+}
+]]></string>
+              </Properties>
+              <Item class="Folder" referent="37">
+                <Properties>
+                  <string name="Name">events</string>
+                </Properties>
+                <Item class="ModuleScript" referent="38">
+                  <Properties>
+                    <string name="Name">createClientHandler</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local Players = TS.import(script, TS.getModule(script, "@rbxts", "services")).Players
+local fireNetworkHandler = TS.import(script, script.Parent.Parent, "handlers").fireNetworkHandler
+local createMiddlewareProcessor = TS.import(script, script.Parent.Parent, "middleware", "createMiddlewareProcessor").createMiddlewareProcessor
+local createClientMethod
+local function createClientHandler(remotes, networkInfos, serverEvents, clientEvents, middlewareFactoryList)
+	local handler = {}
+	local bindables = {}
+	local processors = {}
+	for name in pairs(clientEvents) do
+		local bindable = Instance.new("BindableEvent")
+		-- ▼ Map.set ▼
+		bindables[name] = bindable
+		-- ▲ Map.set ▲
+	end
+	for name, remote in pairs(remotes) do
+		local networkInfo = networkInfos[name]
+		local _result = middlewareFactoryList
+		if _result ~= nil then
+			_result = _result[name]
+		end
+		local middlewareProcessor = createMiddlewareProcessor(_result, networkInfo, function(_, ...)
+			local args = { ... }
+			local _result_1 = bindables[name]
+			if _result_1 ~= nil then
+				_result_1:Fire(unpack(args))
+			end
+		end)
+		-- ▼ Map.set ▼
+		processors[name] = middlewareProcessor
+		-- ▲ Map.set ▲
+		remote.OnClientEvent:Connect(function(...)
+			local args = { ... }
+			local guards = clientEvents[name]
+			if not guards then
+				return nil
+			end
+			do
+				local i = 0
+				local _shouldIncrement = false
+				while true do
+					if _shouldIncrement then
+						i += 1
+					else
+						_shouldIncrement = true
+					end
+					if not (i < #guards) then
+						break
+					end
+					local guard = guards[i + 1]
+					if not guard(args[i + 1]) then
+						fireNetworkHandler("onBadRequest", Players.LocalPlayer, networkInfo, i)
+						return nil
+					end
+				end
+			end
+			middlewareProcessor(nil, unpack(args))
+		end)
+	end
+	for name, remote in pairs(remotes) do
+		local _result = clientEvents[remote.Name]
+		if _result ~= nil then
+			_result = #_result
+		end
+		local _condition = _result
+		if _condition == nil then
+			_condition = 0
+		end
+		local _name = remote.Name
+		local _exp = bindables[_name]
+		local _name_1 = remote.Name
+		handler[name] = createClientMethod(remote, _condition, _exp, processors[_name_1])
+	end
+	return handler
+end
+function createClientMethod(remote, paramCount, bindable, process)
+	local method = {
+		fire = function(self, ...)
+			local args = { ... }
+			remote:FireServer(unpack(args))
+		end,
+		connect = function(self, callback, customGuards)
+			local _arg1 = "Event " .. remote.Name .. " is not registered as a receiver."
+			assert(bindable, _arg1)
+			return bindable.Event:Connect(function(...)
+				local args = { ... }
+				if customGuards then
+					do
+						local i = 0
+						local _shouldIncrement = false
+						while true do
+							if _shouldIncrement then
+								i += 1
+							else
+								_shouldIncrement = true
+							end
+							if not (i < paramCount) then
+								break
+							end
+							local guard = customGuards[i + 1]
+							if guard ~= nil and not guard(args[i + 1]) then
+								return nil
+							end
+						end
+					end
+				end
+				return callback(unpack(args))
+			end)
+		end,
+		predict = function(self, ...)
+			local args = { ... }
+			local _arg1 = "Event " .. remote.Name .. " does not have a middleware processor."
+			assert(process, _arg1)
+			process(nil, unpack(args))
+		end,
+	}
+	setmetatable(method, {
+		__call = function(method, ...)
+			local args = { ... }
+			method:fire(unpack(args))
+		end,
+	})
+	return method
+end
+return {
+	createClientHandler = createClientHandler,
+}
+]]></string>
+                  </Properties>
+                </Item>
+                <Item class="ModuleScript" referent="39">
+                  <Properties>
+                    <string name="Name">createNetworkingEvent</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local Object = TS.import(script, TS.getModule(script, "@rbxts", "object-utils"))
+local RunService = TS.import(script, TS.getModule(script, "@rbxts", "services")).RunService
+local populateInstanceMap = TS.import(script, script.Parent.Parent, "util", "populateInstanceMap").populateInstanceMap
+local createClientHandler = TS.import(script, script.Parent, "createClientHandler").createClientHandler
+local createServerHandler = TS.import(script, script.Parent, "createServerHandler").createServerHandler
+local function createNetworkingEvent(globalName, serverEvents, clientEvents, serverMiddleware, clientMiddleware)
+	local networkInfos = {}
+	local remotes = {}
+	populateInstanceMap("RemoteEvent", "events-" .. globalName, Object.keys(serverEvents), remotes)
+	populateInstanceMap("RemoteEvent", "events-" .. globalName, Object.keys(clientEvents), remotes)
+	for name in pairs(remotes) do
+		local _arg1 = {
+			eventType = "Event",
+			globalName = globalName,
+			name = name,
+		}
+		-- ▼ Map.set ▼
+		networkInfos[name] = _arg1
+		-- ▲ Map.set ▲
+	end
+	if RunService:IsServer() then
+		return {
+			server = createServerHandler(remotes, networkInfos, serverEvents, clientEvents, serverMiddleware),
+			client = nil,
+		}
+	else
+		return {
+			server = nil,
+			client = createClientHandler(remotes, networkInfos, serverEvents, clientEvents, clientMiddleware),
+		}
+	end
+end
+return {
+	createNetworkingEvent = createNetworkingEvent,
+}
+]]></string>
+                  </Properties>
+                </Item>
+                <Item class="ModuleScript" referent="40">
+                  <Properties>
+                    <string name="Name">createServerHandler</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local Players = TS.import(script, TS.getModule(script, "@rbxts", "services")).Players
+local fireNetworkHandler = TS.import(script, script.Parent.Parent, "handlers").fireNetworkHandler
+local createMiddlewareProcessor = TS.import(script, script.Parent.Parent, "middleware", "createMiddlewareProcessor").createMiddlewareProcessor
+local createServerMethod
+local function createServerHandler(remotes, networkInfos, serverEvents, clientEvents, middlewareFactoryList)
+	local handler = {}
+	local bindables = {}
+	for name in pairs(serverEvents) do
+		local bindable = Instance.new("BindableEvent")
+		-- ▼ Map.set ▼
+		bindables[name] = bindable
+		-- ▲ Map.set ▲
+	end
+	for name, remote in pairs(remotes) do
+		local networkInfo = networkInfos[name]
+		local _result = middlewareFactoryList
+		if _result ~= nil then
+			_result = _result[name]
+		end
+		local middlewareProcessor = createMiddlewareProcessor(_result, networkInfo, function(player, ...)
+			local args = { ... }
+			local _result_1 = bindables[name]
+			if _result_1 ~= nil then
+				_result_1:Fire(player, unpack(args))
+			end
+		end)
+		remote.OnServerEvent:Connect(function(player, ...)
+			local args = { ... }
+			local guards = serverEvents[name]
+			if not guards then
+				return nil
+			end
+			do
+				local i = 0
+				local _shouldIncrement = false
+				while true do
+					if _shouldIncrement then
+						i += 1
+					else
+						_shouldIncrement = true
+					end
+					if not (i < #guards) then
+						break
+					end
+					local guard = guards[i + 1]
+					if not guard(args[i + 1]) then
+						fireNetworkHandler("onBadRequest", player, networkInfo, i)
+						return nil
+					end
+				end
+			end
+			middlewareProcessor(player, unpack(args))
+		end)
+	end
+	for name, remote in pairs(remotes) do
+		local _result = serverEvents[name]
+		if _result ~= nil then
+			_result = #_result
+		end
+		local _condition = _result
+		if _condition == nil then
+			_condition = 0
+		end
+		handler[name] = createServerMethod(remote, _condition, bindables[name])
+	end
+	return handler
+end
+function createServerMethod(remote, paramCount, bindable)
+	local method = {
+		fire = function(self, players, ...)
+			local args = { ... }
+			if typeof(players) == "Instance" then
+				remote:FireClient(players, unpack(args))
+			else
+				for _, player in ipairs(players) do
+					remote:FireClient(player, unpack(args))
+				end
+			end
+		end,
+		broadcast = function(self, ...)
+			local args = { ... }
+			remote:FireAllClients(unpack(args))
+		end,
+		except = function(self, players, ...)
+			local args = { ... }
+			if typeof(players) == "Instance" then
+				players = { players }
+			end
+			for _, player in ipairs(Players:GetPlayers()) do
+				if not (table.find(players, player) ~= nil) then
+					self:fire(player, unpack(args))
+				end
+			end
+		end,
+		connect = function(self, callback, customGuards)
+			local _arg1 = "Event " .. remote.Name .. " is not registered as a receiver."
+			assert(bindable, _arg1)
+			return bindable.Event:Connect(function(player, ...)
+				local args = { ... }
+				if customGuards then
+					do
+						local i = 0
+						local _shouldIncrement = false
+						while true do
+							if _shouldIncrement then
+								i += 1
+							else
+								_shouldIncrement = true
+							end
+							if not (i < paramCount) then
+								break
+							end
+							local guard = customGuards[i + 1]
+							if guard ~= nil and not guard(args[i + 1]) then
+								return nil
+							end
+						end
+					end
+				end
+				return callback(player, unpack(args))
+			end)
+		end,
+	}
+	setmetatable(method, {
+		__call = function(method, player, ...)
+			local args = { ... }
+			method:fire(player, unpack(args))
+		end,
+	})
+	return method
+end
+return {
+	createServerHandler = createServerHandler,
+}
+]]></string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="Folder" referent="41">
+                <Properties>
+                  <string name="Name">functions</string>
+                </Properties>
+                <Item class="ModuleScript" referent="42">
+                  <Properties>
+                    <string name="Name">createClientHandler</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local _errors = TS.import(script, script.Parent, "errors")
+local getFunctionError = _errors.getFunctionError
+local NetworkingFunctionError = _errors.NetworkingFunctionError
+local createMiddlewareProcessor = TS.import(script, script.Parent.Parent, "middleware", "createMiddlewareProcessor").createMiddlewareProcessor
+local Skip = TS.import(script, script.Parent.Parent, "middleware", "skip").Skip
+local Players = TS.import(script, TS.getModule(script, "@rbxts", "services")).Players
+local fireNetworkHandler = TS.import(script, script.Parent.Parent, "handlers").fireNetworkHandler
+local createClientMethod
+local function createClientHandler(serverRemotes, clientRemotes, networkInfos, serverEvents, clientEvents, middlewareFactoryList)
+	local handler = {}
+	local processors = {}
+	local requestInfo = {
+		nextId = 0,
+		requests = {},
+	}
+	local function createMethod(name, networkInfo, remote)
+		if handler[name] ~= nil then
+			return nil
+		end
+		local _condition = serverEvents[name]
+		if _condition == nil then
+			_condition = clientEvents[name]
+		end
+		local _exp = _condition[2]
+		local _result = middlewareFactoryList
+		if _result ~= nil then
+			_result = _result[name]
+		end
+		local _condition_1 = _result
+		if _condition_1 == nil then
+			_condition_1 = {}
+		end
+		handler[name] = createClientMethod(_exp, _condition_1, processors, networkInfo, requestInfo, name, remote)
+	end
+	for alias, remote in pairs(serverRemotes) do
+		local name = string.sub(alias, 3)
+		local networkInfo = networkInfos[name]
+		createMethod(name, networkInfo, remote)
+		remote.OnClientEvent:Connect(function(id, processResult, result)
+			if not (type(id) == "number") then
+				return nil
+			end
+			local request = requestInfo.requests[id]
+			-- ▼ Map.delete ▼
+			requestInfo.requests[id] = nil
+			-- ▲ Map.delete ▲
+			if request then
+				request(result, getFunctionError(processResult))
+			end
+		end)
+	end
+	for alias, remote in pairs(clientRemotes) do
+		-- invoke callback
+		local name = string.sub(alias, 3)
+		local networkInfo = networkInfos[name]
+		createMethod(name, networkInfo, remote)
+		remote.OnClientEvent:Connect(function(id, ...)
+			local args = { ... }
+			local guards = clientEvents[name]
+			if not guards then
+				return nil
+			end
+			do
+				local i = 0
+				local _shouldIncrement = false
+				while true do
+					if _shouldIncrement then
+						i += 1
+					else
+						_shouldIncrement = true
+					end
+					if not (i < #guards[1]) then
+						break
+					end
+					local guard = guards[1][i + 1]
+					if not guard(args[i + 1]) then
+						fireNetworkHandler("onBadRequest", Players.LocalPlayer, networkInfo, i)
+						return remote:FireServer(id, NetworkingFunctionError.BadRequest)
+					end
+				end
+			end
+			local processor = processors[name]
+			if processor then
+				local result = processor(nil, unpack(args))
+				remote:FireServer(id, result == Skip and NetworkingFunctionError.Cancelled or true, result)
+			else
+				remote:FireServer(id, false)
+			end
+		end)
+	end
+	return handler
+end
+local timeout
+function createClientMethod(guard, middleware, processors, networkInfo, requestInfo, name, remote)
+	local method = {
+		invoke = function(self, ...)
+			local args = { ... }
+			return TS.Promise.race({ timeout(10, NetworkingFunctionError.Timeout), TS.Promise.new(function(resolve, reject, onCancel)
+				local _original = requestInfo.nextId
+				requestInfo.nextId += 1
+				local id = _original
+				local _requests = requestInfo.requests
+				local _arg1 = function(value, rejection)
+					if rejection then
+						return reject(rejection)
+					end
+					if not guard(value) then
+						fireNetworkHandler("onBadResponse", Players.LocalPlayer, networkInfo)
+						return reject(NetworkingFunctionError.InvalidResult)
+					end
+					resolve(value)
+				end
+				-- ▼ Map.set ▼
+				_requests[id] = _arg1
+				-- ▲ Map.set ▲
+				onCancel(function()
+					-- ▼ Map.delete ▼
+					requestInfo.requests[id] = nil
+					-- ▲ Map.delete ▲
+				end)
+				remote:FireServer(id, unpack(args))
+			end) })
+		end,
+		setCallback = function(self, callback)
+			if processors[name] ~= nil then
+				warn("Function.setCallback was called multiple times for " .. name)
+			end
+			local processor = createMiddlewareProcessor(middleware, networkInfo, function(_, ...)
+				local args = { ... }
+				return callback(unpack(args))
+			end)
+			-- ▼ Map.set ▼
+			processors[name] = processor
+			-- ▲ Map.set ▲
+		end,
+		predict = function(self, ...)
+			local args = { ... }
+			return TS.Promise.new(function(resolve, reject)
+				local processor = processors[name]
+				if not processor then
+					return reject(NetworkingFunctionError.Unprocessed)
+				end
+				resolve(processor(nil, unpack(args)))
+			end)
+		end,
+	}
+	setmetatable(method, {
+		__call = function(method, ...)
+			local args = { ... }
+			return method:invoke(unpack(args))
+		end,
+	})
+	return method
+end
+function timeout(timeout, rejectValue)
+	local _exp = TS.Promise.delay(timeout)
+	local _arg0 = function()
+		return TS.Promise.reject(rejectValue)
+	end
+	return _exp:andThen(_arg0)
+end
+return {
+	createClientHandler = createClientHandler,
+}
+]]></string>
+                  </Properties>
+                </Item>
+                <Item class="ModuleScript" referent="43">
+                  <Properties>
+                    <string name="Name">createNetworkingFunction</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local Object = TS.import(script, TS.getModule(script, "@rbxts", "object-utils"))
+local RunService = TS.import(script, TS.getModule(script, "@rbxts", "services")).RunService
+local populateInstanceMap = TS.import(script, script.Parent.Parent, "util", "populateInstanceMap").populateInstanceMap
+local createClientHandler = TS.import(script, script.Parent, "createClientHandler").createClientHandler
+local createServerHandler = TS.import(script, script.Parent, "createServerHandler").createServerHandler
+local function createNetworkingFunction(globalName, serverEvents, clientEvents, serverMiddleware, clientMiddleware)
+	local networkInfos = {}
+	local serverRemotes = {}
+	local clientRemotes = {}
+	local _exp = Object.keys(serverEvents)
+	local _arg0 = function(x)
+		return "s:" .. tostring(x)
+	end
+	-- ▼ ReadonlyArray.map ▼
+	local _newValue = table.create(#_exp)
+	for _k, _v in ipairs(_exp) do
+		_newValue[_k] = _arg0(_v, _k - 1, _exp)
+	end
+	-- ▲ ReadonlyArray.map ▲
+	local serverNames = _newValue
+	local _exp_1 = Object.keys(clientEvents)
+	local _arg0_1 = function(x)
+		return "c:" .. tostring(x)
+	end
+	-- ▼ ReadonlyArray.map ▼
+	local _newValue_1 = table.create(#_exp_1)
+	for _k, _v in ipairs(_exp_1) do
+		_newValue_1[_k] = _arg0_1(_v, _k - 1, _exp_1)
+	end
+	-- ▲ ReadonlyArray.map ▲
+	local clientNames = _newValue_1
+	populateInstanceMap("RemoteEvent", "functions-" .. globalName, serverNames, serverRemotes)
+	populateInstanceMap("RemoteEvent", "functions-" .. globalName, clientNames, clientRemotes)
+	for alias in pairs(serverRemotes) do
+		local name = string.sub(alias, 3)
+		local _arg1 = {
+			eventType = "Function",
+			globalName = globalName,
+			name = name,
+		}
+		-- ▼ Map.set ▼
+		networkInfos[name] = _arg1
+		-- ▲ Map.set ▲
+	end
+	for alias in pairs(clientRemotes) do
+		local name = string.sub(alias, 3)
+		local _arg1 = {
+			eventType = "Function",
+			globalName = globalName,
+			name = name,
+		}
+		-- ▼ Map.set ▼
+		networkInfos[name] = _arg1
+		-- ▲ Map.set ▲
+	end
+	if RunService:IsServer() then
+		return {
+			server = createServerHandler(serverRemotes, clientRemotes, networkInfos, serverEvents, clientEvents, serverMiddleware),
+			client = nil,
+		}
+	else
+		return {
+			server = nil,
+			client = createClientHandler(serverRemotes, clientRemotes, networkInfos, serverEvents, clientEvents, clientMiddleware),
+		}
+	end
+end
+return {
+	createNetworkingFunction = createNetworkingFunction,
+}
+]]></string>
+                  </Properties>
+                </Item>
+                <Item class="ModuleScript" referent="44">
+                  <Properties>
+                    <string name="Name">createServerHandler</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local Players = TS.import(script, TS.getModule(script, "@rbxts", "services")).Players
+local _errors = TS.import(script, script.Parent, "errors")
+local getFunctionError = _errors.getFunctionError
+local NetworkingFunctionError = _errors.NetworkingFunctionError
+local createMiddlewareProcessor = TS.import(script, script.Parent.Parent, "middleware", "createMiddlewareProcessor").createMiddlewareProcessor
+local Skip = TS.import(script, script.Parent.Parent, "middleware", "skip").Skip
+local fireNetworkHandler = TS.import(script, script.Parent.Parent, "handlers").fireNetworkHandler
+local createServerMethod, getRequestInfo
+local function createServerHandler(serverRemotes, clientRemotes, networkInfos, serverEvents, clientEvents, middlewareFactoryList)
+	local handler = {}
+	local processors = {}
+	local players = {}
+	local function createMethod(name, networkInfo, remote)
+		if handler[name] ~= nil then
+			return nil
+		end
+		local _condition = serverEvents[name]
+		if _condition == nil then
+			_condition = clientEvents[name]
+		end
+		local _exp = _condition[2]
+		local _result = middlewareFactoryList
+		if _result ~= nil then
+			_result = _result[name]
+		end
+		local _condition_1 = _result
+		if _condition_1 == nil then
+			_condition_1 = {}
+		end
+		handler[name] = createServerMethod(_exp, _condition_1, processors, networkInfo, players, name, remote)
+	end
+	for alias, remote in pairs(clientRemotes) do
+		-- create server method
+		local name = string.sub(alias, 3)
+		local networkInfo = networkInfos[name]
+		createMethod(name, networkInfo, remote)
+		remote.OnServerEvent:Connect(function(player, id, processResult, result)
+			if not (type(id) == "number") then
+				return nil
+			end
+			local requestInfo = getRequestInfo(player, players)
+			local request = requestInfo.requests[id]
+			-- ▼ Map.delete ▼
+			requestInfo.requests[id] = nil
+			-- ▲ Map.delete ▲
+			if request then
+				request(result, getFunctionError(processResult))
+			end
+		end)
+	end
+	for alias, remote in pairs(serverRemotes) do
+		-- invoke callback
+		local name = string.sub(alias, 3)
+		local networkInfo = networkInfos[name]
+		createMethod(name, networkInfo, remote)
+		remote.OnServerEvent:Connect(function(player, id, ...)
+			local args = { ... }
+			local guards = serverEvents[name]
+			if not guards then
+				return nil
+			end
+			do
+				local i = 0
+				local _shouldIncrement = false
+				while true do
+					if _shouldIncrement then
+						i += 1
+					else
+						_shouldIncrement = true
+					end
+					if not (i < #guards[1]) then
+						break
+					end
+					local guard = guards[1][i + 1]
+					if not guard(args[i + 1]) then
+						fireNetworkHandler("onBadRequest", player, networkInfo, i)
+						return remote:FireClient(player, id, NetworkingFunctionError.BadRequest)
+					end
+				end
+			end
+			local processor = processors[name]
+			if processor then
+				local result = processor(player, unpack(args))
+				remote:FireClient(player, id, result == Skip and NetworkingFunctionError.Cancelled or true, result)
+			else
+				remote:FireClient(player, id, false)
+			end
+		end)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		-- ▼ Map.delete ▼
+		players[player] = nil
+		-- ▲ Map.delete ▲
+	end)
+	return handler
+end
+local timeout
+function createServerMethod(guard, middleware, processors, networkInfo, players, name, remote)
+	local method = {
+		invoke = function(self, player, ...)
+			local args = { ... }
+			return TS.Promise.race({ timeout(10, NetworkingFunctionError.Timeout), TS.Promise.new(function(resolve, reject, onCancel)
+				local requestInfo = getRequestInfo(player, players)
+				local _original = requestInfo.nextId
+				requestInfo.nextId += 1
+				local id = _original
+				local _requests = requestInfo.requests
+				local _arg1 = function(value, rejection)
+					if rejection then
+						return reject(rejection)
+					end
+					if not guard(value) then
+						fireNetworkHandler("onBadResponse", player, networkInfo)
+						return reject(NetworkingFunctionError.InvalidResult)
+					end
+					resolve(value)
+				end
+				-- ▼ Map.set ▼
+				_requests[id] = _arg1
+				-- ▲ Map.set ▲
+				onCancel(function()
+					-- ▼ Map.delete ▼
+					requestInfo.requests[id] = nil
+					-- ▲ Map.delete ▲
+				end)
+				remote:FireClient(player, id, unpack(args))
+			end) })
+		end,
+		setCallback = function(self, callback)
+			if processors[name] ~= nil then
+				warn("Function.setCallback was called multiple times for " .. name)
+			end
+			local processor = createMiddlewareProcessor(middleware, networkInfo, callback)
+			-- ▼ Map.set ▼
+			processors[name] = processor
+			-- ▲ Map.set ▲
+		end,
+	}
+	setmetatable(method, {
+		__call = function(method, player, ...)
+			local args = { ... }
+			return method:invoke(player, unpack(args))
+		end,
+	})
+	return method
+end
+function getRequestInfo(player, map)
+	local requestInfo = map[player]
+	if requestInfo then
+		return requestInfo
+	end
+	requestInfo = {
+		nextId = 0,
+		requests = {},
+	}
+	local _requestInfo = requestInfo
+	-- ▼ Map.set ▼
+	map[player] = _requestInfo
+	-- ▲ Map.set ▲
+	return requestInfo
+end
+function timeout(timeout, rejectValue)
+	local _exp = TS.Promise.delay(timeout)
+	local _arg0 = function()
+		return TS.Promise.reject(rejectValue)
+	end
+	return _exp:andThen(_arg0)
+end
+return {
+	createServerHandler = createServerHandler,
+}
+]]></string>
+                  </Properties>
+                </Item>
+                <Item class="ModuleScript" referent="45">
+                  <Properties>
+                    <string name="Name">errors</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local t = TS.import(script, TS.getModule(script, "@rbxts", "t").lib.ts).t
+local isNetworkingFunctionError = t.union(t.literal("Timeout"), t.literal("Cancelled"), t.literal("BadRequest"), t.literal("Unprocessed"), t.literal("InvalidResult"))
+local NetworkingFunctionError
+do
+	local _inverse = {}
+	NetworkingFunctionError = setmetatable({}, {
+		__index = _inverse,
+	})
+	NetworkingFunctionError.Timeout = "Timeout"
+	_inverse.Timeout = "Timeout"
+	NetworkingFunctionError.Cancelled = "Cancelled"
+	_inverse.Cancelled = "Cancelled"
+	NetworkingFunctionError.BadRequest = "BadRequest"
+	_inverse.BadRequest = "BadRequest"
+	NetworkingFunctionError.Unprocessed = "Unprocessed"
+	_inverse.Unprocessed = "Unprocessed"
+	NetworkingFunctionError.InvalidResult = "InvalidResult"
+	_inverse.InvalidResult = "InvalidResult"
+end
+local function getFunctionError(value)
+	if type(value) == "boolean" then
+		return value == false and NetworkingFunctionError.Unprocessed or nil
+	elseif isNetworkingFunctionError(value) then
+		return value
+	end
+end
+return {
+	getFunctionError = getFunctionError,
+	isNetworkingFunctionError = isNetworkingFunctionError,
+	NetworkingFunctionError = NetworkingFunctionError,
+}
+]]></string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="ModuleScript" referent="46">
+                <Properties>
+                  <string name="Name">handlers</string>
+                  <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local Signal = TS.import(script, TS.getModule(script, "@rbxts", "signal"))
+local NetworkEvents = {
+	onBadRequest = Signal.new(),
+	onBadResponse = Signal.new(),
+}
+local function registerNetworkHandler(event, callback)
+	return NetworkEvents[event]:Connect(callback)
+end
+local function fireNetworkHandler(event, ...)
+	local args = { ... }
+	(NetworkEvents[event]):Fire(unpack(args))
+end
+return {
+	registerNetworkHandler = registerNetworkHandler,
+	fireNetworkHandler = fireNetworkHandler,
+}
+]]></string>
+                </Properties>
+              </Item>
+              <Item class="Folder" referent="47">
+                <Properties>
+                  <string name="Name">middleware</string>
+                </Properties>
+                <Item class="ModuleScript" referent="48">
+                  <Properties>
+                    <string name="Name">createMiddlewareProcessor</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local function createMiddlewareProcessor(middlewareFactories, networkInfo, finalize)
+	local middleware = {}
+	if not middlewareFactories or #middlewareFactories == 0 then
+		middleware[1] = finalize
+	else
+		do
+			local i = #middlewareFactories - 1
+			local _shouldIncrement = false
+			while true do
+				if _shouldIncrement then
+					i -= 1
+				else
+					_shouldIncrement = true
+				end
+				if not (i >= 0) then
+					break
+				end
+				local factory = middlewareFactories[i + 1]
+				local _condition = middleware[i + 1 + 1]
+				if _condition == nil then
+					_condition = finalize
+				end
+				middleware[i + 1] = factory(_condition, networkInfo)
+			end
+		end
+	end
+	return middleware[1]
+end
+return {
+	createMiddlewareProcessor = createMiddlewareProcessor,
+}
+]]></string>
+                  </Properties>
+                </Item>
+                <Item class="ModuleScript" referent="49">
+                  <Properties>
+                    <string name="Name">skip</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local Skip = {
+	__index = function()
+		return nil
+	end,
+	__newindex = function()
+		return nil
+	end,
+	__tostring = function()
+		return "Networking.Skip"
+	end,
+}
+setmetatable(Skip, Skip)
+return {
+	Skip = Skip,
+}
+]]></string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="Folder" referent="50">
+                <Properties>
+                  <string name="Name">util</string>
+                </Properties>
+                <Item class="ModuleScript" referent="51">
+                  <Properties>
+                    <string name="Name">populateInstanceMap</string>
+                    <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = _G[script]
+local _services = TS.import(script, TS.getModule(script, "@rbxts", "services"))
+local ReplicatedStorage = _services.ReplicatedStorage
+local RunService = _services.RunService
+local function populateInstanceMap(className, globalName, names, map)
+	local _result
+	if RunService:IsServer() then
+		_result = ReplicatedStorage:FindFirstChild(globalName)
+	else
+		_result = ReplicatedStorage:WaitForChild(globalName)
+	end
+	local remotes = _result
+	if not remotes then
+		remotes = Instance.new("Folder")
+		remotes.Name = globalName
+		remotes.Parent = ReplicatedStorage
+	end
+	for _, name in ipairs(names) do
+		if RunService:IsClient() then
+			local instance = remotes:WaitForChild(name)
+			if instance:IsA(className) then
+				-- ▼ Map.set ▼
+				map[name] = instance
+				-- ▲ Map.set ▲
+			end
+		else
+			local instance = remotes:FindFirstChild(name)
+			if instance then
+				if not instance:IsA(className) then
+					error("Found " .. name .. " but it is not a remote.")
+				end
+				-- ▼ Map.set ▼
+				map[name] = instance
+				-- ▲ Map.set ▲
+			else
+				local remote = Instance.new(className)
+				remote.Name = name
+				remote.Parent = remotes
+				-- ▼ Map.set ▼
+				map[name] = remote
+				-- ▲ Map.set ▲
+			end
+		end
+	end
+end
+return {
+	populateInstanceMap = populateInstanceMap,
+}
+]]></string>
+                  </Properties>
+                </Item>
+              </Item>
+            </Item>
+          </Item>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="52">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Folder" referent="53">
+      <Properties>
+        <string name="Name">TS</string>
+      </Properties>
+      <Item class="Folder" referent="54">
+        <Properties>
+          <string name="Name">components</string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="55">
+        <Properties>
+          <string name="Name">events</string>
+          <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("RuntimeLib"))
+local GlobalEvents = TS.import(script, game:GetService("ReplicatedStorage"), "TS", "events").GlobalEvents
+local Events = GlobalEvents.server
+return {
+	Events = Events,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="56">
+        <Properties>
+          <string name="Name">runtime</string>
+          <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("RuntimeLib"))
+local Flamework = TS.import(script, TS.getModule(script, "@flamework", "core").out).Flamework
+Flamework._addPaths({ "ServerScriptService", "TS", "components" })
+Flamework._addPaths({ "ServerScriptService", "TS", "services" })
+Flamework._addPaths({ "ReplicatedStorage", "TS", "components" })
+Flamework.ignite()
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="57">
+        <Properties>
+          <string name="Name">services</string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="SoundService" referent="58">
+    <Properties>
+      <string name="Name">SoundService</string>
+      <bool name="RespectFilteringEnabled">true</bool>
+    </Properties>
+  </Item>
+  <Item class="StarterPlayer" referent="59">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="60">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="Folder" referent="61">
+        <Properties>
+          <string name="Name">TS</string>
+        </Properties>
+        <Item class="Folder" referent="62">
+          <Properties>
+            <string name="Name">components</string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="63">
+          <Properties>
+            <string name="Name">controllers</string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="64">
+          <Properties>
+            <string name="Name">events</string>
+            <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("RuntimeLib"))
+local GlobalEvents = TS.import(script, game:GetService("ReplicatedStorage"), "TS", "events").GlobalEvents
+local Events = GlobalEvents.client
+return {
+	Events = Events,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="LocalScript" referent="65">
+          <Properties>
+            <string name="Name">runtime</string>
+            <string name="Source"><![CDATA[-- Compiled with roblox-ts v1.2.3
+local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("RuntimeLib"))
+local Flamework = TS.import(script, TS.getModule(script, "@flamework", "core").out).Flamework
+Flamework._addPaths({ "StarterPlayer", "StarterPlayerScripts", "TS", "components" })
+Flamework._addPaths({ "StarterPlayer", "StarterPlayerScripts", "TS", "controllers" })
+Flamework._addPaths({ "ReplicatedStorage", "TS", "components" })
+Flamework.ignite()
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="Workspace" referent="66">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <bool name="FilteringEnabled">true</bool>
+    </Properties>
+  </Item>
+</roblox>

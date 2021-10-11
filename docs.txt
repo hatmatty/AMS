@@ -1,0 +1,3 @@
+command to generate updated docs:
+
+npx typedoc --entryPointStrategy expand ./src
