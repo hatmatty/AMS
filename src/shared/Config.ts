@@ -26,7 +26,7 @@ const ShieldTool = {
 // CONFIG:
 const Config = {
 	Animations: {
-		WalkAnimation: 6492892050,
+		Walk: 6492892050,
 
 		Stunned: {
 			Stab: 7129179801,

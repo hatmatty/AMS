@@ -8,14 +8,18 @@ import { Players } from "@rbxts/services";
 
 const Camera = game.Workspace.CurrentCamera;
 
+/**
+ * Listens to attack status signals (when the player swing theirs sword, hits a player, gets damaged, etc) then applies a camera shake effect accordingly.
+ */
 @Controller()
 export class Shake implements OnInit {
-	CameraShaker = new CameraShaker(100, (shakeCFrame) => {
+	private CameraShaker = new CameraShaker(100, (shakeCFrame) => {
 		if (!Camera) {
 			error(`player camera for ${Players.LocalPlayer.Name} not found`);
 		}
 		Camera.CFrame = Camera.CFrame.mul(shakeCFrame);
 	});
+
 	onInit() {
 		if (!Config.Elements.CameraShake) {
 			return;
