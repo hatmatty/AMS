@@ -19,9 +19,11 @@ const ShieldAnims = {
 
 // DEFAULT TOOLS:
 const ShieldTool = {
-	Handler: "Shield",
+	Tag: "Shield",
 	Animations: ShieldAnims,
 };
+
+type ToolName = "Kopis" | "Shield" | "Sparta" | "Athens";
 
 // CONFIG:
 const Config = {
@@ -54,7 +56,7 @@ const Config = {
 
 	Tools: {
 		Kopis: {
-			Handler: "Weapon",
+			Tag: "Weapon",
 			Animations: WeaponAnims,
 		},
 		Shield: ShieldTool,
