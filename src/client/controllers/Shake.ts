@@ -13,7 +13,7 @@ const Camera = game.Workspace.CurrentCamera;
  */
 @Controller()
 export class Shake implements OnInit {
-	private CameraShaker = new CameraShaker(100, (shakeCFrame) => {
+	public CamShaker = new CameraShaker(Enum.RenderPriority.Camera.Value, (shakeCFrame) => {
 		if (!Camera) {
 			error(`player camera for ${Players.LocalPlayer.Name} not found`);
 		}
@@ -25,21 +25,28 @@ export class Shake implements OnInit {
 			return;
 		}
 
+		this.CamShaker.Start();
+
 		Events.AttackStatus.connect((status) => {
+			print(status);
 			switch (status) {
-				case "BLOCKED": {
-					this.CameraShaker.Shake(CameraShaker.Presets.Bump);
-					return this.CameraShaker.Shake(CameraShaker.Presets.Bump);
+				case "GAVE_BLOCK": {
+					this.CamShaker.Shake(CameraShaker.Presets.Bump);
+					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
+				}
+				case "GOT_BLOCK": {
+					this.CamShaker.Shake(CameraShaker.Presets.Bump);
+					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
 				}
 				case "DAMAGED": {
-					this.CameraShaker.Shake(CameraShaker.Presets.Bump);
-					return this.CameraShaker.Shake(CameraShaker.Presets.Bump);
+					this.CamShaker.Shake(CameraShaker.Presets.Bump);
+					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
 				}
 				case "HIT": {
-					return this.CameraShaker.Shake(CameraShaker.Presets.Bump);
+					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
 				}
 				case "SWUNG": {
-					return this.CameraShaker.Shake(CameraShaker.Presets.Bump);
+					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
 				}
 				default: {
 					const _exhaustiveCheck: never = status;

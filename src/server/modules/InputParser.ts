@@ -34,7 +34,6 @@ export function ParseInput(
 		const State = ParseInput(input.UserInputState);
 
 		const Input = KeyCode === "Unknown" ? Type : KeyCode;
-
 		return { Input: Input, State: State };
 	}
 }

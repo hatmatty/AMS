@@ -100,7 +100,6 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 			}
 
 			this.EssentialAnimation = playAnim(this.Player, Animation, { Looped: true });
-			print(this.EssentialAnimation);
 			this.setState(option + "d");
 
 			End();

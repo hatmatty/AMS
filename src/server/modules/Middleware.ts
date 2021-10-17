@@ -1,4 +1,4 @@
-type Middleware<P extends unknown[]> = (stop: Callback, ...Params: P) => void;
+type Middleware<P extends unknown[]> = (stop: (msg: string) => never, ...Params: P) => void;
 
 export function GenerateMiddleware<P extends unknown[]>() {
 	const Middlewares = new Array<Middleware<P>>();
@@ -10,13 +10,9 @@ export function GenerateMiddleware<P extends unknown[]>() {
 }
 
 export function RunMiddleware<P extends unknown[], T extends Middleware<P>>(Middleware: T[], ...Args: P) {
-	let stop = false;
 	for (const middleware of Middleware) {
-		middleware(() => {
-			stop = true;
+		middleware((message: string) => {
+			error(`EXIT MIDDLEWARE // ${message} `, 0);
 		}, ...Args);
-		if (stop) {
-			return;
-		}
 	}
 }

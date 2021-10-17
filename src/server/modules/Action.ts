@@ -39,8 +39,8 @@ export class Action {
 			error("attempted to start an action that has already been started");
 		}
 		this.Status = "STARTED";
-		this.Started.Fire();
 		this._start(() => this.End(), this.janitor);
+		this.Started.Fire();
 	}
 
 	/**
@@ -51,10 +51,10 @@ export class Action {
 			error("attempted to end an action which hasn't been started or has already ended");
 		}
 		this.Status = "ENDED";
-		this.Ended.Fire();
 		if (this._end) {
 			this._end();
 		}
 		this.janitor.Cleanup();
+		this.Ended.Fire();
 	}
 }

@@ -2,5 +2,6 @@
     "entryPoints": ["./src"],
     "out": "doc", 
     "entryPointStrategy":"expand",
-    "readme": "./README.md"
+    "readme": "./README.md",
+    "theme": "./node_modules/typedoc-github-wiki-theme/dist"
 }

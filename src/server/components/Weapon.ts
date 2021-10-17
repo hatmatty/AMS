@@ -15,7 +15,7 @@ import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
 // type HitMiddleWare = (stop: Callback, tool: Weapon, hit: BasePart) => void;
 // const HitMiddleWare: HitMiddleWare[] = [];
 
-const [HitMiddleWare, AddHitMiddleware] = GenerateMiddleware<[Weapon, BasePart]>();
+const [HitMiddleWare, AddHitMiddleware] = GenerateMiddleware<[Weapon, Instance, Map<Instance, boolean>]>();
 const [DamageMiddleware, AddDamageMiddleware] = GenerateMiddleware<[Weapon, Player]>();
 const [SwingMiddleware, AddSwingMiddleware] = GenerateMiddleware<[Weapon]>();
 const [DrawMiddleware, AddDrawMiddleware] = GenerateMiddleware<[Weapon]>();
@@ -55,19 +55,10 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			return;
 		}
 
-		let Start = this.instance.DmgPart.Start;
-		let End = this.instance.DmgPart.End;
+		const Start = this.instance.DmgPart.Start;
+		const End = this.instance.DmgPart.End;
 
-		if (Start.Position.Y > End.Position.Y) {
-			[Start, End] = [End, Start];
-		}
-
-		const Points: Vector3[] = [];
-		for (let i = Start.Position.Y; i < End.Position.Y; i += 0.1) {
-			Points.push(new Vector3(0, i, 0));
-		}
-
-		this.Hitbox.SetPoints(this.instance.DmgPart, Points);
+		this.Hitbox.LinkAttachments(Start, End);
 
 		const Trail = new Instance("Trail");
 		Trail.Parent = this.instance.DmgPart;
@@ -107,7 +98,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			}),
 		);
 
-		this.Hitbox.DetectionMode = 2;
+		this.Hitbox.DetectionMode = 3;
 		this.Hitbox.Visualizer = false;
 	}
 
@@ -132,11 +123,10 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		this.Actions.Release = new Action((End, janitor) => this.Release(End, janitor));
 	}
 
-	Draw(End: Callback, janitor: Janitor) {
+	private Draw(End: Callback, janitor: Janitor) {
 		this.setState("Drawing");
 
 		this.Direction = this.GetDirection(this.PlayerDirection, this.Direction);
-		print(this.Direction, this.PlayerDirection);
 		this.ActiveAnimation = playAnim(this.Player, this.GetAnimation(this.Direction));
 
 		janitor.Add(
@@ -166,7 +156,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		RunMiddleware(DrawMiddleware, this);
 	}
 
-	Release(End: Callback, janitor: Janitor) {
+	private Release(End: Callback, janitor: Janitor) {
 		this.setState("Releasing");
 		if (!this.Actions.Draw.Status || this.Actions.Draw.Status === "ENDED") {
 			error("attempting to release sword when the sword hasn't drawn");
@@ -176,10 +166,10 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			error("Active Animation Required From Draw");
 		}
 
+		RunMiddleware(SwingMiddleware, this);
+
 		this.ActiveAnimation.TimePosition = ReleasePosition;
 		this.ActiveAnimation.AdjustSpeed(1);
-
-		RunMiddleware(SwingMiddleware, this);
 
 		this.Hitbox.HitStart(this.ActiveAnimation.Length - ReleasePosition - 0.05);
 		const db = new Map<Instance, boolean>();
@@ -189,14 +179,14 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			}
 			db.set(hit, true);
 
-			RunMiddleware(HitMiddleWare, this, hit);
-
 			const Player = Players.GetPlayerFromCharacter(hit.Parent);
 			if (Player !== undefined) {
 				if (db.get(Player)) {
 					return;
 				}
 				db.set(Player, true);
+
+				RunMiddleware(HitMiddleWare, this, Player, db);
 
 				const Character = hit.Parent;
 				if (!Character) {
@@ -207,10 +197,11 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 					error();
 				}
 
-				print(Player, Character);
 				RunMiddleware(DamageMiddleware, this, Player);
 
 				Humanoid.TakeDamage(this.Damage);
+			} else {
+				RunMiddleware(HitMiddleWare, this, hit, db);
 			}
 		});
 
@@ -222,6 +213,9 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		});
 
 		task.wait(this.ActiveAnimation.Length - ReleasePosition - 0.05);
+		if (this.Actions.Release.Status === "ENDED") {
+			return;
+		}
 		End();
 	}
 }

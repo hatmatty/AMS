@@ -37,7 +37,6 @@ export function playAnim(
 	const newAnimation = new Instance("Animation");
 	newAnimation.AnimationId = animation;
 
-	print(animator, animation, newAnimation);
 	const AnimationTrack = animator.LoadAnimation(newAnimation);
 	if (info && info.Looped) {
 		AnimationTrack.Looped = true;

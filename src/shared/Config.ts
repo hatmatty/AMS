@@ -22,7 +22,6 @@ const Config = {
 
 		Shield: {
 			Block: 7566699306,
-
 			Holster: 7566057875,
 			Equip: 7566034212,
 		},
@@ -30,6 +29,9 @@ const Config = {
 
 	Elements: {
 		Gore: true,
+		Sparks: true,
+		Sounds: true,
+		Stuns: true,
 		Rotation: true,
 		Direction: true,
 		CameraShake: true,
@@ -40,6 +42,7 @@ const Config = {
 	Attributes: {
 		WalkingSpeed: 14,
 		SprintingSpeed: 18,
+		ShieldHitboxSize: new Vector3(2, 2, 1),
 	},
 
 	Tools: {

@@ -111,13 +111,13 @@ export class ToolService implements OnInit {
 	}
 
 	private InitStore() {
+		print("INITED TOOLSERVICE STORE");
+
 		for (const player of Players.GetPlayers()) {
-			print(player);
 			this.store.dispatch({ type: "PLAYER_ADDED", playerName: player.Name });
 		}
 
 		Players.PlayerAdded.Connect((player) => {
-			print(player);
 			this.store.dispatch({ type: "PLAYER_ADDED", playerName: player.Name });
 		});
 		Players.PlayerRemoving.Connect((player) => {
@@ -161,10 +161,12 @@ export class ToolService implements OnInit {
 			error(`tool name proived: ${toolName} was not found in the config `);
 		}
 
-		const ToolModel = ReplicatedStorage.Assets.Tools.FindFirstChild(toolName);
+		let ToolModel = ReplicatedStorage.Assets.Tools.FindFirstChild(toolName);
 		if (!ToolModel) {
 			error(`Tool model for tool ${toolName} not found in replicated storage/assets/tools`);
 		}
+
+		ToolModel = ToolModel.Clone();
 
 		if (parent && parent.IsA("Player")) {
 			const Character = parent.Character;
