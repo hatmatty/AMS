@@ -9,7 +9,7 @@ import { Tool, ToolAttributes, ToolInstance } from "../components/Tool";
  * @typeParm T - The tool that this action will be used on.
  *
  */
-export abstract class Action<T extends Tool<ToolAttributes, ToolInstance>> {
+export class Action {
 	/** use this to find whether the action has began / ended */
 	public Status: "STARTED" | "ENDED" | undefined;
 	/** use this to connect to when the tool starts */
@@ -19,36 +19,42 @@ export abstract class Action<T extends Tool<ToolAttributes, ToolInstance>> {
 	/** many actions use a janitor so one is added by default */
 	protected janitor = new Janitor();
 
-	/** a non-unique identifer to find out what type of action this action is */
-	protected abstract Name: string;
-	protected abstract state?: {
+	protected state?: {
 		[index: string]: string | number;
 	};
 
-	protected Tool: T;
+	public _start: (End: Callback, janitor: Janitor) => void;
+	public _end?: () => void;
 
-	public constructor(Tool: T) {
-		this.Tool = Tool;
+	public constructor(Start: (End: Callback, janitor: Janitor) => void, End?: () => void) {
+		this._start = Start;
+		this._end = End;
 	}
-
-	protected abstract _start(): void;
-	protected abstract _end(): void;
 
 	/**
 	 * calls the _start() function, sets the status to "STARTED" and fires the Started signal
 	 */
 	public Start() {
+		if (this.Status === "STARTED") {
+			error("attempted to start an action that has already been started");
+		}
 		this.Status = "STARTED";
 		this.Started.Fire();
-		this._start();
+		this._start(() => this.End(), this.janitor);
 	}
 
 	/**
 	 * calls the _end() function, sets the status to "ENDED" and fires the Ended signal
 	 */
 	public End() {
+		if (this.Status === "ENDED" || this.Status === undefined) {
+			error("attempted to end an action which hasn't been started or has already ended");
+		}
 		this.Status = "ENDED";
 		this.Ended.Fire();
-		this._end();
+		if (this._end) {
+			this._end();
+		}
+		this.janitor.Cleanup();
 	}
 }

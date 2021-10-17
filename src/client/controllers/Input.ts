@@ -19,8 +19,8 @@ export class Input implements OnInit {
 	/**
 	 * takes either a UserInputService.InputBegan or InputEnded event and then connects it to a function which fires an event with an inputobject if the input was not processed by the game.
 	 *
-	 * @param event a UserInputService event (inputbegan/inputended)
-	 * @param state a Enum.UserInputState (Enum.UserInputState.End/Begin)
+	 * @param event - UserInputService event (inputbegan/inputended)
+	 * @param state - Enum.UserInputState (Enum.UserInputState.End/Begin)
 	 */
 	private static createInputEvent(event: typeof UserInputService.InputBegan | typeof UserInputService.InputBegan) {
 		event.Connect((input, gameProcessedEvent) => {
@@ -28,7 +28,11 @@ export class Input implements OnInit {
 				return;
 			}
 
-			Events.Input(input, input.UserInputState);
+			Events.Input({
+				UserInputState: input.UserInputState,
+				UserInputType: input.UserInputType,
+				KeyCode: input.KeyCode,
+			});
 		});
 	}
 

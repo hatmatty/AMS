@@ -1,13 +1,14 @@
 import { Service, OnStart, OnInit, Dependency } from "@flamework/core";
 import Config, { Attributes } from "shared/Config";
 import { ReplicatedStorage, CollectionService, Players } from "@rbxts/services";
-import { Tool, ToolAdded, ToolAttributes, ToolInstance } from "server/components/Tool";
+import { ITool, Tool, ToolAdded, ToolAttributes, ToolInstance } from "server/components/Tool";
 import Rodux, { Store, StoreChangedSignal } from "@rbxts/rodux";
 import { isExpressionWithTypeArguments, UnderscoreEscapedMap } from "typescript";
 import { Events } from "server/events";
+import Signal from "@rbxts/signal";
 
-interface IStore {
-	[parent: string]: Tool<ToolAttributes, ToolInstance>[] | undefined;
+export interface State {
+	[parent: string]: ITool[] | undefined;
 }
 
 interface playerAdded {
@@ -21,18 +22,36 @@ interface playerRemoved {
 }
 
 interface toolAdded {
-	tool: Tool<ToolAttributes, ToolInstance>;
+	tool: ITool;
 	parent: string;
 	type: "TOOL_ADDED";
+}
+
+interface toolRemoved {
+	tool: ITool;
+	parent: string;
+	type: "TOOL_REMOVED";
 }
 
 interface init {
 	type: "@@INIT";
 }
 
-type IActions = init | toolAdded | playerAdded | playerRemoved;
+type Actions = init | toolAdded | playerAdded | playerRemoved | toolRemoved;
 
-const Reducer: Rodux.Reducer<IStore, IActions> = (state: IStore, action: IActions) => {
+const store_PlayerAdded = new Signal<(state: State, playerName: string) => void>();
+const store_PlayerRemoved = new Signal<(state: State, playerName: string) => void>();
+const store_ToolAdded = new Signal<(state: State, parent: string, tool: ITool) => void>();
+const store_ToolRemoved = new Signal<(state: State, parent: string, tool: ITool) => void>();
+
+export {
+	store_PlayerAdded as PlayerAdded,
+	store_PlayerRemoved as PlayerRemoved,
+	store_ToolAdded as ToolAdded,
+	store_ToolRemoved as ToolRemoved,
+};
+
+const Reducer: Rodux.Reducer<State, Actions> = (state: State, action: Actions) => {
 	switch (action.type) {
 		case "@@INIT": {
 			return {
@@ -40,20 +59,40 @@ const Reducer: Rodux.Reducer<IStore, IActions> = (state: IStore, action: IAction
 			};
 		}
 		case "TOOL_ADDED": {
-			if (!state[action.parent]) {
+			const tools = state[action.parent];
+			if (!tools) {
 				error(`attempting to add tool ${action.tool} to parent ${action.parent} which does not exist`);
 			}
-			state[action.parent]?.push(action.tool);
+			tools.push(action.tool);
+
+			store_ToolAdded.Fire(state, action.parent, action.tool);
+			return state;
+		}
+		case "TOOL_REMOVED": {
+			const tools = state[action.parent];
+			if (!tools) {
+				return state;
+			}
+
+			tools.remove(
+				tools.findIndex((tool) => {
+					return tool === action.tool;
+				}),
+			);
+
+			store_ToolRemoved.Fire(state, action.parent, action.tool);
 			return state;
 		}
 		case "PLAYER_ADDED": {
-			return {
-				[action.playerName]: [],
-				...state,
-			};
+			state[action.playerName] = [];
+
+			store_PlayerAdded.Fire(state, action.playerName);
+			return state;
 		}
 		case "PLAYER_REMOVED": {
 			state[action.playerName] = undefined;
+
+			store_PlayerRemoved.Fire(state, action.playerName);
 			return state;
 		}
 		default: {
@@ -65,38 +104,20 @@ const Reducer: Rodux.Reducer<IStore, IActions> = (state: IStore, action: IAction
 
 @Service({})
 export class ToolService implements OnInit {
-	public store = new Store<IStore, IActions>(Reducer);
+	public store = new Store<State, Actions>(Reducer);
 
 	onInit() {
 		this.InitStore();
-		this.InitToggleButtons();
-	}
-
-	private InitToggleButtons() {
-		this.store.changed.connect((newState, oldState) => {
-			// eslint-disable-next-line roblox-ts/no-array-pairs
-			for (const [parent, tools] of pairs(newState)) {
-				const Parent = parent as string;
-
-				if (parent === "Workspace") {
-					continue;
-				}
-
-				// new player added
-				if (!oldState[Parent]) {
-					this.ConfigureToggleButtons(Parent);
-				}
-
-				// parent's tool array changed
-				if (newState[Parent] !== oldState[Parent]) {
-					this.ConfigureToggleButtons(Parent);
-				}
-			}
-		});
 	}
 
 	private InitStore() {
+		for (const player of Players.GetPlayers()) {
+			print(player);
+			this.store.dispatch({ type: "PLAYER_ADDED", playerName: player.Name });
+		}
+
 		Players.PlayerAdded.Connect((player) => {
+			print(player);
 			this.store.dispatch({ type: "PLAYER_ADDED", playerName: player.Name });
 		});
 		Players.PlayerRemoving.Connect((player) => {
@@ -104,73 +125,39 @@ export class ToolService implements OnInit {
 		});
 
 		ToolAdded.Connect((tool) => {
-			const Player = Players.GetPlayerFromCharacter(tool.instance.Parent);
-			if (Player) {
-				this.store.dispatch({ type: "TOOL_ADDED", parent: Player.Name, tool: tool });
-			} else {
-				this.store.dispatch({ type: "TOOL_ADDED", parent: "Workspace", tool: tool });
-			}
+			this.InitTool(tool);
 		});
 	}
 
-	private ConfigureToggleButtons(parent: string) {
-		const player = this.GetPlayerFromUserName(parent);
-
-		if (player === undefined) {
-			error("parent must be a player's username");
+	InitTool(tool: ITool) {
+		const Player = Players.GetPlayerFromCharacter(tool.instance.Parent);
+		const ParentInstance = tool.instance.Parent;
+		let Parent: string;
+		if (Player) {
+			Parent = Player.Name;
+		} else {
+			Parent = "Workspace";
 		}
 
-		const playerTools = this.store.getState()[parent];
-		if (!playerTools) {
-			error(`tools for player ${parent} not found`);
-		}
+		this.store.dispatch({ type: "TOOL_ADDED", parent: Parent, tool: tool });
 
-		playerTools.sort((a, b) => {
-			const aOrder = this.getOrder(a);
-			const bOrder = this.getOrder(b);
+		const AncestryChanged = tool.instance.AncestryChanged.Connect(() => {
+			if (tool.instance.Parent === ParentInstance) {
+				return;
+			}
+			AncestryChanged.Disconnect();
 
-			if (aOrder !== bOrder) {
-				return aOrder > bOrder;
-			} else {
-				return a.timeCreated < b.timeCreated;
+			this.store.dispatch({ type: "TOOL_REMOVED", parent: Parent, tool: tool });
+
+			if (tool.instance.IsDescendantOf(game)) {
+				this.InitTool(tool);
 			}
 		});
-
-		const getNum = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
-
-		let index = 0;
-		playerTools.forEach((tool) => {
-			if (index > 8) {
-				error("a player can only have 9 tools maximum!");
-			}
-
-			tool.setAttribute("BUTTON_TOGGLE", getNum[index]);
-			Events.ButtonChanged(player, tool.instance, index + 1);
-			index++;
-		});
-	}
-
-	private getOrder(tool: Tool<ToolAttributes, ToolInstance>): number {
-		if (CollectionService.HasTag(tool.instance, "Weapon")) {
-			return 1;
-		}
-		return 0;
-	}
-
-	private GetPlayerFromUserName(playerName: string): Player | undefined {
-		// eslint-disable-next-line roblox-ts/no-array-pairs
-		for (const [key, player] of pairs(Players.GetChildren())) {
-			if (player.Name === playerName) {
-				return player as Player;
-			}
-		}
-
-		return undefined;
 	}
 
 	public addTool(toolName: keyof typeof Config.Tools, parent: Player | Instance) {
-		const ToolConfig = Config.Tools[toolName];
-		if (!ToolConfig) {
+		const Tag = Config.Tools[toolName];
+		if (Tag === undefined) {
 			error(`tool name proived: ${toolName} was not found in the config `);
 		}
 
@@ -191,6 +178,6 @@ export class ToolService implements OnInit {
 			ToolModel.Parent = parent;
 		}
 
-		CollectionService.AddTag(ToolModel, ToolConfig.Tag);
+		CollectionService.AddTag(ToolModel, Tag);
 	}
 }
