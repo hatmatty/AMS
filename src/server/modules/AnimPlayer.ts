@@ -1,3 +1,11 @@
+/**
+* A utility function which plays an animation on a player's character.
+*
+* @param animation - either a string or number which is converted into an aniamtion instance
+* @param character - either a player, a player's character, or undefined. if it's a player it will conver it to the player's character. if it's undefined it will error.
+* @param info - info that will modify how the animation will be played
+*/
+
 export function playAnim(
 	character: Model | Player | undefined,
 	animation: string | number,
