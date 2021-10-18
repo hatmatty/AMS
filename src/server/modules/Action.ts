@@ -4,7 +4,7 @@ import { Tool, ToolAttributes, ToolInstance } from "../components/Tool";
 
 /**
  *
- * Groups a start and end function into an action which is utilized through the .Started and .Ended connections to track the state of the action.
+ * An Aciton groups a reusable set of 2 functions, a start and end function. It tracks the state of these functions. 
  *
  * @typeParm T - The tool that this action will be used on.
  *
