@@ -6,8 +6,6 @@ import { Tool, ToolAttributes, ToolInstance } from "../components/Tool";
  *
  * An Aciton groups a reusable set of 2 functions, a start and end function. It tracks the state of these functions. 
  *
- * @typeParm T - The tool that this action will be used on.
- *
  */
 export class Action {
 	/** use this to find whether the action has began / ended */
