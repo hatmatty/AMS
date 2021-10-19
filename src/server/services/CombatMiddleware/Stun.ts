@@ -6,6 +6,9 @@ import Config from "shared/Config";
 
 const BlockedStunTime = 0.4;
 
+/**
+ * Attaches to the blocked middleware and stuns the player who is blocked.
+ */
 @Service({})
 export class Stun implements OnInit {
 	onInit() {

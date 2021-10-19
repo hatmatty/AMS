@@ -4,7 +4,7 @@ import { Tool, ToolAttributes, ToolInstance } from "../components/Tool";
 
 /**
  *
- * An Aciton groups a reusable set of 2 functions, a start and end function. It tracks the state of these functions. 
+ * An Aciton groups a reusable set of 2 functions, a start and end function. It tracks the state of these functions.
  *
  */
 export class Action {
@@ -28,7 +28,6 @@ export class Action {
 		this._start = Start;
 		this._end = End;
 	}
-
 	/**
 	 * calls the _start() function, sets the status to "STARTED" and fires the Started signal
 	 */

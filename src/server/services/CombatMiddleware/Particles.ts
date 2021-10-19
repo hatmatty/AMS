@@ -4,6 +4,9 @@ import { AddHitMiddleware } from "server/components/Weapon";
 import { ReplicatedStorage } from "@rbxts/services";
 import Config from "shared/Config";
 
+/**
+ * Attaches to the Hit and Blocked middleware and emits sparks on the blocked middleware and gore on the hit middleware if a player has been hit.
+ */
 @Service({})
 export class Particles implements OnInit {
 	onInit() {
