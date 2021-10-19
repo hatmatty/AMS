@@ -4,6 +4,11 @@ import { Action } from "server/modules/Action";
 import { CharacterLimb } from "shared/Types";
 import { playAnim } from "server/modules/AnimPlayer";
 
+/**
+ * The base class for both the shield and sword.
+ *
+ * @states - "Enabled", "Disabled"
+ */
 @Component()
 export abstract class Essential<A extends ToolAttributes, I extends ToolInstance> extends Tool<A, I> {
 	protected abstract EnableAnimation: number;

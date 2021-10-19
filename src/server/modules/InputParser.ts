@@ -7,7 +7,7 @@ export function ParseInput(input: {
 	KeyCode: Enum.KeyCode;
 }): { Input: string; State: string };
 /**
- * 
+ *
  * This function takes in enums and parses them to be a string. It can take in 3 types of enums, UserInputState, UserInputType, and Keycode or a table which contains all 3 of these enums. When parsing the table, if the Enum.Keycode is "Unknown" it will pass in the InputType as the input.
  *
  * @param input - either a userinputstate, a userinputtype, a keycode, or a table which contains those 3 enums.

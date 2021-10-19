@@ -1,4 +1,3 @@
-
 /**
  * Defers a callback.
  * @parm Callback - a function that is called after being deffered

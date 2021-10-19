@@ -4,6 +4,9 @@ import { AddHitMiddleware, AddSwingMiddleware } from "server/components/Weapon";
 import Config from "shared/Config";
 import { ReplicatedStorage } from "@rbxts/services";
 
+/**
+ * Attaches to the hit, blocked, and swing middlewares and plays a sound on these events.
+ */
 @Service({})
 export class Sounds implements OnInit {
 	onInit() {

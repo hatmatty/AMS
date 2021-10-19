@@ -1,14 +1,14 @@
 import { Service, OnStart, OnInit, Dependency } from "@flamework/core";
 import Config, { Attributes } from "shared/Config";
 import { ReplicatedStorage, CollectionService, Players } from "@rbxts/services";
-import { ITool, Tool, ToolAdded, ToolAttributes, ToolInstance } from "server/components/Tool";
+import { ITool, ToolAdded, ToolAttributes, ToolInstance } from "server/components/Tool";
 import Rodux, { Store, StoreChangedSignal } from "@rbxts/rodux";
 import { isExpressionWithTypeArguments, UnderscoreEscapedMap } from "typescript";
 import { Events } from "server/events";
 import Signal from "@rbxts/signal";
 
 export interface State {
-	[parent: string]: ITool[] | undefined;
+	[parent: string]: (ITool | Tool)[] | undefined;
 }
 
 interface playerAdded {
@@ -22,13 +22,13 @@ interface playerRemoved {
 }
 
 interface toolAdded {
-	tool: ITool;
+	tool: ITool | Tool;
 	parent: string;
 	type: "TOOL_ADDED";
 }
 
 interface toolRemoved {
-	tool: ITool;
+	tool: ITool | Tool;
 	parent: string;
 	type: "TOOL_REMOVED";
 }
@@ -41,8 +41,8 @@ type Actions = init | toolAdded | playerAdded | playerRemoved | toolRemoved;
 
 const store_PlayerAdded = new Signal<(state: State, playerName: string) => void>();
 const store_PlayerRemoved = new Signal<(state: State, playerName: string) => void>();
-const store_ToolAdded = new Signal<(state: State, parent: string, tool: ITool) => void>();
-const store_ToolRemoved = new Signal<(state: State, parent: string, tool: ITool) => void>();
+const store_ToolAdded = new Signal<(state: State, parent: string, tool: ITool | Tool) => void>();
+const store_ToolRemoved = new Signal<(state: State, parent: string, tool: ITool | Tool) => void>();
 
 export {
 	store_PlayerAdded as PlayerAdded,
@@ -51,6 +51,14 @@ export {
 	store_ToolRemoved as ToolRemoved,
 };
 
+/**
+ *
+ * Takes in various actions to update a store to accurately store information about a player's tools.
+ *
+ * @param state - the current state of the store
+ * @param action - the action to effect the state
+ * @returns a new state to replace the old one
+ */
 const Reducer: Rodux.Reducer<State, Actions> = (state: State, action: Actions) => {
 	switch (action.type) {
 		case "@@INIT": {
@@ -97,19 +105,68 @@ const Reducer: Rodux.Reducer<State, Actions> = (state: State, action: Actions) =
 		}
 		default: {
 			const _exhaustiveCheck: never = action;
+			error(`got action.. ${action}`);
 		}
 	}
 	return state;
 };
 
+/**
+ * Manages the state of a player's tools and contains utility functions for interfacing with tools.
+ */
 @Service({})
 export class ToolService implements OnInit {
 	public store = new Store<State, Actions>(Reducer);
 
 	onInit() {
 		this.InitStore();
+		this.InitModelInterface();
 	}
 
+	/**
+	 * Begins the tool-model interface to allow empty models to create AET tools.
+	 */
+	private InitModelInterface() {
+		Players.PlayerAdded.Connect((player) => {
+			player.CharacterAdded.Connect(() => {
+				const Backpack = player.FindFirstChild("Backpack");
+				if (!Backpack || !Backpack.IsA("Backpack")) {
+					error();
+				}
+
+				for (const instance of Backpack.GetChildren()) {
+					this.TryAddModelToTool(instance, player);
+				}
+
+				Backpack.ChildAdded.Connect((child) => this.TryAddModelToTool(child, player));
+			});
+		});
+	}
+
+	/**
+	 * Makes an empty model with a tool's name into a tool if compatible and then tracks when the model is destroyed which destroys the tool.
+	 * @param instance an instance which if a model will be made into a tool
+	 */
+	private TryAddModelToTool(instance: Instance, parent: Player) {
+		if (instance.IsA("Model") && instance.GetDescendants().size() === 0) {
+			if (!parent.Character) {
+				return;
+			}
+			const tool = this.addTool(instance.Name as never, parent);
+			instance.AncestryChanged.Connect(() => {
+				if (tool.Parent?.Parent === parent) {
+					return;
+				}
+				if (!instance.IsDescendantOf(game)) {
+					tool.Destroy();
+				}
+			});
+		}
+	}
+
+	/**
+	 * Initalizes the tool store by connecting to various events to ensure the tool store is always up to date.
+	 */
 	private InitStore() {
 		print("INITED TOOLSERVICE STORE");
 
@@ -118,7 +175,9 @@ export class ToolService implements OnInit {
 		}
 
 		Players.PlayerAdded.Connect((player) => {
+			print("INITED PLAYER");
 			this.store.dispatch({ type: "PLAYER_ADDED", playerName: player.Name });
+			this.InitRobloxTool(player);
 		});
 		Players.PlayerRemoving.Connect((player) => {
 			this.store.dispatch({ type: "PLAYER_REMOVED", playerName: player.Name });
@@ -129,6 +188,54 @@ export class ToolService implements OnInit {
 		});
 	}
 
+	/**
+	 * @param player the player whose backpack will be checked for tool additions
+	 */
+	private InitRobloxTool(player: Player) {
+		const Character = player.Character;
+		if (Character) {
+			this.InitRobloxToolCharacter(player, Character);
+		}
+		player.CharacterAdded.Connect((character) => this.InitRobloxToolCharacter(player, character as Model));
+	}
+
+	InitRobloxToolCharacter(player: Player, Character: Model) {
+		const Backpack = player.FindFirstChild("Backpack");
+		if (!Backpack || !Backpack.IsA("Backpack")) {
+			error();
+		}
+
+		for (const instance of Backpack.GetChildren()) {
+			this.TryStoreRobloxTool(instance, player);
+		}
+
+		Backpack.ChildAdded.Connect((item) => this.TryStoreRobloxTool(item, player));
+	}
+
+	/**
+	 * @param tool the tool to add to the store
+	 * @param player the parent property to give when sending the store action
+	 */
+	private TryStoreRobloxTool(tool: Instance, player: Player) {
+		print(tool, player);
+		if (!tool.IsA("Tool")) {
+			return;
+		}
+
+		this.store.dispatch({ type: "TOOL_ADDED", tool: tool, parent: player.Name });
+
+		tool.AncestryChanged.Connect(() => {
+			if (!tool.IsDescendantOf(game)) {
+				this.store.dispatch({ type: "TOOL_REMOVED", tool: tool, parent: player.Name });
+			}
+		});
+	}
+
+	/**
+	 * Tracks a tool so that it's information if properly displayed in the tool store.
+	 *
+	 * @param tool - The tool to be tracked in the tool store
+	 */
 	InitTool(tool: ITool) {
 		const Player = Players.GetPlayerFromCharacter(tool.instance.Parent);
 		const ParentInstance = tool.instance.Parent;
@@ -155,7 +262,13 @@ export class ToolService implements OnInit {
 		});
 	}
 
-	public addTool(toolName: keyof typeof Config.Tools, parent: Player | Instance) {
+	/**
+	 * Creates a new tool which has the model of the toolName provided and parents the tool to the parent provided.
+	 *
+	 * @param toolName name of a tool model
+	 * @param parent a player or part to parent the tool to
+	 */
+	public addTool(toolName: keyof typeof Config.Tools, parent: Player | Instance): Model {
 		const Tag = Config.Tools[toolName];
 		if (Tag === undefined) {
 			error(`tool name proived: ${toolName} was not found in the config `);
@@ -181,5 +294,11 @@ export class ToolService implements OnInit {
 		}
 
 		CollectionService.AddTag(ToolModel, Tag);
+
+		if (!ToolModel.IsA("Model")) {
+			error();
+		}
+
+		return ToolModel;
 	}
 }
