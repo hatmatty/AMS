@@ -1,0 +1,16 @@
+export type CharacterLimb =
+	| "LeftUpperArm"
+	| "LeftLowerArm"
+	| "LeftHand"
+	| "RightUpperArm"
+	| "RightLowerArm"
+	| "RightHand"
+	| "LeftUpperLeg"
+	| "LeftLowerLeg"
+	| "LeftFoot"
+	| "RightUpperLeg"
+	| "RightLowerLeg"
+	| "RightFoot"
+	| "LowerTorso"
+	| "UpperTorso"
+	| "Head";

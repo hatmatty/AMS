@@ -1,0 +1,7 @@
+{
+    "entryPoints": ["./src"],
+    "out": "./AET.wiki", 
+    "entryPointStrategy":"expand",
+    "readme": "./README.md",
+    "theme": "./node_modules/typedoc-github-wiki-theme/dist"
+}

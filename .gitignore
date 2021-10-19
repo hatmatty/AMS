@@ -1,6 +1,5 @@
-# Project place file
-/AET.rbxlx
-
-# Roblox Studio lock files
-/*.rbxlx.lock
-/*.rbxl.lock
+/node_modules
+/out
+/include
+*.tsbuildinfo
+flamework.build
