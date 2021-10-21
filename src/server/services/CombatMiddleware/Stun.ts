@@ -24,11 +24,9 @@ export class Stun implements OnInit {
 
 				const Connection = weapon.Actions.Release.Ended.Connect(() => {
 					Connection.Disconnect();
-					print(weapon.state);
 					weapon.setState("Stunned");
 
 					Promise.delay(BlockedStunTime).then(() => {
-						print("released");
 						weapon.setState("Enabled");
 					});
 				});

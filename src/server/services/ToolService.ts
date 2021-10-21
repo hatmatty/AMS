@@ -168,14 +168,11 @@ export class ToolService implements OnInit {
 	 * Initalizes the tool store by connecting to various events to ensure the tool store is always up to date.
 	 */
 	private InitStore() {
-		print("INITED TOOLSERVICE STORE");
-
 		for (const player of Players.GetPlayers()) {
 			this.store.dispatch({ type: "PLAYER_ADDED", playerName: player.Name });
 		}
 
 		Players.PlayerAdded.Connect((player) => {
-			print("INITED PLAYER");
 			this.store.dispatch({ type: "PLAYER_ADDED", playerName: player.Name });
 		});
 		Players.PlayerRemoving.Connect((player) => {

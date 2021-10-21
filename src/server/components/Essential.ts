@@ -62,8 +62,6 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 				error();
 			}
 
-			print(this.id, attribute);
-
 			if (attribute === this.state) {
 				return;
 			}
@@ -158,20 +156,6 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 
 			this.EssentialAnimation = playAnim(this.Player, Animation, { Looped: true });
 			this.setState(option + "d");
-			print(
-				this.Player?.Character?.FindFirstChildWhichIsA("Humanoid")
-					?.FindFirstChildWhichIsA("Animator")
-					?.GetPlayingAnimationTracks(),
-			);
-
-			this.EssentialAnimation.Stopped.Connect(() => {
-				print(
-					this.Player?.Character?.FindFirstChildWhichIsA("Humanoid")
-						?.FindFirstChildWhichIsA("Animator")
-						?.GetPlayingAnimationTracks(),
-				);
-			});
-
 			End();
 		};
 	}

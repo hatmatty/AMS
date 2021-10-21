@@ -28,7 +28,6 @@ export class Shake implements OnInit {
 		this.CamShaker.Start();
 
 		Events.AttackStatus.connect((status) => {
-			print(status);
 			switch (status) {
 				case "GAVE_BLOCK": {
 					this.CamShaker.Shake(CameraShaker.Presets.Bump);

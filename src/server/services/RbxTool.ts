@@ -53,7 +53,6 @@ export class RbxTool implements OnInit {
 	 * @param player the parent property to give when sending the store action
 	 */
 	private TryStoreRobloxTool(tool: Instance, player: Player) {
-		print(tool, player);
 		if (!tool.IsA("Tool")) {
 			return;
 		}
@@ -89,7 +88,6 @@ export class RbxTool implements OnInit {
 				const parsedInput = ParseInput(input);
 
 				if (parsedInput.State === "End" && parsedInput.Input === tool.GetAttribute("BUTTON_TOGGLE")) {
-					print("attempted input");
 					if (tool.Parent?.IsA("Model")) {
 						tool.Parent = player;
 					} else {

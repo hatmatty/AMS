@@ -23,10 +23,18 @@ export class SpringCamera implements OnInit {
 		}
 
 		if (Player.Character) {
+			if (!Player.HasAppearanceLoaded()) {
+				Player.CharacterAppearanceLoaded.Wait();
+			}
 			this.Create();
 		}
 
-		Player.CharacterAdded.Connect(() => this.Create());
+		Player.CharacterAdded.Connect(() => {
+			if (!Player.HasAppearanceLoaded()) {
+				Player.CharacterAppearanceLoaded.Wait();
+			}
+			this.Create();
+		});
 		Player.CharacterRemoving.Connect(() => this.Destroy());
 	}
 
@@ -110,7 +118,6 @@ export class SpringCamera implements OnInit {
 			subject.Position = spring.Position;
 
 			if (UserInputService.MouseBehavior === Enum.MouseBehavior.LockCenter) {
-				print("Rotating");
 				const lookXZ = new Vector3(Camera.CFrame.LookVector.X, 0, Camera.CFrame.LookVector.Z);
 				rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position.add(lookXZ));
 			}
