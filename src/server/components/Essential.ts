@@ -1,8 +1,15 @@
-import { Component } from "@flamework/components";
-import { Tool, ToolAttributes, ToolInstance, InputInfo, Actions } from "./Tool";
+import { Component, Components } from "@flamework/components";
+import { Tool, ToolAttributes, ToolInstance, InputInfo, Actions, ITool } from "./Tool";
 import { Action } from "server/modules/Action";
 import { CharacterLimb } from "shared/Types";
 import { playAnim } from "server/modules/AnimPlayer";
+import { CollectionService } from "@rbxts/services";
+import { Dependency } from "@flamework/core";
+import { Constructor } from "@flamework/core/out/types";
+import { BaseComponent } from "@rbxts/flamework";
+import { DisableIncompatibleTools } from "server/modules/IncompatibleTools";
+
+const components = Dependency<Components>();
 
 /**
  * The base class for both the shield and sword.
@@ -11,12 +18,12 @@ import { playAnim } from "server/modules/AnimPlayer";
  */
 @Component()
 export abstract class Essential<A extends ToolAttributes, I extends ToolInstance> extends Tool<A, I> {
-	protected abstract EnableAnimation: number;
-	protected abstract DisableAnimation: number;
+	public abstract EnableAnimation: number;
+	public abstract DisableAnimation: number;
 	protected abstract EnabledLimb: CharacterLimb;
 	protected abstract DisabledLimb: CharacterLimb;
 
-	private EssentialAnimation?: AnimationTrack;
+	public EssentialAnimation?: AnimationTrack;
 	private Motor6D?: Motor6D;
 
 	InputInfo = {
@@ -43,15 +50,56 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 		},
 	} as InputInfo;
 
+	constructor() {
+		super();
+		this.ManageStatusAttribute();
+	}
+
+	private ManageStatusAttribute() {
+		this.instance.GetAttributeChangedSignal("Status").Connect(() => {
+			const attribute = this.instance.GetAttribute("Status");
+			if (attribute === undefined || !typeIs(attribute, "string")) {
+				error();
+			}
+
+			print(this.id, attribute);
+
+			if (attribute === this.state) {
+				return;
+			}
+
+			const Action = this.Actions[attribute];
+			if (Action && Action.Status === "STARTED") {
+				return;
+			}
+
+			switch (attribute) {
+				case "Disabled": {
+					return this.Actions.Disable.Start();
+				}
+				case "Enabled": {
+					return this.Actions.Enable.Start();
+				}
+			}
+		});
+
+		this.stateChanged.Connect((state: string) => {
+			if (state === "Disabled" || state === "Enabled") {
+				this.instance.SetAttribute("Status", state);
+			} else {
+				this.instance.SetAttribute("Status", "Active");
+			}
+		});
+	}
+
+	private CanEquip(): boolean {
+		const [Player, Character] = this.GetCharPlayer();
+		return DisableIncompatibleTools(Character, this.Incompatible, [this.instance]);
+		return true;
+	}
+
 	private GetLimb(limbName: CharacterLimb): BasePart {
-		const Player = this.Player;
-		if (!Player) {
-			error("player required");
-		}
-		const Character = Player.Character;
-		if (!Character) {
-			error("character required");
-		}
+		const [Player, Character] = this.GetCharPlayer();
 
 		const Limb = Character.FindFirstChild(limbName);
 		if (!Limb) {
@@ -78,7 +126,7 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 		const Limb = this.GetLimb(this.DisabledLimb);
 
 		this.Motor6D = new Instance("Motor6D");
-		this.Motor6D.Name = model.Name + "Grip";
+		this.Motor6D.Name = model.Name + "Grip" + this.id;
 		this.SetMotor6D(Limb);
 	}
 
@@ -87,6 +135,10 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 			let Limb;
 			let Animation;
 			if (option === "Enable") {
+				if (!this.CanEquip()) {
+					return;
+				}
+
 				Limb = this.EnabledLimb;
 				Animation = this.EnableAnimation;
 			} else {
@@ -106,6 +158,19 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 
 			this.EssentialAnimation = playAnim(this.Player, Animation, { Looped: true });
 			this.setState(option + "d");
+			print(
+				this.Player?.Character?.FindFirstChildWhichIsA("Humanoid")
+					?.FindFirstChildWhichIsA("Animator")
+					?.GetPlayingAnimationTracks(),
+			);
+
+			this.EssentialAnimation.Stopped.Connect(() => {
+				print(
+					this.Player?.Character?.FindFirstChildWhichIsA("Humanoid")
+						?.FindFirstChildWhichIsA("Animator")
+						?.GetPlayingAnimationTracks(),
+				);
+			});
 
 			End();
 		};

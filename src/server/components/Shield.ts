@@ -22,6 +22,7 @@ interface ShieldInstance extends ToolInstance {}
 	},
 })
 export class Shield extends Essential<ToolAttributes, ShieldInstance> {
+	Incompatible = ["Shield"];
 	EnableAnimation = Config.Animations.Shield.Equip;
 	DisableAnimation = Config.Animations.Shield.Holster;
 

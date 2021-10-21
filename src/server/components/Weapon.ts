@@ -76,14 +76,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 
 	PlayerInit() {
 		const Params = new RaycastParams();
-		const Player = this.Player;
-		if (!Player) {
-			error();
-		}
-		const Character = Player.Character;
-		if (!Character) {
-			error();
-		}
+		const [Player, Character] = this.GetCharPlayer();
 
 		Params.FilterDescendantsInstances = [Character, this.instance];
 		Params.FilterType = Enum.RaycastFilterType.Blacklist;

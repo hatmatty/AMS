@@ -11,6 +11,7 @@ import { Action } from "server/modules/Action";
 import { Defer } from "server/modules/Defer";
 import { TypePredicate } from "typescript";
 import { Tools } from "shared/Config";
+import { deepCopy } from "@rbxts/object-utils";
 
 export type ITool = Tool<ToolAttributes, ToolInstance>;
 
@@ -51,6 +52,7 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	extends BaseComponent<A, I>
 	implements OnStart
 {
+	public abstract Incompatible: string[];
 	public abstract Actions: Actions;
 	public abstract InputInfo: InputInfo;
 	public abstract Init?(): void;
@@ -226,15 +228,16 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	 * @returns A Table who's indexes if buttons were replaced by their actual value
 	 */
 	private fillButtonsInTable<T extends { [key: string]: unknown }>(Table: T) {
+		Table = deepCopy(Table);
 		const newTable = {};
 
 		for (let [key, value] of pairs(Table as unknown as Map<never, never>)) {
 			// EXAMPLE: key might equal "CUSTOM_TOGGLE" and this.attributes might equal {"CUSTOM_TOGGLE": "MouseButton1"}
 			if (this.isButton(key)) {
-				if (!this.attributes[key]) {
-					error(`could not find button for ${key}`);
+				const Button = this.instance.GetAttribute(key);
+				if (Button && typeIs(Button, "string")) {
+					key = Button as never;
 				}
-				key = this.attributes[key];
 			}
 
 			if (typeIs(value, "table")) {
@@ -250,5 +253,18 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	/** returns if the string is an identifier for a button */
 	private isButton(str: string): boolean {
 		return string.sub(str, 0, 7) === "BUTTON_";
+	}
+
+	protected GetCharPlayer() {
+		const Player = this.Player;
+		if (!Player) {
+			error("player required");
+		}
+		const Character = Player.Character;
+		if (!Character) {
+			error("character required");
+		}
+
+		return [Player, Character] as [Player, Model];
 	}
 }

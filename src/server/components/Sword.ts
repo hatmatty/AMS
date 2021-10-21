@@ -10,7 +10,8 @@ import { Weapon } from "./Weapon";
 		BUTTON_TOGGLE: "One",
 	},
 })
-class Sword extends Weapon {
+export class Sword extends Weapon {
+	Incompatible = ["RbxTool", "Sword"];
 	EnableAnimation = Config.Animations.Sword.Equip;
 	DisableAnimation = Config.Animations.Sword.Holster;
 	EnabledLimb = "RightHand" as CharacterLimb;

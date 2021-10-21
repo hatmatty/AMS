@@ -6,12 +6,14 @@ import { ITool } from "server/components/Tool";
 import { ToolAdded, ToolRemoved } from "./ToolService";
 import { ParseInput } from "server/modules/InputParser";
 import { HttpService } from "@rbxts/services";
+import { RbxTool } from "./RbxTool";
 
 /**
  * Hooks into ToolService's ToolAdded and ToolRemoved events and updates all of a player's tool to have updated buttons and fires a button event with informoration on the new buttons.
  */
 @Service({})
 export class ToggleButton implements OnInit {
+	constructor(private RbxTool: RbxTool) {}
 	/**
 	 * Connects to the ToolAdded and ToolRemoved and calls ConfigureToggleButtons with the arguments from the connections.
 	 */
@@ -39,52 +41,15 @@ export class ToggleButton implements OnInit {
 			error(`tools for player ${parent} not found`);
 		}
 
-		if (typeIs(tool, "Instance") && tool.GetAttribute("INITED") === undefined) {
-			const InputConnection = Events.Input.connect((Player, input) => {
-				if (Player !== player) {
-					return;
-				}
-
-				const parsedInput = ParseInput(input);
-
-				if (parsedInput.State === "End" && parsedInput.Input === tool.GetAttribute("BUTTON_TOGGLE")) {
-					// WIP -- ENABLE // DISABLE THE TOOL
-				}
-			});
-
-			tool.AncestryChanged.Connect(() => {
-				if (!tool.IsDescendantOf(game)) {
-					InputConnection.Disconnect();
-				}
-			});
-
-			tool.SetAttribute("INITED", true);
-			tool.SetAttribute("timeCreated", tick());
-			tool.SetAttribute("id", HttpService.GenerateGUID());
-		}
-
-		function GetAttribute(tool: Tool, attributeName: string, kind: "number" | "string"): unknown {
-			const attribute = tool.GetAttribute(attributeName);
-			if (attribute === undefined) {
-				error(`${attributeName} has not been set`);
-			}
-
-			if (typeIs(attribute, kind)) {
-				return attribute as unknown;
-			} else {
-				error("timeCreated is not a number");
-			}
-		}
-
 		playerTools.sort((a, b) => {
 			const aOrder = this.getOrder(a);
 			const bOrder = this.getOrder(b);
 
 			const aTimeCreated = typeIs(a, "Instance")
-				? (GetAttribute(a, "timeCreated", "number") as number)
+				? (this.RbxTool.GetAttribute(a, "timeCreated", "number") as number)
 				: a.timeCreated;
 			const bTimeCreated = typeIs(b, "Instance")
-				? (GetAttribute(b, "timeCreated", "number") as number)
+				? (this.RbxTool.GetAttribute(b, "timeCreated", "number") as number)
 				: b.timeCreated;
 
 			if (aOrder !== bOrder) {
@@ -108,7 +73,7 @@ export class ToggleButton implements OnInit {
 
 			Instance.SetAttribute("BUTTON_TOGGLE", getNum[index]);
 
-			const id = typeIs(tool, "Instance") ? (GetAttribute(tool, "id", "string") as string) : tool.id;
+			const id = typeIs(tool, "Instance") ? (this.RbxTool.GetAttribute(tool, "id", "string") as string) : tool.id;
 
 			Events.ButtonChanged(player, Instance, index + 1, id);
 
@@ -124,7 +89,7 @@ export class ToggleButton implements OnInit {
 			return -1;
 		}
 
-		if (CollectionService.HasTag(tool.instance, "Weapon")) {
+		if (CollectionService.HasTag(tool.instance, "Sword")) {
 			return 2;
 		} else if (CollectionService.HasTag(tool.instance, "Shield")) {
 			return 1;

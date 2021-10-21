@@ -177,7 +177,6 @@ export class ToolService implements OnInit {
 		Players.PlayerAdded.Connect((player) => {
 			print("INITED PLAYER");
 			this.store.dispatch({ type: "PLAYER_ADDED", playerName: player.Name });
-			this.InitRobloxTool(player);
 		});
 		Players.PlayerRemoving.Connect((player) => {
 			this.store.dispatch({ type: "PLAYER_REMOVED", playerName: player.Name });
@@ -185,49 +184,6 @@ export class ToolService implements OnInit {
 
 		ToolAdded.Connect((tool) => {
 			this.InitTool(tool);
-		});
-	}
-
-	/**
-	 * @param player the player whose backpack will be checked for tool additions
-	 */
-	private InitRobloxTool(player: Player) {
-		const Character = player.Character;
-		if (Character) {
-			this.InitRobloxToolCharacter(player, Character);
-		}
-		player.CharacterAdded.Connect((character) => this.InitRobloxToolCharacter(player, character as Model));
-	}
-
-	InitRobloxToolCharacter(player: Player, Character: Model) {
-		const Backpack = player.FindFirstChild("Backpack");
-		if (!Backpack || !Backpack.IsA("Backpack")) {
-			error();
-		}
-
-		for (const instance of Backpack.GetChildren()) {
-			this.TryStoreRobloxTool(instance, player);
-		}
-
-		Backpack.ChildAdded.Connect((item) => this.TryStoreRobloxTool(item, player));
-	}
-
-	/**
-	 * @param tool the tool to add to the store
-	 * @param player the parent property to give when sending the store action
-	 */
-	private TryStoreRobloxTool(tool: Instance, player: Player) {
-		print(tool, player);
-		if (!tool.IsA("Tool")) {
-			return;
-		}
-
-		this.store.dispatch({ type: "TOOL_ADDED", tool: tool, parent: player.Name });
-
-		tool.AncestryChanged.Connect(() => {
-			if (!tool.IsDescendantOf(game)) {
-				this.store.dispatch({ type: "TOOL_REMOVED", tool: tool, parent: player.Name });
-			}
 		});
 	}
 
