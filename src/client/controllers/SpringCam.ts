@@ -22,13 +22,6 @@ export class SpringCamera implements OnInit {
 			return;
 		}
 
-		if (Player.Character) {
-			if (!Player.HasAppearanceLoaded()) {
-				Player.CharacterAppearanceLoaded.Wait();
-			}
-			this.Create();
-		}
-
 		Player.CharacterAdded.Connect(() => {
 			if (!Player.HasAppearanceLoaded()) {
 				Player.CharacterAppearanceLoaded.Wait();
@@ -36,6 +29,13 @@ export class SpringCamera implements OnInit {
 			this.Create();
 		});
 		Player.CharacterRemoving.Connect(() => this.Destroy());
+
+		if (Player.Character) {
+			if (!Player.HasAppearanceLoaded()) {
+				Player.CharacterAppearanceLoaded.Wait();
+			}
+			this.Create();
+		}
 	}
 
 	/**
