@@ -46,6 +46,8 @@ export class Direction implements OnInit {
 		let mouse_location: Vector2;
 		let prev_mouse_location = UserInputService.GetMouseLocation();
 		const failed = new Vector2(0, 0);
+		
+		const SecondaryDirection = "RIGHT"
 
 		RunService.RenderStepped.Connect(() => {
 			const new_location = UserInputService.GetMouseDelta();
@@ -57,8 +59,27 @@ export class Direction implements OnInit {
 			}
 
 			const index = this.GetIndexofAbsoluteLargest(mouse_location);
-
+			let Direction: string
 			if (math.abs(mouse_location[index]) > 10) {
+				const isNegative = mouse_location[index] < 0 ? true : false
+				if (index === "Y") {
+					if (isNegative) {
+						Direction = "UP"
+					} else {
+						Direction = "DOWN"
+					}
+				} else {
+					if (isNegative) {
+						Direction = "LEFT"
+					} else {
+						Direction = "RIGHT"
+					}
+				}
+			}
+			
+			if (Direction && Direction !=== SecondaryDirection) {
+				SecondaryDirection = Direction
+				print(SecondaryDirection)
 			}
 		});
 	}
