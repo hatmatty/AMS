@@ -3,8 +3,9 @@ import Config from "shared/Config";
 import { Players, RunService, UserInputService } from "@rbxts/services";
 import { Janitor } from "@rbxts/janitor";
 import Spring from "shared/modules/spring";
+import { registerNetworkHandler } from "@flamework/networking/out/handlers";
 
-const Camera = game.Workspace.CurrentCamera;
+let Camera = game.Workspace.CurrentCamera;
 const Player = Players.LocalPlayer;
 
 /**
@@ -13,6 +14,7 @@ const Player = Players.LocalPlayer;
 @Controller({})
 export class SpringCamera implements OnInit {
 	private janitor = new Janitor();
+	private charOffset?: Vector3;
 
 	/**
 	 * calls creates the camera by calling Create() when a player's character is loaded in and destroys the camera by calling Destroy() when the player's character is removed.
@@ -23,25 +25,42 @@ export class SpringCamera implements OnInit {
 		}
 
 		Player.CharacterAdded.Connect(() => {
-			if (!Player.HasAppearanceLoaded()) {
-				Player.CharacterAppearanceLoaded.Wait();
-			}
 			this.Create();
 		});
 		Player.CharacterRemoving.Connect(() => this.Destroy());
 
 		if (Player.Character) {
-			if (!Player.HasAppearanceLoaded()) {
-				Player.CharacterAppearanceLoaded.Wait();
-			}
 			this.Create();
 		}
+	}
+
+	private GetPos(): Vector3 {
+		const Player = Players.LocalPlayer;
+		const Character = Player.Character;
+		if (!Character || !Character.IsA("Model")) {
+			error("Could not get character model");
+		}
+		const root = Character.WaitForChild("HumanoidRootPart");
+		if (!root?.IsA("BasePart")) {
+			error("Could not get humanoid correctly");
+		}
+		const head = Character.WaitForChild("Head");
+		if (!head.IsA("BasePart")) {
+			error("got incorrect type for head");
+		}
+		const neck = head?.FindFirstChild("Neck");
+		if (!neck?.IsA("Motor6D")) {
+			return head.Position;
+		}
+
+		return root.Position.add(new Vector3(0, neck.C0.Y, 0));
 	}
 
 	/**
 	 * Creates the spring camera on the player's head by creating a subject basepart and connecting it's position to a spring which moves to the player's head. Updates the camera on render stepped by calling UpdateCamera with the subject and spring.
 	 */
 	private Create() {
+		print("CREATED", Players.LocalPlayer, Camera);
 		if (!Player.Character) {
 			error("character is required");
 		}
@@ -50,10 +69,20 @@ export class SpringCamera implements OnInit {
 			error("camera must be present");
 		}
 
-		const head = Player.Character.WaitForChild("Head");
+		if (!Player.HasAppearanceLoaded()) {
+			Player.CharacterAppearanceLoaded.Wait();
+		}
 
-		if (!head.IsA("BasePart")) {
-			error("head has an incorrect type");
+		Camera = game.Workspace.CurrentCamera;
+		if (!Camera) {
+			error();
+		}
+
+		const head = Player.Character.WaitForChild("Head");
+		const root = Player.Character.WaitForChild("HumanoidRootPart");
+
+		if (!head.IsA("BasePart") || !root.IsA("BasePart")) {
+			error("got a part with an incorrect type");
 		}
 
 		const subject = new Instance("Part");
@@ -66,15 +95,21 @@ export class SpringCamera implements OnInit {
 
 		this.janitor.Add(subject);
 
-		subject.Position = head.Position;
+		subject.Parent = root;
+		subject.Position = this.GetPos();
 		Camera.CameraSubject = subject;
 
 		const spring = new Spring(subject.Position);
-		spring.Speed = 60;
-		spring.Damper = 1;
+		spring.Speed = 25;
+		spring.Damper = 0.8;
 
-		RunService.BindToRenderStep("UpdateSubject", Enum.RenderPriority.Camera.Value, (deltaTime) =>
-			SpringCamera.UpdateCamera(deltaTime, spring, subject),
+		print("BINDED CAMERA:", subject.Position, Camera.CameraSubject, head.Position);
+
+		// RunService.BindToRenderStep("UpdateSubject", Enum.RenderPriority.Last.Value, (deltaTime) =>
+		// );
+
+		this.janitor.Add(
+			RunService.RenderStepped.Connect((deltaTime) => this.UpdateCamera(deltaTime, spring, subject)),
 		);
 	}
 
@@ -85,7 +120,9 @@ export class SpringCamera implements OnInit {
 	 * @param spring a spring which will have it's goal set to the player's head
 	 * @param subject an invisible basepart which will take on the same position as the spring and is the subject of the player's camera
 	 */
-	private static UpdateCamera(deltaTime: number, spring: Spring<Vector3>, subject: BasePart) {
+	private UpdateCamera(deltaTime: number, spring: Spring<Vector3>, subject: BasePart) {
+		Camera = game.Workspace.CurrentCamera;
+
 		// CHECKS & ASSIGNMENT
 		if (!Camera) {
 			error("camera must be present");
@@ -97,9 +134,8 @@ export class SpringCamera implements OnInit {
 			error("Subject is nil");
 		}
 
-		const head = Player.Character.FindFirstChild("Head");
-
-		const rootPart = Player.Character.FindFirstChild("HumanoidRootPart");
+		const head = Player.Character.WaitForChild("Head");
+		const rootPart = Player.Character.WaitForChild("HumanoidRootPart");
 
 		if (!head || !rootPart || !head.IsA("BasePart") || !rootPart.IsA("BasePart")) {
 			error(`player head or humanoidrootpart is of an incorrect value - head: ${head},rootPart: ${rootPart}`);
@@ -111,9 +147,9 @@ export class SpringCamera implements OnInit {
 			Camera.CFrame.Position.sub(head.Position).Magnitude < 1
 		) {
 			Camera.CameraSubject = head;
-			subject.Position = head.Position;
+			subject.Position = this.GetPos();
 		} else {
-			spring.Target = head.Position;
+			spring.Target = this.GetPos();
 			Camera.CameraSubject = subject;
 			subject.Position = spring.Position;
 
@@ -128,8 +164,9 @@ export class SpringCamera implements OnInit {
 	 * Destroys the camera by cleaning up the janitor which has the subject added if the Create() method was ran and unbinds the UpdateSubject function from renderstepped.
 	 */
 	private Destroy() {
-		RunService.UnbindFromRenderStep("UpdateSubject");
+		print("DESTROYED", Players.LocalPlayer);
 		this.janitor.Cleanup();
+		this.charOffset = undefined;
 	}
 
 	/** @ignore */

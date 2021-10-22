@@ -7,13 +7,10 @@ import { Action } from "server/modules/Action";
 import { Events } from "server/events";
 import { playAnim } from "server/modules/AnimPlayer";
 import { Janitor } from "@rbxts/janitor";
-import { EndOfLineState, parseJsonText } from "typescript";
 import { Players } from "@rbxts/services";
-import Signal from "@rbxts/signal";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
 
-// type HitMiddleWare = (stop: Callback, tool: Weapon, hit: BasePart) => void;
-// const HitMiddleWare: HitMiddleWare[] = [];
+const AttachmentName = "DmgPoint";
 
 const [HitMiddleWare, AddHitMiddleware] = GenerateMiddleware<[Weapon, Instance, Map<Instance, boolean>]>();
 const [DamageMiddleware, AddDamageMiddleware] = GenerateMiddleware<[Weapon, Player]>();
@@ -34,6 +31,8 @@ export interface WeaponInstance extends ToolInstance {
 	};
 }
 
+print("RaycastHitbox:", RaycastHitbox);
+
 @Component()
 export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	protected abstract GetDirection(playerDirection: "UP" | "DOWN", Direction: string): string;
@@ -42,7 +41,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	PlayerDirection: "UP" | "DOWN" = "DOWN";
 	Direction = "@@INIT";
 	Damage = 0;
-	Hitbox = new RaycastHitbox(this.instance.DmgPart);
+	Hitbox: HitboxObject = new RaycastHitbox(this.instance.DmgPart);
 
 	StoredAnimations: {
 		[index: string]: AnimationTrack;
@@ -54,24 +53,6 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		if (!Config.Elements.Direction) {
 			return;
 		}
-
-		const Start = this.instance.DmgPart.Start;
-		const End = this.instance.DmgPart.End;
-
-		this.Hitbox.LinkAttachments(Start, End);
-
-		const Trail = new Instance("Trail");
-		Trail.Parent = this.instance.DmgPart;
-		Trail.Attachment0 = Start;
-		Trail.Attachment1 = End;
-		Trail.Transparency = new NumberSequence([
-			new NumberSequenceKeypoint(0, 0.925),
-			new NumberSequenceKeypoint(0.25, 0.95),
-			new NumberSequenceKeypoint(0.5, 0.975),
-			new NumberSequenceKeypoint(0.75, 0.985),
-			new NumberSequenceKeypoint(1, 1),
-		]);
-		Trail.Lifetime = 0.2;
 	}
 
 	PlayerInit() {
@@ -92,7 +73,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		);
 
 		this.Hitbox.DetectionMode = 3;
-		this.Hitbox.Visualizer = false;
+		this.Hitbox.Visualizer = true;
 	}
 
 	constructor() {
@@ -114,6 +95,42 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 
 		this.Actions.Draw = new Action((End, janitor) => this.Draw(End, janitor));
 		this.Actions.Release = new Action((End, janitor) => this.Release(End, janitor));
+
+		let Start = this.instance.DmgPart.Start;
+		let End = this.instance.DmgPart.End;
+
+		Start.Name = AttachmentName;
+		End.Name = AttachmentName;
+
+		if (Start.Position.Y > End.Position.Y) {
+			[Start, End] = [End, Start];
+		}
+
+		const inc = 0.1;
+		for (let i: number = Start.Position.Y + inc; i < End.Position.Y; i += inc) {
+			const Attachment = new Instance("Attachment");
+			Attachment.Position = new Vector3(0, i, 0);
+			Attachment.Parent = this.instance.DmgPart;
+			Attachment.Name = AttachmentName;
+		}
+
+		this.Hitbox.Destroy();
+		this.Hitbox = new RaycastHitbox(this.instance.DmgPart);
+
+		//this.Hitbox.LinkAttachments(Start, End);
+
+		const Trail = new Instance("Trail");
+		Trail.Parent = this.instance.DmgPart;
+		Trail.Attachment0 = Start;
+		Trail.Attachment1 = End;
+		Trail.Transparency = new NumberSequence([
+			new NumberSequenceKeypoint(0, 0.95),
+			new NumberSequenceKeypoint(0.25, 0.965),
+			new NumberSequenceKeypoint(0.5, 0.979),
+			new NumberSequenceKeypoint(0.75, 0.985),
+			new NumberSequenceKeypoint(1, 1),
+		]);
+		Trail.Lifetime = 0.2;
 	}
 
 	private Draw(End: Callback, janitor: Janitor) {
@@ -178,6 +195,10 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 					return;
 				}
 				db.set(Player, true);
+
+				if (Player === this.Player) {
+					return;
+				}
 
 				RunMiddleware(HitMiddleWare, this, Player, db);
 

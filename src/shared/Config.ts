@@ -42,7 +42,7 @@ const Config = {
 	Attributes: {
 		WalkingSpeed: 14,
 		SprintingSpeed: 18,
-		ShieldHitboxSize: new Vector3(2, 2, 1),
+		ShieldHitboxSize: new Vector3(2.75, 2.75, 1.25),
 	},
 
 	Tools: {

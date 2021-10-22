@@ -95,7 +95,9 @@ if (!Added) {
 	Added = true;
 
 	AddHitMiddleware((stop, weapon, hit, db) => {
+		print(hit);
 		if (hit.Name === "Blocker") {
+			print("FOUND BLOCK");
 			const Shield = components.getComponent<Shield>(hit.Parent as Model);
 
 			if (Shield.Player === weapon.Player) {

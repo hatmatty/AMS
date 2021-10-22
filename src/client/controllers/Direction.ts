@@ -1,5 +1,5 @@
 import { Controller, OnStart, OnInit } from "@flamework/core";
-import { Players, RunService } from "@rbxts/services";
+import { Players, RunService, UserInputService } from "@rbxts/services";
 import { Events } from "client/events";
 const Camera = game.Workspace.CurrentCamera;
 
@@ -43,6 +43,32 @@ export class Direction implements OnInit {
 
 			this.prevX = x;
 		});
+		let mouse_location: Vector2;
+		let prev_mouse_location = UserInputService.GetMouseLocation();
+		const failed = new Vector2(0, 0);
+
+		RunService.RenderStepped.Connect(() => {
+			const new_location = UserInputService.GetMouseDelta();
+			if (new_location === failed) {
+				mouse_location = UserInputService.GetMouseLocation().sub(prev_mouse_location);
+				prev_mouse_location = UserInputService.GetMouseLocation();
+			} else {
+				mouse_location = new_location;
+			}
+
+			const index = this.GetIndexofAbsoluteLargest(mouse_location);
+
+			if (math.abs(mouse_location[index]) > 10) {
+			}
+		});
+	}
+
+	GetIndexofAbsoluteLargest(vec2: Vector2): "X" | "Y" {
+		if (math.abs(vec2.X) > math.abs(vec2.Y)) {
+			return "X";
+		} else {
+			return "Y";
+		}
 	}
 
 	/** @ignore */
