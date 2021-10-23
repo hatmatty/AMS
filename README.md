@@ -25,7 +25,6 @@
 
 #### AET is built to eliminate toxicity!
 
-Can add another thing to that list of reasons to choose AET:
 - Ancient genre techs are themselves often a primary contributor to toxicity. For instance Lake tech, an exploitable tech in which there is an obscure tactic known as “angling” to get hits when your sword doesn’t touch the other player. This only causes toxicity as players don’t understand how they died and feel a begrudging feeling against their killer, being more likely to call them an exploiter and hold them in contempt. This extends to almost all ancient genre techs as they do not provide a clear way of understanding if a hit is fair or not. AET changes this by displaying it’s real-time ray tracing in a trail-like effect. If this effect touches a person then it should always hit, however if it isn’t touching then it should never hit! This simple feature decreases toxicity and increases sportsmanship as people see each other’s raycast trail and resort to improving themselves instead of skepticism.
 
 *Hands down AET is the most configurable, developer-friendly, and user-friendly tech out there and we are striving to be even better!*
