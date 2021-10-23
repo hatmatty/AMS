@@ -24,6 +24,51 @@ export class Direction implements OnInit {
 	private prevX = 0;
 
 	onInit() {
+		this.PCInit();
+	}
+
+	PCInit() {
+		let mouse_location: Vector2;
+		let prev_mouse_location = UserInputService.GetMouseLocation();
+		const failed = new Vector2(0, 0);
+
+		RunService.RenderStepped.Connect(() => {
+			const new_location = UserInputService.GetMouseDelta();
+			if (new_location === failed) {
+				mouse_location = UserInputService.GetMouseLocation().sub(prev_mouse_location);
+				prev_mouse_location = UserInputService.GetMouseLocation();
+			} else {
+				mouse_location = new_location;
+			}
+
+			const index = this.GetIndexofAbsoluteLargest(mouse_location);
+			let Direction: string | undefined;
+			if (math.abs(mouse_location[index]) > 5) {
+				const isNegative = mouse_location[index] < 0 ? true : false;
+				if (index === "Y") {
+					if (isNegative) {
+						Direction = "DOWN";
+					} else {
+						Direction = "UP";
+					}
+				} else {
+					if (isNegative) {
+						// Direction = "LEFT";
+					} else {
+						// Direction = "RIGHT";
+					}
+				}
+			}
+
+			if (Direction !== undefined && Direction !== this.Direction) {
+				this.Direction = Direction as "UP";
+				print(Direction);
+				Events.Direction(this.Direction);
+			}
+		});
+	}
+
+	MobileInit() {
 		if (!Camera) {
 			error(`player camera for ${Players.LocalPlayer.Name} not found`);
 		}
@@ -42,45 +87,6 @@ export class Direction implements OnInit {
 			}
 
 			this.prevX = x;
-		});
-		let mouse_location: Vector2;
-		let prev_mouse_location = UserInputService.GetMouseLocation();
-		const failed = new Vector2(0, 0);
-		
-		const SecondaryDirection = "RIGHT"
-
-		RunService.RenderStepped.Connect(() => {
-			const new_location = UserInputService.GetMouseDelta();
-			if (new_location === failed) {
-				mouse_location = UserInputService.GetMouseLocation().sub(prev_mouse_location);
-				prev_mouse_location = UserInputService.GetMouseLocation();
-			} else {
-				mouse_location = new_location;
-			}
-
-			const index = this.GetIndexofAbsoluteLargest(mouse_location);
-			let Direction: string
-			if (math.abs(mouse_location[index]) > 10) {
-				const isNegative = mouse_location[index] < 0 ? true : false
-				if (index === "Y") {
-					if (isNegative) {
-						Direction = "UP"
-					} else {
-						Direction = "DOWN"
-					}
-				} else {
-					if (isNegative) {
-						Direction = "LEFT"
-					} else {
-						Direction = "RIGHT"
-					}
-				}
-			}
-			
-			if (Direction && Direction !=== SecondaryDirection) {
-				SecondaryDirection = Direction
-				print(SecondaryDirection)
-			}
 		});
 	}
 
