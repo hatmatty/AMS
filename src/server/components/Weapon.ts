@@ -19,7 +19,7 @@ const [DrawMiddleware, AddDrawMiddleware] = GenerateMiddleware<[Weapon]>();
 
 export { AddHitMiddleware, AddDamageMiddleware, AddSwingMiddleware, AddDrawMiddleware };
 
-const ReleasePosition = 5;
+const ReleasePosition = 3;
 const BaseDamage = 20;
 const MaxDamage = 50;
 const secToMax = 2;
@@ -137,7 +137,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		this.setState("Drawing");
 
 		this.Direction = this.GetDirection(this.PlayerDirection, this.Direction);
-		this.ActiveAnimation = playAnim(this.Player, this.GetAnimation(this.Direction));
+		this.ActiveAnimation = playAnim(this.Player, this.GetAnimation(this.Direction), { Fade: 0.1 });
 
 		janitor.Add(
 			this.ActiveAnimation.GetMarkerReachedSignal("DrawEnd").Connect(() => {
@@ -181,7 +181,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		this.ActiveAnimation.TimePosition = ReleasePosition;
 		this.ActiveAnimation.AdjustSpeed(1);
 
-		this.Hitbox.HitStart(this.ActiveAnimation.Length - ReleasePosition - 0.05);
+		this.Hitbox.HitStart(this.ActiveAnimation.Length - ReleasePosition);
 		const db = new Map<Instance, boolean>();
 		this.Hitbox.OnHit.Connect((hit) => {
 			if (db.get(hit)) {
@@ -226,7 +226,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			this.Hitbox.HitStop();
 		});
 
-		task.wait(this.ActiveAnimation.Length - ReleasePosition - 0.05);
+		task.wait(this.ActiveAnimation.Length - ReleasePosition - 0.1);
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
 		}

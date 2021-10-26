@@ -12,9 +12,9 @@ const Config = {
 		},
 
 		Sword: {
-			Left: 7632564332,
-			Right: 7632959453,
-			Stab: 7632993927,
+			Left: 7836906176,
+			Right: 7836712123,
+			Stab: 7836846445,
 
 			Holster: 7566107081,
 			Equip: 7532918137,
