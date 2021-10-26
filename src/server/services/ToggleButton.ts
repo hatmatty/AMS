@@ -18,8 +18,8 @@ export class ToggleButton implements OnInit {
 	 * Connects to the ToolAdded and ToolRemoved and calls ConfigureToggleButtons with the arguments from the connections.
 	 */
 	onInit() {
-		ToolAdded.Connect((state, parent, tool) => this.ConfigureToggleButtons(state, parent, tool));
-		ToolRemoved.Connect((state, parent, tool) => this.ConfigureToggleButtons(state, parent, tool));
+		ToolAdded.Connect((state, parent, tool) => this.ConfigureToggleButtons(state, parent, tool, "ADDED"));
+		ToolRemoved.Connect((state, parent, tool) => this.ConfigureToggleButtons(state, parent, tool, "REMOVED"));
 	}
 
 	/**
@@ -29,7 +29,12 @@ export class ToggleButton implements OnInit {
 	 * @param state - a copy of a state from toolservice
 	 * @param parent - a string that will cause an error if it does not match up to a player's username in the game
 	 */
-	private ConfigureToggleButtons(state: State, parent: string, tool: Tool | ITool) {
+	private ConfigureToggleButtons(
+		state: State,
+		parent: string,
+		modifiedTool: Tool | ITool,
+		action: "ADDED" | "REMOVED",
+	) {
 		const player = this.GetPlayerFromUserName(parent);
 
 		if (player === undefined) {
@@ -59,6 +64,18 @@ export class ToggleButton implements OnInit {
 			}
 		});
 
+		if (action === "REMOVED") {
+			if (typeIs(modifiedTool, "Instance")) {
+				Events.ButtonChanged(
+					player,
+					"REMOVED",
+					this.RbxTool.GetAttribute(modifiedTool, "id", "string") as string,
+				);
+			} else {
+				Events.ButtonChanged(player, "REMOVED", modifiedTool.id);
+			}
+		}
+
 		const getNum = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
 
 		let index = 0;
@@ -75,7 +92,11 @@ export class ToggleButton implements OnInit {
 
 			const id = typeIs(tool, "Instance") ? (this.RbxTool.GetAttribute(tool, "id", "string") as string) : tool.id;
 
-			Events.ButtonChanged(player, Instance, index + 1, id);
+			if (tool === modifiedTool) {
+				Events.ButtonChanged(player, "ADDED", id, Instance, index + 1);
+			} else {
+				Events.ButtonChanged(player, "UPDATED", id, Instance, index + 1);
+			}
 
 			index++;
 		});

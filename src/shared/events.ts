@@ -24,7 +24,7 @@ interface ClientEvents {
 		leftShoulderCFrame: CFrame,
 		rightShoulderCFrame: CFrame,
 	): void;
-	ButtonChanged(tool: Tool | Model, button: number, id: string): void;
+	ButtonChanged(state: "ADDED" | "REMOVED" | "UPDATED", id: string, tool?: Tool | Model, button?: number): void;
 }
 
 export const GlobalEvents = Networking.createEvent<ServerEvents, ClientEvents>();

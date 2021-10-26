@@ -35,6 +35,8 @@
     "@rbxts/janitor": "^1.13.12-ts.1",
     "@rbxts/object-utils": "^1.0.4",
     "@rbxts/raycast-hitbox": "^4.0.0-ts.2",
+    "@rbxts/roact": "^1.4.0-ts.0",
+    "@rbxts/roact-rodux": "^0.2.2-ts.5",
     "@rbxts/rodux": "^3.0.0-ts.3",
     "@rbxts/signal": "^1.0.3",
     "@rbxts/types": "^1.0.538",
