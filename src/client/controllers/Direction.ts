@@ -19,12 +19,16 @@ const Camera = game.Workspace.CurrentCamera;
 @Controller()
 export class Direction implements OnInit {
 	/** stores the direction the player's camera is facing in */
-	private Direction: "DOWN" | "UP" = "DOWN";
+	private Direction: "DOWN" | "LEFT" | "RIGHT" = "RIGHT";
 	/** stores the amount of heartbeats the camera has moved in a direction */
 	private prevX = 0;
 
 	onInit() {
-		this.PCInit();
+		if (UserInputService.MouseEnabled) {
+			this.PCInit();
+		} else {
+			this.MobileInit();
+		}
 	}
 
 	PCInit() {
@@ -42,27 +46,24 @@ export class Direction implements OnInit {
 			}
 
 			const index = this.GetIndexofAbsoluteLargest(mouse_location);
-			let Direction: string | undefined;
-			if (math.abs(mouse_location[index]) > 5) {
+			let Direction: "DOWN" | "LEFT" | "RIGHT" | undefined;
+			if (math.abs(mouse_location[index]) > 3) {
 				const isNegative = mouse_location[index] < 0 ? true : false;
 				if (index === "Y") {
-					if (isNegative) {
+					if (!isNegative) {
 						Direction = "DOWN";
-					} else {
-						Direction = "UP";
 					}
 				} else {
 					if (isNegative) {
-						// Direction = "LEFT";
+						Direction = "LEFT";
 					} else {
-						// Direction = "RIGHT";
+						Direction = "RIGHT";
 					}
 				}
 			}
 
 			if (Direction !== undefined && Direction !== this.Direction) {
-				this.Direction = Direction as "UP";
-				print(Direction);
+				this.Direction = Direction;
 				Events.Direction(this.Direction);
 			}
 		});
@@ -77,7 +78,7 @@ export class Direction implements OnInit {
 			const [x] = Camera.CFrame.ToOrientation();
 
 			if (this.prevX !== x && math.abs(this.prevX - x) >= 0.02) {
-				const currentDirection = this.prevX < x ? "DOWN" : "UP";
+				const currentDirection = this.prevX < x ? "RIGHT" : "DOWN";
 
 				if (currentDirection !== this.Direction) {
 					// moving in different direction

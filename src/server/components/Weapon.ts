@@ -35,11 +35,9 @@ print("RaycastHitbox:", RaycastHitbox);
 
 @Component()
 export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
-	protected abstract GetDirection(playerDirection: "UP" | "DOWN", Direction: string): string;
-	protected abstract GetAnimation(direction: string): number;
+	protected abstract GetAnimation(direction: "DOWN" | "LEFT" | "RIGHT"): number;
 
-	PlayerDirection: "UP" | "DOWN" = "DOWN";
-	Direction = "@@INIT";
+	Direction: "DOWN" | "LEFT" | "RIGHT" = "RIGHT";
 	Damage = 0;
 	Hitbox: HitboxObject = new RaycastHitbox(this.instance.DmgPart);
 
@@ -67,7 +65,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		this.janitor.Add(
 			Events.Direction.connect((player, direction) => {
 				if (player === this.Player) {
-					this.PlayerDirection = direction;
+					this.Direction = direction;
 				}
 			}),
 		);
@@ -136,7 +134,6 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	private Draw(End: Callback, janitor: Janitor) {
 		this.setState("Drawing");
 
-		this.Direction = this.GetDirection(this.PlayerDirection, this.Direction);
 		this.ActiveAnimation = playAnim(this.Player, this.GetAnimation(this.Direction), { Fade: 0.1 });
 
 		janitor.Add(

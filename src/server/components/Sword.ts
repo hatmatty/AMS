@@ -17,23 +17,9 @@ export class Sword extends Weapon {
 	EnabledLimb = "RightHand" as CharacterLimb;
 	DisabledLimb = "LowerTorso" as CharacterLimb;
 
-	GetDirection(playerDirection: "UP" | "DOWN", direction: string): string {
-		if (direction === "@@INIT") {
-			return "RIGHT";
-		} else if (playerDirection === "UP") {
-			return "STAB";
-		} else {
-			if (direction === "RIGHT") {
-				return "LEFT";
-			} else {
-				return "RIGHT";
-			}
-		}
-	}
-
-	GetAnimation(direction: string): number {
+	GetAnimation(direction: "DOWN" | "LEFT" | "RIGHT"): number {
 		const anims = Config.Animations.Sword;
-		if (direction === "STAB") {
+		if (direction === "DOWN") {
 			return anims.Stab;
 		} else if (direction === "RIGHT") {
 			return anims.Right;

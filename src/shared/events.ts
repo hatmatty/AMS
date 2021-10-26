@@ -1,7 +1,7 @@
 import { Networking } from "@flamework/networking";
 
 interface ServerEvents {
-	Direction(direction: "DOWN" | "UP"): void;
+	Direction(direction: "DOWN" | "LEFT" | "RIGHT"): void;
 	Input(input: {
 		UserInputState: Enum.UserInputState;
 		UserInputType: Enum.UserInputType;
