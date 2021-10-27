@@ -89,7 +89,7 @@ export class RbxTool implements OnInit {
 
 				if (parsedInput.State === "End" && parsedInput.Input === tool.GetAttribute("BUTTON_TOGGLE")) {
 					if (tool.Parent?.IsA("Model")) {
-						tool.Parent = player;
+						tool.Parent = player.FindFirstChild("Backpack");
 					} else {
 						const character = player.Character;
 						if (!character) {
@@ -133,10 +133,10 @@ export class RbxTool implements OnInit {
 
 				switch (attribute) {
 					case "Disabled": {
-						if (tool.Parent === player) {
+						if (tool.Parent?.Parent === player) {
 							return;
 						}
-						tool.Parent = player;
+						tool.Parent = player.FindFirstChild("Backpack");
 						return;
 					}
 					case "Enabled": {
@@ -158,7 +158,7 @@ export class RbxTool implements OnInit {
 
 		janitor.Add(
 			tool.AncestryChanged.Connect(() => {
-				if (tool.Parent?.IsA("Player")) {
+				if (tool.Parent?.Parent?.IsA("Player")) {
 					tool.SetAttribute("Status", "Disabled");
 				} else if (tool.Parent?.IsA("Model")) {
 					tool.SetAttribute("Status", "Enabled");
