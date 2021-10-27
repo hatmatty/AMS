@@ -1,4 +1,6 @@
 import Roact from "@rbxts/roact";
+import { SingleMotor } from "@rbxts/flipper";
+import { UseSingleFlipper } from "./FlipperUtil";
 
 interface fadeAnim {
 	type: "FADE";
@@ -19,7 +21,24 @@ interface props {
 }
 
 export class Toolbox extends Roact.Component<props> {
+	enabledMotor;
+	enabledBinding;
+	enabledSetBinding;
+
+	visibleMotor;
+	visibleBinding;
+	visibleSetBinding;
+
+	constructor(props: props) {
+		super(props);
+		[this.enabledMotor, this.enabledBinding, this.enabledSetBinding] = UseSingleFlipper(0);
+		[this.visibleMotor, this.visibleBinding, this.visibleSetBinding] = UseSingleFlipper(0);
+	}
 	render() {
-		return <frame></frame>;
+		return (
+			<frame>
+				<textlabel Text="1"></textlabel>
+			</frame>
+		);
 	}
 }

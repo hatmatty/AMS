@@ -1,8 +1,13 @@
 import Object from "@rbxts/object-utils";
-import Roact from "@rbxts/roact";
+import Roact, { Children } from "@rbxts/roact";
 import { Toolbox, anim } from "./Toolbox";
+import RoactRodux from "@rbxts/roact-rodux";
+import { HttpService } from "@rbxts/services";
 
-export interface State {
+const BasePosition = new UDim2();
+const XSpacing = 100;
+
+interface props {
 	[id: string]:
 		| {
 				tool: Tool | Model;
@@ -12,15 +17,20 @@ export interface State {
 		| undefined;
 }
 
-class Toolbar extends Roact.Component<State> {
+export type State = props;
+
+export class Toolbar extends Roact.Component<props> {
 	prevButtonPositions: {
 		[button: number]: UDim2;
 	} = {};
+	total = 0;
 
 	render() {
 		const Elements: Roact.Element[] = [];
 
 		const ids = Object.keys(this.props);
+		this.total = ids.size() - 1; // because 1 of them is Roact.Children
+
 		for (const id of ids) {
 			if (id === Roact.Children) {
 				return;
@@ -30,22 +40,26 @@ class Toolbar extends Roact.Component<State> {
 			if (value === undefined) {
 				error();
 			}
+			if (!typeIs(value, "table")) {
+				continue;
+			}
 
 			let animation: anim | undefined;
 			let newPos: UDim2;
 			if (value.previousButton === undefined) {
-				newPos = this.getPositionFromNumber(value.button, ids.size());
+				newPos = this.getPositionFromNumber(value.button);
 
 				animation = {
 					type: "FADE",
 					pos: newPos,
 				};
 			} else {
-				const prevPos = this.prevButtonPositions[value.previousButton];
+				let prevPos = this.prevButtonPositions[value.previousButton];
+
+				newPos = this.getPositionFromNumber(value.button);
 				if (!prevPos) {
-					error();
+					prevPos = newPos;
 				}
-				newPos = this.getPositionFromNumber(value.button, ids.size());
 
 				animation = {
 					type: "MOVE",
@@ -63,10 +77,16 @@ class Toolbar extends Roact.Component<State> {
 			Elements.push(<Toolbox id={id} animation={animation} />);
 		}
 
+		print(Elements);
+		Elements.push(<textlabel Text={tostring(Object.keys(this.props).size())}></textlabel>);
 		return <screengui>{...Elements}</screengui>;
 	}
 
-	getPositionFromNumber(n: number, total: number): UDim2 {
-		return new UDim2();
+	getPositionFromNumber(n: number): UDim2 {
+		const NewUDim2 = UDim2.fromScale(
+			BasePosition.X.Scale + -((this.total - 1) * XSpacing) / 2 + (n - 1) * XSpacing,
+			BasePosition.Y.Scale,
+		);
+		return NewUDim2;
 	}
 }
