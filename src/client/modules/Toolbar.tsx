@@ -3,6 +3,7 @@ import Roact, { Children } from "@rbxts/roact";
 import { Toolbox, anim } from "./Toolbox";
 import RoactRodux from "@rbxts/roact-rodux";
 import { HttpService } from "@rbxts/services";
+import { Events } from "client/events";
 
 const BasePosition = new UDim2(0.5, 0, 0.95, 0);
 const XSpacing = 0.05;
@@ -17,6 +18,12 @@ interface props {
 		| undefined;
 }
 
+const Equipped: { [id: string]: boolean } = {};
+
+Events.ToolToggled.connect((id, state) => {
+	Equipped[id] = state === "Enabled" ? true : false;
+});
+
 export type State = props;
 
 export class Toolbar extends Roact.Component<props> {
@@ -29,10 +36,10 @@ export class Toolbar extends Roact.Component<props> {
 		const Elements: Roact.Element[] = [];
 
 		const ids = Object.keys(this.props);
-		this.total = ids.size() - 1; // because 1 of them is Roact.Children
+		this.total = ids.size() - 2; // because 1 of them is Roact.Children and another "ToggledStatus"
 
 		for (const id of ids) {
-			if (id === Roact.Children) {
+			if (id === Roact.Children || id === "ToggledStatus") {
 				return;
 			}
 
@@ -74,10 +81,17 @@ export class Toolbar extends Roact.Component<props> {
 				error("something went wrong");
 			}
 
-			Elements.push(<Toolbox id={id} tool={value.tool} position={value.button} animation={animation} />);
+			Elements.push(
+				<Toolbox
+					id={id}
+					status={Equipped[id]}
+					tool={value.tool}
+					position={value.button}
+					animation={animation}
+				/>,
+			);
 		}
 
-		print(Elements);
 		Elements.push(<textlabel Text={tostring(Object.keys(this.props).size())}></textlabel>);
 		return <screengui ResetOnSpawn={false}>{...Elements}</screengui>;
 	}

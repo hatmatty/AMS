@@ -23,6 +23,7 @@ interface props {
 	tool: Tool | Model;
 	position: number;
 	animation: anim;
+	status: boolean;
 }
 
 const params = { dampingRatio: 0.75, frequency: 5 };
@@ -38,6 +39,7 @@ function handleTransparency(transp: number) {
 
 export class Toolbox extends Roact.Component<props> {
 	janitor = new Janitor();
+	status = false;
 
 	enabledMotor;
 	enabledBinding;
@@ -62,22 +64,23 @@ export class Toolbox extends Roact.Component<props> {
 	}
 
 	didMount() {
+		this.status = this.props.status;
+		this.UpdateEnabled();
+
 		this.janitor.Add(
 			Events.ToolToggled.connect((id, state) => {
 				if (id !== this.props.id) {
 					return;
 				}
-
 				switch (state) {
 					case "Disabled":
-						print("GONE");
-						this.enabledMotor.setGoal(new Spring(0, params));
-						return;
+						this.status = false;
+						break;
 					case "Enabled":
-						print("HERE");
-						this.enabledMotor.setGoal(new Spring(1, params));
-						return;
+						this.status = true;
+						break;
 				}
+				this.UpdateEnabled();
 			}),
 		);
 
@@ -99,6 +102,17 @@ export class Toolbox extends Roact.Component<props> {
 
 		// 	Name.Destroy();
 		// });
+	}
+
+	UpdateEnabled() {
+		switch (this.status) {
+			case false:
+				this.enabledMotor.setGoal(new Spring(0, params));
+				return;
+			case true:
+				this.enabledMotor.setGoal(new Spring(1, params));
+				return;
+		}
 	}
 
 	willUnmount() {

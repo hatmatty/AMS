@@ -87,6 +87,7 @@ export class ToolGui implements OnInit {
 			}
 		});
 
+		print("MOUNTING");
 		Roact.mount(
 			Roact.createElement(
 				RoactRodux.StoreProvider,
@@ -104,5 +105,6 @@ export class ToolGui implements OnInit {
 			PlayerGui,
 			"Toolbar",
 		);
+		print("MOUNTED");
 	}
 }
