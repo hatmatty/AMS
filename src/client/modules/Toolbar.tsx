@@ -4,8 +4,8 @@ import { Toolbox, anim } from "./Toolbox";
 import RoactRodux from "@rbxts/roact-rodux";
 import { HttpService } from "@rbxts/services";
 
-const BasePosition = new UDim2();
-const XSpacing = 100;
+const BasePosition = new UDim2(0.5, 0, 0.95, 0);
+const XSpacing = 0.05;
 
 interface props {
 	[id: string]:
@@ -74,12 +74,12 @@ export class Toolbar extends Roact.Component<props> {
 				error("something went wrong");
 			}
 
-			Elements.push(<Toolbox id={id} animation={animation} />);
+			Elements.push(<Toolbox id={id} tool={value.tool} position={value.button} animation={animation} />);
 		}
 
 		print(Elements);
 		Elements.push(<textlabel Text={tostring(Object.keys(this.props).size())}></textlabel>);
-		return <screengui>{...Elements}</screengui>;
+		return <screengui ResetOnSpawn={false}>{...Elements}</screengui>;
 	}
 
 	getPositionFromNumber(n: number): UDim2 {

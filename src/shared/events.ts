@@ -16,6 +16,8 @@ interface ServerEvents {
 }
 
 interface ClientEvents {
+	ToolToggled(id: string, state: "Enabled" | "Disabled"): void;
+
 	AttackStatus(status: "GAVE_BLOCK" | "GOT_BLOCK" | "DAMAGED" | "HIT" | "SWUNG"): void;
 	UpdateRotation(
 		player: Player,

@@ -126,6 +126,7 @@ export class RbxTool implements OnInit {
 	private ManageStatusAttribute(tool: Tool, player: Player, janitor: Janitor) {
 		janitor.Add(
 			tool.GetAttributeChangedSignal("Status").Connect(() => {
+				print("GOT RESPONSE");
 				const attribute = tool.GetAttribute("Status");
 				if (attribute === undefined || !typeIs(attribute, "string")) {
 					error();
@@ -133,9 +134,12 @@ export class RbxTool implements OnInit {
 
 				switch (attribute) {
 					case "Disabled": {
+						Events.ToolToggled(player, this.GetAttribute(tool, "id", "string") as string, attribute);
+
 						if (tool.Parent?.Parent === player) {
 							return;
 						}
+
 						tool.Parent = player.FindFirstChild("Backpack");
 						return;
 					}
@@ -144,6 +148,8 @@ export class RbxTool implements OnInit {
 						if (!character) {
 							return;
 						}
+						Events.ToolToggled(player, this.GetAttribute(tool, "id", "string") as string, attribute);
+
 						if (tool.Parent === character) {
 							return;
 						}
@@ -167,14 +173,16 @@ export class RbxTool implements OnInit {
 		);
 	}
 
-	public GetAttribute(tool: Tool, attributeName: string, kind: "number" | "string"): unknown {
+	public GetAttribute(tool: Tool, attributeName: string, kind: "number" | "string"): string | number {
 		const attribute = tool.GetAttribute(attributeName);
 		if (attribute === undefined) {
 			error(`${attributeName} has not been set`);
 		}
 
-		if (typeIs(attribute, kind)) {
-			return attribute as unknown;
+		if (kind === "number" && typeIs(attribute, "number")) {
+			return attribute;
+		} else if (kind === "string" && typeIs(attribute, "string")) {
+			return attribute;
 		} else {
 			error("timeCreated is not a number");
 		}

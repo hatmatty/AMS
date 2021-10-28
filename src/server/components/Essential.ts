@@ -8,6 +8,7 @@ import { Dependency } from "@flamework/core";
 import { Constructor } from "@flamework/core/out/types";
 import { BaseComponent } from "@rbxts/flamework";
 import { DisableIncompatibleTools } from "server/modules/IncompatibleTools";
+import { Events } from "server/events";
 
 const components = Dependency<Components>();
 
@@ -130,6 +131,7 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 
 	private create(option: "Enable" | "Disable") {
 		return (End: Callback) => {
+			const [Player, Character] = this.GetCharPlayer();
 			let Limb;
 			let Animation;
 			if (option === "Enable") {
@@ -139,9 +141,11 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 
 				Limb = this.EnabledLimb;
 				Animation = this.EnableAnimation;
+				Events.ToolToggled(Player, this.id, "Enabled");
 			} else {
 				Limb = this.DisabledLimb;
 				Animation = this.DisableAnimation;
+				Events.ToolToggled(Player, this.id, "Disabled");
 			}
 
 			if (!this.Motor6D) {
@@ -154,7 +158,7 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 				this.EssentialAnimation.Stop();
 			}
 
-			this.EssentialAnimation = playAnim(this.Player, Animation, { Looped: true });
+			this.EssentialAnimation = playAnim(Player, Animation, { Looped: true });
 			this.setState(option + "d");
 			End();
 		};
