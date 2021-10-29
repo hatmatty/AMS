@@ -44,3 +44,25 @@ export function ParseInput(
 		return { Input: Input, State: State };
 	}
 }
+
+function doCheck(enumKey: "UserInputType" | "UserInputState" | "KeyCode", parsedInput: string): boolean {
+	return opcall(() => {
+		// @ts-expect-error its ok
+		const validate = Enum[enumKey][parsedInput];
+	}).success;
+}
+
+export function Unparse(parsedInput: string): Enum.UserInputState | Enum.UserInputType | Enum.KeyCode {
+	if (doCheck("UserInputType", parsedInput)) {
+		// @ts-expect-error am checking
+		return Enum.UserInputType[parsedInput];
+	} else if (doCheck("UserInputState", parsedInput)) {
+		// @ts-expect-error am checking
+		return Enum.UserInputState[parsedInput];
+	} else if (doCheck("KeyCode", parsedInput)) {
+		// @ts-expect-error am checking
+		return Enum.KeyCode[parsedInput];
+	} else {
+		error(`got invalid value: ${parsedInput}`);
+	}
+}

@@ -31,8 +31,6 @@ export interface WeaponInstance extends ToolInstance {
 	};
 }
 
-print("RaycastHitbox:", RaycastHitbox);
-
 @Component()
 export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	protected abstract GetAnimation(direction: "DOWN" | "LEFT" | "RIGHT"): number;
@@ -53,7 +51,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		}
 	}
 
-	PlayerInit() {
+	playerInit(player: Player) {
 		const Params = new RaycastParams();
 		const [Player, Character] = this.GetCharPlayer();
 

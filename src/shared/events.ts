@@ -1,12 +1,22 @@
 import { Networking } from "@flamework/networking";
+import { MobileInput } from "./types";
 
 interface ServerEvents {
 	Direction(direction: "DOWN" | "LEFT" | "RIGHT"): void;
-	Input(input: {
-		UserInputState: Enum.UserInputState;
-		UserInputType: Enum.UserInputType;
-		KeyCode: Enum.KeyCode;
-	}): void;
+	Input(
+		input:
+			| {
+					type: "UNPARSED";
+					UserInputState: Enum.UserInputState;
+					UserInputType: Enum.UserInputType;
+					KeyCode: Enum.KeyCode;
+			  }
+			| {
+					type: "PARSED";
+					Input: string;
+					State: string;
+			  },
+	): void;
 	UpdateRotation(
 		neckCFrame: CFrame,
 		waistCFrame: CFrame,
@@ -17,7 +27,7 @@ interface ServerEvents {
 
 interface ClientEvents {
 	ToolToggled(id: string, state: "Enabled" | "Disabled"): void;
-
+	SetMobileInput(id: string, inputs: MobileInput[]): void;
 	AttackStatus(status: "GAVE_BLOCK" | "GOT_BLOCK" | "DAMAGED" | "HIT" | "SWUNG"): void;
 	UpdateRotation(
 		player: Player,

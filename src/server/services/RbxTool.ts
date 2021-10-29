@@ -1,6 +1,6 @@
 import { Service, OnStart, OnInit } from "@flamework/core";
 import { Events } from "server/events";
-import { ParseInput } from "server/modules/InputParser";
+import { ParseInput } from "shared/modules/InputParser";
 import { HttpService, Players, CollectionService } from "@rbxts/services";
 import { ToolService } from "./ToolService";
 import { Janitor } from "@rbxts/janitor";
@@ -85,6 +85,10 @@ export class RbxTool implements OnInit {
 					return;
 				}
 
+				if (input.type !== "UNPARSED") {
+					return;
+				}
+
 				const parsedInput = ParseInput(input);
 
 				if (parsedInput.State === "End" && parsedInput.Input === tool.GetAttribute("BUTTON_TOGGLE")) {
@@ -126,7 +130,6 @@ export class RbxTool implements OnInit {
 	private ManageStatusAttribute(tool: Tool, player: Player, janitor: Janitor) {
 		janitor.Add(
 			tool.GetAttributeChangedSignal("Status").Connect(() => {
-				print("GOT RESPONSE");
 				const attribute = tool.GetAttribute("Status");
 				if (attribute === undefined || !typeIs(attribute, "string")) {
 					error();

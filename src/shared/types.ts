@@ -14,3 +14,11 @@ export type CharacterLimb =
 	| "LowerTorso"
 	| "UpperTorso"
 	| "Head";
+
+export interface MobileInput {
+	Position: UDim2;
+	Name: string;
+	Input: string;
+	State: string;
+	Image?: string;
+}

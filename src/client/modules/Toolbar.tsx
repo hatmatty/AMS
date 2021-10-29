@@ -1,8 +1,8 @@
 import Object from "@rbxts/object-utils";
-import Roact, { Children } from "@rbxts/roact";
+import Roact, { Children, PureComponent } from "@rbxts/roact";
 import { Toolbox, anim } from "./Toolbox";
 import RoactRodux from "@rbxts/roact-rodux";
-import { HttpService } from "@rbxts/services";
+import { HttpService, Players } from "@rbxts/services";
 import { Events } from "client/events";
 
 const BasePosition = new UDim2(0.5, 0, 0.95, 0);
@@ -18,11 +18,31 @@ interface props {
 		| undefined;
 }
 
-const Equipped: { [id: string]: boolean } = {};
+let Equipped: { [id: string]: boolean } = {};
 
 Events.ToolToggled.connect((id, state) => {
 	Equipped[id] = state === "Enabled" ? true : false;
 });
+
+const Player = Players.LocalPlayer;
+function ManageChar(char: Model) {
+	if (!Player.HasAppearanceLoaded()) {
+		Player.CharacterAppearanceLoaded.Wait();
+	}
+	const Humanoid = char.WaitForChild("Humanoid");
+	if (!Humanoid.IsA("Humanoid")) {
+		error("Humanoid is not of class humanoid.");
+	}
+	Humanoid.Died.Connect(() => {
+		print("RESET!");
+		Equipped = {};
+	});
+}
+
+if (Player.Character) {
+	ManageChar(Player.Character);
+}
+Player.CharacterAdded.Connect(ManageChar);
 
 export type State = props;
 
@@ -33,6 +53,7 @@ export class Toolbar extends Roact.Component<props> {
 	total = 0;
 
 	render() {
+		print(Equipped);
 		const Elements: Roact.Element[] = [];
 
 		const ids = Object.keys(this.props);

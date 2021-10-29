@@ -6,18 +6,23 @@ import { HttpService } from "@rbxts/services";
 import { Events } from "server/events";
 import { Janitor } from "@rbxts/janitor";
 import { Players } from "@rbxts/services";
-import { ParseInput } from "server/modules/InputParser";
+import { ParseInput } from "shared/modules/InputParser";
 import { Action } from "server/modules/Action";
 import { Defer } from "server/modules/Defer";
-import { TypePredicate } from "typescript";
+import { isBreakStatement, isPrivateIdentifier, TypePredicate } from "typescript";
 import { Tools } from "shared/Config";
-import { deepCopy } from "@rbxts/object-utils";
+import Object, { deepCopy } from "@rbxts/object-utils";
+import { MobileInput } from "shared/types";
 
 export type ITool = Tool<ToolAttributes, ToolInstance>;
 
 export type ActionInfo = {
 	Action: string;
-	Mobile?: {};
+	Mobile?: {
+		Position: UDim2;
+		Name: string;
+		Image?: string;
+	};
 };
 
 export type InputInfo = {
@@ -55,8 +60,9 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	public abstract Incompatible: string[];
 	public abstract Actions: Actions;
 	public abstract InputInfo: InputInfo;
-	public abstract Init?(): void;
-	public abstract PlayerInit?(): void;
+	private LastParent?: Instance;
+
+	protected abstract PlayerInit?(player: Player): void;
 
 	protected janitor = new Janitor();
 	private ButtonedInputInfo?: InputInfo;
@@ -78,17 +84,55 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	onStart() {
 		// Not sure if using promise.defer is a hacky way or a legit way to acces the abstract methods and properties. Trying to access in onStart() without deferring will result in a nil value.
 		Defer(() => {
-			this.maid.GiveTask(this.janitor);
-
 			this.ManageButtons();
 			this.ManageAncestry();
 
 			ToolAdded.Fire(this);
 
-			if (this.Init !== undefined) {
-				this.Init();
-			}
+			this.stateChanged.Connect((state) => this.UpdateMobileInput(state));
 		});
+	}
+
+	private UpdateMobileInput(state: string) {
+		if (!this.Player) {
+			error(`state updated without a player? : ${state}`);
+		}
+
+		//print("TOOL: UPDATING MOBILE INPUT");
+		const InputInfo = this.ButtonedInputInfo;
+		if (!InputInfo) {
+			return;
+		}
+
+		const StateInfo = InputInfo[state];
+		if (!StateInfo) {
+			return;
+		}
+
+		const inputs: MobileInput[] = [];
+
+		Object.keys(StateInfo).forEach((State) => {
+			Object.keys(StateInfo[State]).forEach((Input) => {
+				if (typeIs(Input, "number") || typeIs(State, "number")) {
+					error(`${this} has an invalid input ${Input} and state ${State}`);
+				}
+
+				const value = StateInfo[State][Input];
+
+				if (value.Mobile) {
+					//print("PUSHED INPUT");
+					inputs.push({
+						Name: value.Action,
+						Position: value.Mobile.Position,
+						Image: value.Mobile.Image,
+						Input: Input,
+						State: State,
+					});
+				}
+			});
+		});
+
+		Events.SetMobileInput(this.Player, this.id, inputs);
 	}
 
 	private ManageButtons() {
@@ -108,16 +152,22 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	}
 
 	private UpdateAncestry() {
-		if (!this.instance.IsDescendantOf(game)) {
+		if (this.instance.Parent !== this.LastParent) {
+			this.LastParent = this.instance.Parent;
+
+			this.janitor.Cleanup();
+			const Player = Players.GetPlayerFromCharacter(this.instance.Parent);
+			if (Player && Player !== this.Player) {
+				this.InitPlayer();
+			} else {
+				this.InitWorkspace();
+			}
+		} else if (!this.instance.IsDescendantOf(game)) {
+			this.janitor.Cleanup();
 			pcall(() => {
 				this.instance.Destroy();
 			});
-		} else if (Players.GetPlayerFromCharacter(this.instance.Parent) !== this.Player) {
-			this.janitor.Cleanup();
-			this.InitPlayer();
-		} else {
-			this.janitor.Cleanup();
-			this.InitWorkspace();
+			return;
 		}
 	}
 
@@ -134,9 +184,12 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 		this.janitor.Add(this.SetupInput());
 		this.Input("INIT", { Input: "None", State: "None" });
 
-		if (this.PlayerInit !== undefined) {
-			this.PlayerInit();
-		}
+		opcall(() => {
+			print(this);
+
+			// @ts-expect-error its ok
+			this.PlayerInit(this.Player);
+		});
 	}
 
 	private InitWorkspace() {
@@ -147,7 +200,7 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 		this.RequirePlayer();
 		return Events.Input.connect((player, inputobject) => {
 			if (this.Player === player) {
-				const Input = ParseInput(inputobject);
+				const Input = inputobject.type === "UNPARSED" ? ParseInput(inputobject) : inputobject;
 				this.Input(this.getState(), Input);
 			}
 		});

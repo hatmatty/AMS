@@ -23,6 +23,7 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	public abstract DisableAnimation: number;
 	protected abstract EnabledLimb: CharacterLimb;
 	protected abstract DisabledLimb: CharacterLimb;
+	protected abstract playerInit(Player: Player): void;
 
 	public EssentialAnimation?: AnimationTrack;
 	private Motor6D?: Motor6D;
@@ -55,6 +56,12 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 		super();
 		this.ManageStatusAttribute();
 	}
+
+	protected PlayerInit = (player: Player) => {
+		print("ESSENTIAL ADDED");
+
+		this.playerInit(player);
+	};
 
 	private ManageStatusAttribute() {
 		this.instance.GetAttributeChangedSignal("Status").Connect(() => {
@@ -164,9 +171,9 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 		};
 	}
 
-	Enable = this.create("Enable");
+	protected Enable = this.create("Enable");
 
-	Disable = this.create("Disable");
+	protected Disable = this.create("Disable");
 
 	Actions = {
 		Enable: new Action((End) => this.Enable(End)),

@@ -75,7 +75,6 @@ export class ToolGui implements OnInit {
 	onInit() {
 		StarterGui.SetCoreGuiEnabled("Backpack", false);
 		Events.ButtonChanged.connect((state, id, tool, button) => {
-			print(state, id, tool, button);
 			if (state === "REMOVED") {
 				this.Store.dispatch({ type: "REMOVED", id: id, tool: tool, button: button });
 			} else if (tool === undefined || button === undefined) {
@@ -87,7 +86,6 @@ export class ToolGui implements OnInit {
 			}
 		});
 
-		print("MOUNTING");
 		Roact.mount(
 			Roact.createElement(
 				RoactRodux.StoreProvider,
@@ -105,6 +103,5 @@ export class ToolGui implements OnInit {
 			PlayerGui,
 			"Toolbar",
 		);
-		print("MOUNTED");
 	}
 }

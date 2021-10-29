@@ -32,7 +32,6 @@ const Numerals = ["I", "II", "III", "IV", "V", "VI", "VII", "IIX", "IX"];
 function handleTransparency(transp: number) {
 	return (val: number) => {
 		const diff = 1 - transp;
-		print(val, transp, diff, (1 - val) * diff);
 		return (1 - val) * diff + transp;
 	};
 }
@@ -63,7 +62,13 @@ export class Toolbox extends Roact.Component<props> {
 		[this.visibleMotor, this.visibleBinding, this.visibleSetBinding] = UseSingleFlipper(1);
 	}
 
+	didUpdate() {
+		this.status = this.props.status;
+		this.UpdateEnabled();
+	}
+
 	didMount() {
+		print("INIT:", this.props.status);
 		this.status = this.props.status;
 		this.UpdateEnabled();
 
@@ -83,28 +88,10 @@ export class Toolbox extends Roact.Component<props> {
 				this.UpdateEnabled();
 			}),
 		);
-
-		// task.defer(() => {
-		// 	const ViewportFrame = this.ViewportFrame.getValue();
-		// 	const Name = this.Name.getValue();
-
-		// 	if (!ViewportFrame || !Name) {
-		// 		error("Could not find either the viewport or name instances from ref");
-		// 	}
-
-		// 	const ViewportCamera = new Instance("Camera", this.props.tool);
-		// 	this.janitor.Add(ViewportCamera);
-		// 	ViewportCamera.CameraType = Enum.CameraType.Scriptable;
-		// 	ViewportFrame.CurrentCamera = ViewportCamera;
-
-		// 	const ViewportPoint = new Vector3(0, 0, 0);
-		// 	this.props.tool.Parent = ViewportFrame;
-
-		// 	Name.Destroy();
-		// });
 	}
 
 	UpdateEnabled() {
+		print("UPDATED:", this.status);
 		switch (this.status) {
 			case false:
 				this.enabledMotor.setGoal(new Spring(0, params));
@@ -116,6 +103,7 @@ export class Toolbox extends Roact.Component<props> {
 	}
 
 	willUnmount() {
+		print("CLEANED!!! ALERTT ALERT ALERT ALERT!");
 		this.janitor.Cleanup();
 	}
 
@@ -136,7 +124,6 @@ export class Toolbox extends Roact.Component<props> {
 				const pos1 = this.props.animation.pos1;
 				const pos2 = this.props.animation.pos2;
 
-				print(this.props.position, pos1, pos2);
 				this.posMotor.setGoal({
 					X: new Instant(pos1.X.Scale),
 					Y: new Instant(pos1.Y.Scale),

@@ -4,7 +4,7 @@ import { State } from "./ToolService";
 import { CollectionService, Players } from "@rbxts/services";
 import { ITool } from "server/components/Tool";
 import { ToolAdded, ToolRemoved } from "./ToolService";
-import { ParseInput } from "server/modules/InputParser";
+import { ParseInput } from "shared/modules/InputParser";
 import { HttpService } from "@rbxts/services";
 import { RbxTool } from "./RbxTool";
 
