@@ -20,7 +20,6 @@ export type ActionInfo = {
 	Action: string;
 	Mobile?: {
 		Position: UDim2;
-		Name: string;
 		Image?: string;
 	};
 };
@@ -84,12 +83,12 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	onStart() {
 		// Not sure if using promise.defer is a hacky way or a legit way to acces the abstract methods and properties. Trying to access in onStart() without deferring will result in a nil value.
 		Defer(() => {
+			this.stateChanged.Connect((state) => this.UpdateMobileInput(state));
 			this.ManageButtons();
 			this.ManageAncestry();
 
 			ToolAdded.Fire(this);
 
-			this.stateChanged.Connect((state) => this.UpdateMobileInput(state));
 		});
 	}
 
@@ -101,12 +100,12 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 		//print("TOOL: UPDATING MOBILE INPUT");
 		const InputInfo = this.ButtonedInputInfo;
 		if (!InputInfo) {
-			return;
+			error("Could not find ButtonedInputInfo");
 		}
 
 		const StateInfo = InputInfo[state];
 		if (!StateInfo) {
-			return;
+			StateInfo = {};
 		}
 
 		const inputs: MobileInput[] = [];
@@ -114,7 +113,7 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 		Object.keys(StateInfo).forEach((State) => {
 			Object.keys(StateInfo[State]).forEach((Input) => {
 				if (typeIs(Input, "number") || typeIs(State, "number")) {
-					error(`${this} has an invalid input ${Input} and state ${State}`);
+					error(`${this} has an invalid type ${Input} and state ${State}`);
 				}
 
 				const value = StateInfo[State][Input];
