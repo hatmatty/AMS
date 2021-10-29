@@ -37,6 +37,7 @@ const Config = {
 		CameraShake: true,
 		Sprinting: true,
 		SpringCamera: true,
+		Ragdoll: true,
 	},
 
 	Attributes: {
