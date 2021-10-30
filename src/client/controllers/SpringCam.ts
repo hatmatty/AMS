@@ -13,8 +13,10 @@ const Player = Players.LocalPlayer;
  */
 @Controller({})
 export class SpringCamera implements OnInit {
+	private first = true;
 	private janitor = new Janitor();
 	private charOffset?: Vector3;
+	private Running = false;
 
 	/**
 	 * calls creates the camera by calling Create() when a player's character is loaded in and destroys the camera by calling Destroy() when the player's character is removed.
@@ -60,6 +62,17 @@ export class SpringCamera implements OnInit {
 	 * Creates the spring camera on the player's head by creating a subject basepart and connecting it's position to a spring which moves to the player's head. Updates the camera on render stepped by calling UpdateCamera with the subject and spring.
 	 */
 	private Create() {
+		if (this.first) {
+			task.wait(1);
+			this.first = false;
+		}
+
+		if (this.Running === true) {
+			return;
+		}
+
+		this.Running = true;
+
 		print("CREATED", Players.LocalPlayer, Camera);
 		if (!Player.Character) {
 			error("character is required");
@@ -86,6 +99,7 @@ export class SpringCamera implements OnInit {
 		}
 
 		const subject = new Instance("Part");
+		subject.Name = "subject";
 		subject.CanCollide = false;
 		subject.CanTouch = false;
 		subject.Transparency = 1;
@@ -111,6 +125,10 @@ export class SpringCamera implements OnInit {
 		this.janitor.Add(
 			RunService.RenderStepped.Connect((deltaTime) => this.UpdateCamera(deltaTime, spring, subject)),
 		);
+
+		this.janitor.Add(() => {
+			this.Running = false;
+		});
 	}
 
 	/**
