@@ -58,8 +58,6 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	}
 
 	protected PlayerInit = (player: Player) => {
-		print("ESSENTIAL ADDED");
-
 		this.playerInit(player);
 	};
 

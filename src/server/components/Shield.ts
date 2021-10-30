@@ -34,6 +34,9 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 		this.InputInfo.Enabled.Begin = {
 			MouseButton2: {
 				Action: "Block",
+				Mobile: {
+					Position: UDim2.fromScale(0.6175, 0.0),
+				},
 			},
 		};
 
@@ -41,6 +44,9 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 			End: {
 				MouseButton2: {
 					Action: "EndBlock",
+					Mobile: {
+						Position: UDim2.fromScale(0.6175, 0.0),
+					},
 				},
 			},
 		};

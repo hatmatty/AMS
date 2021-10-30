@@ -22,6 +22,7 @@ type Removed = {
 interface Updated {
 	type: "UPDATED";
 	id: string;
+	tool: Tool | Model;
 	button: number;
 }
 
@@ -37,7 +38,7 @@ const Reducer: Rodux.Reducer<State, Actions> = (state, action) => {
 		case "ADDED": {
 			const newState = { ...state };
 			newState[action.id] = {
-				tool: action.tool,
+				tool: action.tool.Clone(),
 				button: action.button,
 				previousButton: undefined,
 			};
@@ -53,6 +54,11 @@ const Reducer: Rodux.Reducer<State, Actions> = (state, action) => {
 			const info = newState[action.id];
 			if (info === undefined) {
 				error(`${action} is missing`);
+			}
+
+			if (info.tool !== action.tool.GetAttribute("BUTTON_TOGGLE")) {
+				info.tool.Destroy();
+				info.tool = action.tool.Clone();
 			}
 
 			newState[action.id] = {
@@ -80,9 +86,9 @@ export class ToolGui implements OnInit {
 			} else if (tool === undefined || button === undefined) {
 				error(`got invalid state: ${state}`);
 			} else if (state === "ADDED") {
-				this.Store.dispatch({ type: "ADDED", id: id, tool: tool.Clone(), button: button });
+				this.Store.dispatch({ type: "ADDED", id: id, tool: tool, button: button });
 			} else if (state === "UPDATED") {
-				this.Store.dispatch({ type: "UPDATED", id: id, button: button });
+				this.Store.dispatch({ type: "UPDATED", id: id, tool: tool, button: button });
 			}
 		});
 

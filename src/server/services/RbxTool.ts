@@ -85,11 +85,7 @@ export class RbxTool implements OnInit {
 					return;
 				}
 
-				if (input.type !== "UNPARSED") {
-					return;
-				}
-
-				const parsedInput = ParseInput(input);
+				const parsedInput = input.type === "UNPARSED" ? ParseInput(input) : input;
 
 				if (parsedInput.State === "End" && parsedInput.Input === tool.GetAttribute("BUTTON_TOGGLE")) {
 					if (tool.Parent?.IsA("Model")) {

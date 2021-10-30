@@ -34,7 +34,6 @@ function ManageChar(char: Model) {
 		error("Humanoid is not of class humanoid.");
 	}
 	Humanoid.Died.Connect(() => {
-		print("RESET!");
 		Equipped = {};
 	});
 }
@@ -53,7 +52,6 @@ export class Toolbar extends Roact.Component<props> {
 	total = 0;
 
 	render() {
-		print(Equipped);
 		const Elements: Roact.Element[] = [];
 
 		const ids = Object.keys(this.props);

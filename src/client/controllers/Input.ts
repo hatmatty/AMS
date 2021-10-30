@@ -3,7 +3,7 @@ import { ContextActionService, HttpService, UserInputService } from "@rbxts/serv
 import { Events } from "client/events";
 import { createElement } from "typedoc/dist/lib/utils/jsx";
 import { MobileInput } from "shared/Types";
-import { Unparse } from "shared/modules/InputParser";
+import { ParseInput, Unparse } from "shared/modules/InputParser";
 
 /**
  * Manages the sending of input events from the client to the server through the Input server event.
@@ -21,9 +21,7 @@ export class Input implements OnInit {
 		Input.createInputEvent(UserInputService.InputBegan);
 		Input.createInputEvent(UserInputService.InputEnded);
 
-		if (!UserInputService.MouseEnabled) {
-			this.StartMobileInput();
-		}
+		this.StartMobileInput();
 	}
 
 	StartMobileInput() {
@@ -39,19 +37,15 @@ export class Input implements OnInit {
 
 			for (const input of inputs) {
 				const actionName = HttpService.GenerateGUID();
-				// trust the server
-				const Input = Unparse(input.Input) as Enum.KeyCode | Enum.UserInputType;
-				const State = Unparse(input.State) as Enum.UserInputState;
-
 				ContextActionService.BindAction(
 					actionName,
 					(actionName, state) => {
-						if (state === State) {
+						if (ParseInput(state) === input.State) {
 							Events.Input({ type: "PARSED", Input: input.Input, State: input.State });
 						}
 					},
 					true,
-					Input,
+					Enum.KeyCode.Unknown,
 				);
 
 				ContextActionService.SetPosition(actionName, input.Position);

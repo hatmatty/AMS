@@ -88,7 +88,6 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 			this.ManageAncestry();
 
 			ToolAdded.Fire(this);
-
 		});
 	}
 
@@ -97,17 +96,13 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 			error(`state updated without a player? : ${state}`);
 		}
 
-		//print("TOOL: UPDATING MOBILE INPUT");
+		print("TOOL: UPDATING MOBILE INPUT");
 		const InputInfo = this.ButtonedInputInfo;
 		if (!InputInfo) {
 			error("Could not find ButtonedInputInfo");
 		}
 
-		const StateInfo = InputInfo[state];
-		if (!StateInfo) {
-			StateInfo = {};
-		}
-
+		const StateInfo = InputInfo[state] || {};
 		const inputs: MobileInput[] = [];
 
 		Object.keys(StateInfo).forEach((State) => {
@@ -119,7 +114,7 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 				const value = StateInfo[State][Input];
 
 				if (value.Mobile) {
-					//print("PUSHED INPUT");
+					print("PUSHED INPUT");
 					inputs.push({
 						Name: value.Action,
 						Position: value.Mobile.Position,
@@ -130,6 +125,8 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 				}
 			});
 		});
+
+		print("TOOL: UPDATING MOBILE INPUT", inputs);
 
 		Events.SetMobileInput(this.Player, this.id, inputs);
 	}
@@ -184,8 +181,6 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 		this.Input("INIT", { Input: "None", State: "None" });
 
 		opcall(() => {
-			print(this);
-
 			// @ts-expect-error its ok
 			this.PlayerInit(this.Player);
 		});

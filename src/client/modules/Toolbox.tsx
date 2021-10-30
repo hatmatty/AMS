@@ -3,7 +3,9 @@ import { GroupMotor, Instant, SingleMotor, Spring } from "@rbxts/flipper";
 import { UseGroupFlipper, UseSingleFlipper } from "./FlipperUtil";
 import { Janitor } from "@rbxts/janitor";
 import { Events } from "client/events";
-import { CollectionService } from "@rbxts/services";
+import { UserInputService } from "@rbxts/services";
+import { Unparse } from "shared/modules/InputParser";
+import { convertTypeAcquisitionFromJson } from "typescript";
 
 interface fadeAnim {
 	type: "FADE";
@@ -26,7 +28,8 @@ interface props {
 	status: boolean;
 }
 
-const params = { dampingRatio: 0.75, frequency: 5 };
+const params = { dampingRatio: 0.7, frequency: 4 };
+
 const Numerals = ["I", "II", "III", "IV", "V", "VI", "VII", "IIX", "IX"];
 
 function handleTransparency(transp: number) {
@@ -68,7 +71,6 @@ export class Toolbox extends Roact.Component<props> {
 	}
 
 	didMount() {
-		print("INIT:", this.props.status);
 		this.status = this.props.status;
 		this.UpdateEnabled();
 
@@ -91,7 +93,6 @@ export class Toolbox extends Roact.Component<props> {
 	}
 
 	UpdateEnabled() {
-		print("UPDATED:", this.status);
 		switch (this.status) {
 			case false:
 				this.enabledMotor.setGoal(new Spring(0, params));
@@ -103,7 +104,6 @@ export class Toolbox extends Roact.Component<props> {
 	}
 
 	willUnmount() {
-		print("CLEANED!!! ALERTT ALERT ALERT ALERT!");
 		this.janitor.Cleanup();
 	}
 
@@ -138,7 +138,8 @@ export class Toolbox extends Roact.Component<props> {
 		}
 
 		return (
-			<frame
+			<imagebutton
+				Image={undefined} // EDIT THIS TO ADD YOUR IMAGE!!!
 				BackgroundColor3={Color3.fromRGB(255, 255, 255)}
 				BackgroundTransparency={this.visibleBinding.map(handleTransparency(0.95))}
 				AnchorPoint={new Vector2(0.5, 0.5)}
@@ -146,7 +147,17 @@ export class Toolbox extends Roact.Component<props> {
 					return UDim2.fromScale(val.X, val.Y);
 				})}
 				Size={new UDim2(0.029 * 1.25, 0, 0.052 * 1.25, 0)}
+				Event={{
+					MouseButton1Click: () => this.Clicked(),
+					// TouchTap: () => {
+					// 	print(UserInputService.MouseEnabled);
+					// 	if (!UserInputService.MouseEnabled) {
+					// 		this.Clicked();
+					// 	}
+					// },
+				}}
 			>
+				<uiaspectratioconstraint AspectRatio={1} />
 				<frame
 					BackgroundColor3={Color3.fromRGB(255, 255, 255)}
 					BackgroundTransparency={this.enabledBinding.map(handleTransparency(0.9))}
@@ -195,7 +206,15 @@ export class Toolbox extends Roact.Component<props> {
 					Position={new UDim2(0.036, 0, 0.036, 0)}
 					Size={new UDim2(0.036, 0, 0.036, 0)}
 				/>
-			</frame>
+			</imagebutton>
 		);
+	}
+
+	private Clicked() {
+		Events.Input({
+			type: "PARSED",
+			State: "End",
+			Input: this.props.tool.GetAttribute("BUTTON_TOGGLE") as string,
+		});
 	}
 }

@@ -78,6 +78,9 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		this.InputInfo.Enabled.Begin = {
 			MouseButton1: {
 				Action: "Draw",
+				Mobile: {
+					Position: UDim2.fromScale(0.6175, 0.2),
+				},
 			},
 		};
 
@@ -85,6 +88,9 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			End: {
 				MouseButton1: {
 					Action: "Release",
+					Mobile: {
+						Position: UDim2.fromScale(0.6175, 0.2),
+					},
 				},
 			},
 		};
