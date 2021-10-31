@@ -1,8 +1,8 @@
 import { Networking } from "@flamework/networking";
-import { MobileInput } from "./types";
+import { MobileInput, Directions } from "./types";
 
 interface ServerEvents {
-	Direction(direction: "DOWN" | "LEFT" | "RIGHT"): void;
+	Direction(direction: Directions): void;
 	Input(
 		input:
 			| {

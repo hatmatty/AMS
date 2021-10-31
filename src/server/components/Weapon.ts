@@ -9,6 +9,7 @@ import { playAnim } from "server/modules/AnimPlayer";
 import { Janitor } from "@rbxts/janitor";
 import { Players } from "@rbxts/services";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
+import { Directions } from "shared/types";
 
 const AttachmentName = "DmgPoint";
 
@@ -33,9 +34,14 @@ export interface WeaponInstance extends ToolInstance {
 
 @Component()
 export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
-	protected abstract GetAnimation(direction: "DOWN" | "LEFT" | "RIGHT"): number;
+	protected abstract AttackAnimations: {
+		UP: number;
+		DOWN: number;
+		LEFT: number;
+		RIGHT: number;
+	};
 
-	Direction: "DOWN" | "LEFT" | "RIGHT" = "RIGHT";
+	Direction: Directions = "RIGHT";
 	Damage = 0;
 	Hitbox: HitboxObject = new RaycastHitbox(this.instance.DmgPart);
 
@@ -44,12 +50,6 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	} = {};
 
 	ActiveAnimation?: AnimationTrack;
-
-	Init() {
-		if (!Config.Elements.Direction) {
-			return;
-		}
-	}
 
 	playerInit(player: Player) {
 		const Params = new RaycastParams();
@@ -108,7 +108,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			[Start, End] = [End, Start];
 		}
 
-		const inc = 0.1;
+		const inc = 0.05;
 		for (let i: number = Start.Position.Y + inc; i < End.Position.Y; i += inc) {
 			const Attachment = new Instance("Attachment");
 			Attachment.Position = new Vector3(0, i, 0);
@@ -118,8 +118,6 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 
 		this.Hitbox.Destroy();
 		this.Hitbox = new RaycastHitbox(this.instance.DmgPart);
-
-		//this.Hitbox.LinkAttachments(Start, End);
 
 		const Trail = new Instance("Trail");
 		Trail.Parent = this.instance.DmgPart;
@@ -138,7 +136,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	private Draw(End: Callback, janitor: Janitor) {
 		this.setState("Drawing");
 
-		this.ActiveAnimation = playAnim(this.Player, this.GetAnimation(this.Direction), { Fade: 0.1 });
+		this.ActiveAnimation = playAnim(this.Player, this.AttackAnimations[this.Direction], { Fade: 0.1 });
 
 		janitor.Add(
 			this.ActiveAnimation.GetMarkerReachedSignal("DrawEnd").Connect(() => {

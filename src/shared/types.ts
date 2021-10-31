@@ -22,3 +22,5 @@ export interface MobileInput {
 	State: string;
 	Image?: string;
 }
+
+export type Directions = "DOWN" | "LEFT" | "RIGHT" | "UP";
