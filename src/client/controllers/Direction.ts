@@ -1,6 +1,7 @@
 import { Controller, OnStart, OnInit } from "@flamework/core";
 import { Players, RunService, UserInputService } from "@rbxts/services";
 import { Events } from "client/events";
+import { Directions } from "shared/types";
 const Camera = game.Workspace.CurrentCamera;
 
 /**
@@ -19,16 +20,13 @@ const Camera = game.Workspace.CurrentCamera;
 @Controller()
 export class Direction implements OnInit {
 	/** stores the direction the player's camera is facing in */
-	private Direction: "DOWN" | "LEFT" | "RIGHT" = "RIGHT";
+	private Direction: Directions = "RIGHT";
 	/** stores the amount of heartbeats the camera has moved in a direction */
 	private prevX = 0;
 
 	onInit() {
-		if (UserInputService.MouseEnabled) {
-			this.PCInit();
-		} else {
-			this.MobileInit();
-		}
+		this.PCInit();
+		this.MobileInit();
 	}
 
 	PCInit() {
@@ -46,11 +44,13 @@ export class Direction implements OnInit {
 			}
 
 			const index = this.GetIndexofAbsoluteLargest(mouse_location);
-			let Direction: "DOWN" | "LEFT" | "RIGHT" | undefined;
+			let Direction: Directions | undefined;
 			if (math.abs(mouse_location[index]) > 3) {
 				const isNegative = mouse_location[index] < 0 ? true : false;
 				if (index === "Y") {
-					if (!isNegative) {
+					if (isNegative) {
+						Direction = "UP";
+					} else {
 						Direction = "DOWN";
 					}
 				} else {
@@ -70,24 +70,30 @@ export class Direction implements OnInit {
 	}
 
 	MobileInit() {
-		if (!Camera) {
-			error(`player camera for ${Players.LocalPlayer.Name} not found`);
-		}
-
-		RunService.Heartbeat.Connect(() => {
-			const [x] = Camera.CFrame.ToOrientation();
-
-			if (this.prevX !== x && math.abs(this.prevX - x) >= 0.02) {
-				const currentDirection = this.prevX < x ? "RIGHT" : "DOWN";
-
-				if (currentDirection !== this.Direction) {
-					// moving in different direction
-					this.Direction = currentDirection;
-					Events.Direction(this.Direction);
+		UserInputService.TouchSwipe.Connect((swipeDirection) => {
+			switch (swipeDirection) {
+				case Enum.SwipeDirection.Left: {
+					this.Direction = "LEFT";
+					break;
+				}
+				case Enum.SwipeDirection.Right: {
+					this.Direction = "RIGHT";
+					break;
+				}
+				case Enum.SwipeDirection.Up: {
+					this.Direction = "UP";
+					break;
+				}
+				case Enum.SwipeDirection.Down: {
+					this.Direction = "DOWN";
+					break;
+				}
+				case Enum.SwipeDirection.None: {
+					return;
 				}
 			}
 
-			this.prevX = x;
+			Events.Direction(this.Direction);
 		});
 	}
 
