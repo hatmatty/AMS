@@ -19,8 +19,8 @@ export class Sword extends Weapon {
 	EnabledLimb = "RightHand" as CharacterLimb;
 	DisabledLimb = "LowerTorso" as CharacterLimb;
 	AttackAnimations = {
-		DOWN: anims.Stab,
 		UP: anims.Stab,
+		DOWN: anims.Stab,
 		RIGHT: anims.Right,
 		LEFT: anims.Left,
 	};
