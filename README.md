@@ -12,7 +12,7 @@
 - Immersive Camera
 - Sound Effects
 - Particle Effects
-- Swords, Spears, Javelins, Bows & Arrows, Shields, & more...
+- Swords, Spears, Bows & Arrows, Shields, & more...
 
 #### AET is build with modifiability in mind
 - The tech is **extremely customizable** without any coding experience! Many of the features can be easily disabled with the switch of a variable.
