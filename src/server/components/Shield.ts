@@ -41,7 +41,7 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 		};
 
 		this.InputInfo.Blocking = {
-			End: {
+			Begin: {
 				MouseButton2: {
 					Action: "EndBlock",
 					Mobile: {
