@@ -25,7 +25,6 @@ export class Input implements OnInit {
 	}
 
 	StartMobileInput() {
-		print("INPUT: STARTED MOBILE");
 		Events.SetMobileInput.connect((id, inputs) => {
 			if (this.BindedActions[id]) {
 				for (const actionName of this.BindedActions[id]) {

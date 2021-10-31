@@ -96,7 +96,6 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 			error(`state updated without a player? : ${state}`);
 		}
 
-		print("TOOL: UPDATING MOBILE INPUT");
 		const InputInfo = this.ButtonedInputInfo;
 		if (!InputInfo) {
 			error("Could not find ButtonedInputInfo");
@@ -114,7 +113,6 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 				const value = StateInfo[State][Input];
 
 				if (value.Mobile) {
-					print("PUSHED INPUT");
 					inputs.push({
 						Name: value.Action,
 						Position: value.Mobile.Position,
@@ -125,8 +123,6 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 				}
 			});
 		});
-
-		print("TOOL: UPDATING MOBILE INPUT", inputs);
 
 		Events.SetMobileInput(this.Player, this.id, inputs);
 	}
