@@ -148,13 +148,16 @@ export class Toolbox extends Roact.Component<props> {
 				})}
 				Size={new UDim2(0.029 * 1.25, 0, 0.052 * 1.25, 0)}
 				Event={{
-					MouseButton1Click: () => this.Clicked(),
-					// TouchTap: () => {
-					// 	print(UserInputService.MouseEnabled);
-					// 	if (!UserInputService.MouseEnabled) {
-					// 		this.Clicked();
-					// 	}
-					// },
+					MouseButton1Click: () => {
+						if (UserInputService.MouseEnabled) {
+							this.Clicked();
+						}
+					},
+					TouchTap: () => {
+						if (UserInputService.TouchEnabled) {
+							this.Clicked();
+						}
+					},
 				}}
 			>
 				<uiaspectratioconstraint AspectRatio={1} />

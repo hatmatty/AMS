@@ -20,6 +20,12 @@ interface ReplicatedStorage extends Instance {
 				Hit2: Sound;
 				Hit1: Sound;
 			};
+			BowDraw: Folder & {
+				BowDraw1: Sound;
+			};
+			BowFire: Folder & {
+				BowFire1: Sound;
+			};
 		};
 	};
 }

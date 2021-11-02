@@ -3,6 +3,7 @@ import { AddBlockedMiddleware } from "server/components/Shield";
 import { AddHitMiddleware, AddSwingMiddleware } from "server/components/Weapon";
 import Config from "shared/Config";
 import { ReplicatedStorage } from "@rbxts/services";
+import { AddRangedDrawMiddleware, AddRangedHitMiddleware, AddRangedReleasedMiddleware } from "server/components/Bow";
 
 /**
  * Attaches to the hit, blocked, and swing middlewares and plays a sound on these events.
@@ -17,6 +18,28 @@ export class Sounds implements OnInit {
 				}
 			});
 
+			AddRangedHitMiddleware((stop, weapon, hit, instance, specificLimb) => {
+				if (hit.IsA("Player")) {
+					print("PLAYED HIT SOUND");
+					if (specificLimb !== undefined) {
+						this.PlaySound(specificLimb, "Hit");
+					}
+				} else if (hit.IsA("BasePart") && hit.Name === "Blocker") {
+					print("PLAYED BLOCKED SOUND");
+					this.PlaySound(hit, "Blocked");
+				}
+			});
+
+			AddRangedDrawMiddleware((stop, bow) => {
+				print("DREW BOW!");
+				this.PlaySound(bow.instance.BowAttach, "BowDraw");
+			});
+
+			AddRangedReleasedMiddleware((stop, bow) => {
+				print("FIIRED BOW!");
+				this.PlaySound(bow.instance.BowAttach, "BowFire");
+			});
+
 			AddBlockedMiddleware((stop, weapon, shield) => {
 				this.PlaySound(weapon.instance.DmgPart, "Blocked");
 			});
@@ -27,8 +50,9 @@ export class Sounds implements OnInit {
 		}
 	}
 
-	PlaySound(part: BasePart, soundType: "Hit" | "Swing" | "Blocked") {
-		const Sounds = ReplicatedStorage.Assets.Sounds[soundType].GetChildren();
+	PlaySound(part: BasePart, soundType: keyof ReplicatedStorage["Assets"]["Sounds"]) {
+		const SoundFolder = ReplicatedStorage.Assets.Sounds[soundType] as Folder;
+		const Sounds = SoundFolder.GetChildren();
 		const Sound = Sounds[math.random(0, Sounds.size() - 1)].Clone();
 		if (!Sound.IsA("Sound")) {
 			error();

@@ -23,12 +23,18 @@ interface ServerEvents {
 		leftShoulderCFrame: CFrame,
 		rightShoulderCFrame: CFrame,
 	): void;
+	MouseRay(ray: Ray): void;
 }
 
 interface ClientEvents {
+	UpdateRangedGUI(accuracy: number): void;
+	ToggleRangedGUI(state: boolean): void;
+
 	ToolToggled(id: string, state: "Enabled" | "Disabled"): void;
 	SetMobileInput(id: string, inputs: MobileInput[]): void;
-	AttackStatus(status: "GAVE_BLOCK" | "GOT_BLOCK" | "DAMAGED" | "HIT" | "SWUNG"): void;
+	AttackStatus(
+		status: "GAVE_BLOCK" | "GOT_BLOCK" | "DAMAGED" | "HIT" | "SWUNG" | "GOT_SHOT" | "GAVE_SHOT" | "RELEASED_SHOT",
+	): void;
 	UpdateRotation(
 		player: Player,
 		neckCFrame: CFrame,

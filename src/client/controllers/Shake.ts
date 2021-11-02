@@ -30,15 +30,21 @@ export class Shake implements OnInit {
 		Events.AttackStatus.connect((status) => {
 			switch (status) {
 				case "GAVE_BLOCK": {
-					this.CamShaker.Shake(CameraShaker.Presets.Bump);
 					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
 				}
 				case "GOT_BLOCK": {
-					this.CamShaker.Shake(CameraShaker.Presets.Bump);
 					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
 				}
 				case "DAMAGED": {
-					this.CamShaker.Shake(CameraShaker.Presets.Bump);
+					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
+				}
+				case "GOT_SHOT": {
+					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
+				}
+				case "GAVE_SHOT": {
+					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
+				}
+				case "RELEASED_SHOT": {
 					return this.CamShaker.Shake(CameraShaker.Presets.Bump);
 				}
 				case "HIT": {

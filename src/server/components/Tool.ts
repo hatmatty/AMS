@@ -35,9 +35,7 @@ export type InputInfo = {
 	};
 };
 
-export interface ToolInstance extends Model {
-	BodyAttach: BasePart;
-}
+export interface ToolInstance extends Model {}
 
 export interface ToolAttributes {
 	BUTTON_TOGGLE: string;
@@ -71,6 +69,8 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	public Player?: Player;
 	public stateChanged = new Signal<(state: string) => void>();
 
+	onStart() {}
+
 	public getState() {
 		return this.state;
 	}
@@ -80,8 +80,8 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 		this.stateChanged.Fire(state);
 	}
 
-	onStart() {
-		// Not sure if using promise.defer is a hacky way or a legit way to acces the abstract methods and properties. Trying to access in onStart() without deferring will result in a nil value.
+	constructor() {
+		super();
 		Defer(() => {
 			this.stateChanged.Connect((state) => this.UpdateMobileInput(state));
 			this.ManageButtons();

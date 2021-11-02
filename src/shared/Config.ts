@@ -11,19 +11,25 @@ const Config = {
 			Right: 7129034287,
 		},
 
-		Sword: {
-			Left: 7836906176,
-			Right: 7836712123,
-			Stab: 7836846445,
+		Bow: {
+			Shoot: 7873680903,
+			Holster: 7873723148,
+			Equip: 7873615068,
+		},
 
-			Holster: 7566107081,
-			Equip: 7532918137,
+		Sword: {
+			Left: 7872886466,
+			Right: 7872890697,
+			Stab: 7872877175,
+
+			Holster: 7872920456,
+			Equip: 7873049583,
 		},
 
 		Shield: {
-			Block: 7566699306,
-			Holster: 7566057875,
-			Equip: 7566034212,
+			Block: 7872966176,
+			Holster: 7872995363,
+			Equip: 7872952487,
 		},
 	},
 
@@ -51,6 +57,7 @@ const Config = {
 		Shield: "Shield",
 		Sparta: "Shield",
 		Athens: "Shield",
+		Bow: "Bow",
 	},
 };
 

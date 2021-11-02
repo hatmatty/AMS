@@ -4,11 +4,12 @@ import { Action } from "server/modules/Action";
 import { CharacterLimb } from "shared/Types";
 import { playAnim } from "server/modules/AnimPlayer";
 import { CollectionService } from "@rbxts/services";
-import { Dependency } from "@flamework/core";
+import { Dependency, OnStart } from "@flamework/core";
 import { Constructor } from "@flamework/core/out/types";
 import { BaseComponent } from "@rbxts/flamework";
 import { DisableIncompatibleTools } from "server/modules/IncompatibleTools";
 import { Events } from "server/events";
+import { HighlightSpanKind } from "typescript";
 
 const components = Dependency<Components>();
 
@@ -18,24 +19,23 @@ const components = Dependency<Components>();
  * @states - "Enabled", "Disabled"
  */
 @Component()
-export abstract class Essential<A extends ToolAttributes, I extends ToolInstance> extends Tool<A, I> {
+export abstract class Essential<A extends ToolAttributes, I extends ToolInstance>
+	extends Tool<A, I>
+	implements OnStart
+{
 	public abstract EnableAnimation: number;
 	public abstract DisableAnimation: number;
+	protected abstract AttachName: string;
 	protected abstract EnabledLimb: CharacterLimb;
 	protected abstract DisabledLimb: CharacterLimb;
 	protected abstract playerInit(Player: Player): void;
 
 	public EssentialAnimation?: AnimationTrack;
 	private Motor6D?: Motor6D;
+	// workaround
+	public BodyAttach: BasePart = new Instance("Part");
 
 	InputInfo = {
-		INIT: {
-			None: {
-				None: {
-					Action: "Disable",
-				},
-			},
-		},
 		Disabled: {
 			End: {
 				BUTTON_TOGGLE: {
@@ -55,11 +55,21 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	constructor() {
 		super();
 		this.ManageStatusAttribute();
+
+		task.defer(() => {
+			const BodyAttach = this.instance.FindFirstChild(this.AttachName);
+			if (!BodyAttach || !BodyAttach.IsA("BasePart")) {
+				error(`AttachName is not  ${this.AttachName}`);
+			}
+
+			this.BodyAttach = BodyAttach;
+		});
 	}
 
-	protected PlayerInit = (player: Player) => {
+	protected PlayerInit(player: Player) {
+		this.Actions.Disable.Start();
 		this.playerInit(player);
-	};
+	}
 
 	private ManageStatusAttribute() {
 		this.instance.GetAttributeChangedSignal("Status").Connect(() => {
@@ -99,10 +109,9 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	private CanEquip(): boolean {
 		const [Player, Character] = this.GetCharPlayer();
 		return DisableIncompatibleTools(Character, this.Incompatible, [this.instance]);
-		return true;
 	}
 
-	private GetLimb(limbName: CharacterLimb): BasePart {
+	protected GetLimb(limbName: CharacterLimb): BasePart {
 		const [Player, Character] = this.GetCharPlayer();
 
 		const Limb = Character.FindFirstChild(limbName);
@@ -115,13 +124,13 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 		return Limb;
 	}
 
-	private SetMotor6D(limb: BasePart) {
+	protected SetMotor6D(limb: BasePart) {
 		if (!this.Motor6D) {
 			error("Motor6D required");
 		}
 
 		this.Motor6D.Part0 = limb;
-		this.Motor6D.Part1 = this.instance.BodyAttach;
+		this.Motor6D.Part1 = this.BodyAttach;
 		this.Motor6D.Parent = limb;
 	}
 
@@ -141,7 +150,7 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 			let Animation;
 			if (option === "Enable") {
 				if (!this.CanEquip()) {
-					return;
+					return End();
 				}
 
 				Limb = this.EnabledLimb;
@@ -168,6 +177,8 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 			End();
 		};
 	}
+
+	onStart() {}
 
 	protected Enable = this.create("Enable");
 

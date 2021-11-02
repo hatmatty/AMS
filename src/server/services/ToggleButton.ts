@@ -111,6 +111,10 @@ export class ToggleButton implements OnInit {
 		}
 
 		if (CollectionService.HasTag(tool.instance, "Sword")) {
+			return 4;
+		} else if (CollectionService.HasTag(tool.instance, "Spear")) {
+			return 3;
+		} else if (CollectionService.HasTag(tool.instance, "Bow")) {
 			return 2;
 		} else if (CollectionService.HasTag(tool.instance, "Shield")) {
 			return 1;

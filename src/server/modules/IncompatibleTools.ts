@@ -1,6 +1,7 @@
 import { Components } from "@flamework/components";
 import { Dependency } from "@flamework/core";
 import { CollectionService } from "@rbxts/services";
+import { Bow } from "server/components/Bow";
 import { Essential } from "server/components/Essential";
 import { Shield } from "server/components/Shield";
 import { Sword } from "server/components/Sword";
@@ -23,8 +24,12 @@ function FixAnims(tag: string, instance: Instance) {
 		case "RbxTool": {
 			return;
 		}
+		case "Bow": {
+			Component = components.getComponent<Bow>(instance);
+			break;
+		}
 		default: {
-			warn(`implementation needed for new tool ${tag}`);
+			return warn(`implementation needed for new tool ${tag}`);
 		}
 	}
 

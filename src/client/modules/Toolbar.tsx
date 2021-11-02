@@ -55,7 +55,7 @@ export class Toolbar extends Roact.Component<props> {
 		const Elements: Roact.Element[] = [];
 
 		const ids = Object.keys(this.props);
-		this.total = ids.size() - 2; // because 1 of them is Roact.Children and another "ToggledStatus"
+		this.total = ids.size() - 1; // because 1 of them is Roact.Children and another "ToggledStatus"
 
 		for (const id of ids) {
 			if (id === Roact.Children || id === "ToggledStatus") {

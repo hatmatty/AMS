@@ -41,6 +41,8 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		RIGHT: number;
 	};
 
+	Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
+
 	Direction: Directions = "RIGHT";
 	Damage = 0;
 	Hitbox: HitboxObject = new RaycastHitbox(this.instance.DmgPart);
@@ -108,7 +110,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			[Start, End] = [End, Start];
 		}
 
-		const inc = 0.05;
+		const inc = 0.5;
 		for (let i: number = Start.Position.Y + inc; i < End.Position.Y; i += inc) {
 			const Attachment = new Instance("Attachment");
 			Attachment.Position = new Vector3(0, i, 0);

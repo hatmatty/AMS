@@ -8,7 +8,7 @@ import { DisableIncompatibleTools } from "server/modules/IncompatibleTools";
 
 @Service({})
 export class RbxTool implements OnInit {
-	Incompatible = ["Sword", "RbxTool"];
+	Incompatible = ["Sword", "RbxTool", "Bow", "Spear"];
 	constructor(private ToolService: ToolService) {}
 	onInit() {
 		Players.PlayerAdded.Connect((player) => this.InitPlayer(player));

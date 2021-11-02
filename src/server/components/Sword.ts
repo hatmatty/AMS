@@ -13,7 +13,7 @@ const anims = Config.Animations.Sword;
 	},
 })
 export class Sword extends Weapon {
-	Incompatible = ["RbxTool", "Sword"];
+	AttachName = "SwordAttach";
 	EnableAnimation = anims.Equip;
 	DisableAnimation = anims.Holster;
 	EnabledLimb = "RightHand" as CharacterLimb;

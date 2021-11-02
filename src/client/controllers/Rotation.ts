@@ -20,6 +20,7 @@ export class Rotation implements OnInit {
 	public Enabled = true;
 	private janitor = new Janitor();
 	private delay = 0.1; // how fast the body rotator should fire an update to the server
+	public ClampValue = 0.5;
 
 	/**
 	 * Manages the starting of the BodyRotation when the player's character is created and connects to the UpdateRotation client event for when the rotation of other character's updates so that it replicates here.
@@ -190,29 +191,29 @@ export class Rotation implements OnInit {
 
 		// note - could probs refactor this later on
 		const newCFrame1 = new CFrame(0, 0, 0)
-			.mul(CFAng(0, -asin(Rotation.CapX(CameraDirection.X / factor)), 0))
-			.mul(CFAng(asin(Rotation.CapY(CameraDirection.Y / factor)), 0, 0));
+			.mul(CFAng(0, -asin(this.CapX(CameraDirection.X / factor)), 0))
+			.mul(CFAng(asin(this.CapY(CameraDirection.Y / factor)), 0, 0));
 		if (newCFrame1 !== Waist.C0) {
 			Rotation.Tween(Waist, newCFrame1);
 		}
 
 		const newCFrame2 = new CFrame(0, NeckYOffset, 0)
-			.mul(CFAng(0, asin(Rotation.CapX(CameraDirection.X / factor)), 0))
-			.mul(CFAng(-asin(Rotation.CapY(CameraDirection.Y / factor)), 0, 0));
+			.mul(CFAng(0, asin(this.CapX(CameraDirection.X / factor)), 0))
+			.mul(CFAng(-asin(this.CapY(CameraDirection.Y / factor)), 0, 0));
 		if (newCFrame2 !== Neck.C0) {
 			Rotation.Tween(Neck, newCFrame2);
 		}
 
 		const newCFrame3 = new CFrame(LeftShoulderXOffset, LeftShoulderYOffset, 0)
-			.mul(CFAng(0, -asin(Rotation.CapX(CameraDirection.X / factor)), 0))
-			.mul(CFAng(asin(Rotation.CapY(CameraDirection.Y / factor)), 0, 0));
+			.mul(CFAng(0, -asin(this.CapX(CameraDirection.X / factor)), 0))
+			.mul(CFAng(asin(this.CapY(CameraDirection.Y / factor)), 0, 0));
 		if (newCFrame3 !== LeftShoulder.C0) {
 			Rotation.Tween(LeftShoulder, newCFrame3);
 		}
 
 		const newCFrame4 = new CFrame(RightShoulderXOffset, RightShoulderYOffset, 0)
-			.mul(CFAng(0, -asin(Rotation.CapX(CameraDirection.X / factor)), 0))
-			.mul(CFAng(asin(Rotation.CapY(CameraDirection.Y / factor)), 0, 0));
+			.mul(CFAng(0, -asin(this.CapX(CameraDirection.X / factor)), 0))
+			.mul(CFAng(asin(this.CapY(CameraDirection.Y / factor)), 0, 0));
 		if (newCFrame4 !== RightShoulder.C0) {
 			Rotation.Tween(RightShoulder, newCFrame4);
 		}
@@ -285,19 +286,19 @@ export class Rotation implements OnInit {
 	 * Is used to clamp Y rotation values.
 	 * @returns a number which if negative is divded by 3 to make it less negative and then clamped to be between -0.5 and 0.5.
 	 */
-	private static CapY(value: number) {
+	private CapY(value: number) {
 		if (value < 0) {
 			value = value / 3;
 		}
-		return math.clamp(value, -0.5, 0.5);
+		return math.clamp(value, -this.ClampValue, this.ClampValue);
 	}
 
 	/**
 	 * Is used to clamp X rotation values.
 	 * @returns a number between -0.5 and 0.5.
 	 */
-	private static CapX(value: number) {
-		return math.clamp(value, -0.5, 0.5);
+	private CapX(value: number) {
+		return math.clamp(value, -this.ClampValue, this.ClampValue);
 	}
 
 	/**

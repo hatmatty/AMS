@@ -13,7 +13,9 @@ import { AddHitMiddleware, Weapon } from "./Weapon";
 
 let Added = false;
 
-interface ShieldInstance extends ToolInstance {}
+interface ShieldInstance extends ToolInstance {
+	ShieldAttach: BasePart;
+}
 
 @Component({
 	tag: "Shield",
@@ -22,7 +24,8 @@ interface ShieldInstance extends ToolInstance {}
 	},
 })
 export class Shield extends Essential<ToolAttributes, ShieldInstance> {
-	Incompatible = ["Shield"];
+	AttachName = "ShieldAttach";
+	Incompatible = ["Shield", "Bow"];
 	EnableAnimation = Config.Animations.Shield.Equip;
 	DisableAnimation = Config.Animations.Shield.Holster;
 
@@ -53,13 +56,34 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 
 		this.Actions.Block = new Action((End, janitor) => this.Block(End, janitor));
 		this.Actions.EndBlock = new Action((End) => this.EndBlock(End));
+
+		task.defer(() => {
+			const BodyAttach = this.BodyAttach;
+			const Blocker = new Instance("Part");
+			Blocker.Name = "Blocker";
+			Blocker.Transparency = 1;
+			Blocker.CanCollide = false;
+			Blocker.CanTouch = true;
+			Blocker.Anchored = false;
+			Blocker.Position = BodyAttach.Position;
+			Blocker.Size = Config.Attributes.ShieldHitboxSize;
+
+			const Weld = new Instance("Weld");
+			Weld.Name = "Blocker";
+			Weld.Parent = BodyAttach;
+			Weld.Part0 = BodyAttach;
+			Weld.Part1 = Blocker;
+
+			Blocker.Parent = this.instance;
+		});
 	}
 
 	private Block(End: Callback, janitor: Janitor) {
 		this.setState("Blocking");
-		const AnimTrack = playAnim(this.Player, Config.Animations.Shield.Block);
+		const Fade = 0.2;
+		const AnimTrack = playAnim(this.Player, Config.Animations.Shield.Block, { Fade: Fade });
 		janitor.Add(() => {
-			AnimTrack.Stop();
+			AnimTrack.Stop(Fade);
 		});
 	}
 
@@ -67,26 +91,6 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 		this.setState("Enabled");
 		this.Actions.Block.End();
 		End();
-	}
-
-	Init() {
-		const BodyAttach = this.instance.BodyAttach;
-		const Blocker = new Instance("Part");
-		Blocker.Name = "Blocker";
-		Blocker.Transparency = 1;
-		Blocker.CanCollide = false;
-		Blocker.CanTouch = true;
-		Blocker.Anchored = false;
-		Blocker.Position = BodyAttach.Position;
-		Blocker.Size = Config.Attributes.ShieldHitboxSize;
-
-		const Weld = new Instance("Weld");
-		Weld.Name = "Blocker";
-		Weld.Parent = BodyAttach;
-		Weld.Part0 = BodyAttach;
-		Weld.Part1 = Blocker;
-
-		Blocker.Parent = BodyAttach.Parent;
 	}
 
 	playerInit() {}

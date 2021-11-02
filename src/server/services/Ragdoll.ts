@@ -9,54 +9,50 @@ export class Ragdoll implements OnInit {
 			return;
 		}
 
-		Players.PlayerAdded.Connect((Player) => {
-			Player.CharacterAdded.Connect((Char) => {
-				const Humanoid = Char.WaitForChild("Humanoid") && Char.FindFirstChildWhichIsA("Humanoid");
-				if (!Humanoid) {
-					error("Could not find humanoid~");
+		Players.PlayerAdded.Connect((player) => {
+			player.CharacterAdded.Connect((character) => {
+				const HumanoidRootPart = character.WaitForChild("HumanoidRootPart");
+				const Humanoid = character.FindFirstChildWhichIsA("Humanoid");
+				if (!Humanoid || !HumanoidRootPart.IsA("BasePart")) {
+					error("could not find humanoid // got incorrect humanoidrootpart");
 				}
-				Humanoid.BreakJointsOnDeath = false;
-				Humanoid.Died.Connect(() => {
-					const HumanoidRootPart = Char.WaitForChild("HumanoidRootPart");
-					if (!HumanoidRootPart || !HumanoidRootPart.IsA("BasePart")) {
-						error("Got invalid humanoidrootpart");
-					}
-					const m = new Instance("Model");
-					m.Parent = game.Workspace;
-					Debris.AddItem(m, 60);
-					const g = Char.GetChildren();
-					HumanoidRootPart.CanCollide = false;
-					for (let i = 0; i <= g.size(); i++) {
-						g[i].Parent = m;
-					}
-					for (const v of g) {
-						if (v.IsA("BasePart")) {
-							v.SetNetworkOwner(Player);
-						} else if (v.IsA("Motor6D")) {
-							const [Att0, Att1] = [new Instance("Attachment"), new Instance("Attachment")];
-							Att0.CFrame = v.C0;
-							Att1.CFrame = v.C1;
-							Att0.Parent = v.Part0;
-							Att1.Parent = v.Part1;
-							const BSC = new Instance("BallSocketConstraint");
-							BSC.Attachment0 = Att0;
-							BSC.Attachment1 = Att1;
-							BSC.Parent = v.Part0;
-							if (v.Part1?.Name === "Head") {
-								BSC.LimitsEnabled = true;
-								BSC.TwistLimitsEnabled = true;
-							}
-							v.Enabled = false;
-						}
 
-						if (v.Name === "AccessoryWeld" && v.IsA("Weld")) {
-							const WC = new Instance("WeldConstraint");
-							WC.Part0 = v.Part0;
-							WC.Part1 = v.Part1;
-							WC.Parent = v.Parent;
-							v.Enabled = false;
+				Humanoid.BreakJointsOnDeath = false;
+				HumanoidRootPart.CanCollide = false;
+
+				Humanoid.Died.Connect(() => {
+					const d = character.GetDescendants();
+
+					for (const v of d) {
+						if (v.IsA("Motor6D")) {
+							if (!v.Parent) {
+								continue;
+							}
+							const socket = new Instance("BallSocketConstraint");
+							const part0 = v.Part0;
+							if (!part0) {
+								continue;
+							}
+							const joint_name = v.Name;
+
+							const attachment0 =
+								v.Parent.FindFirstChild(joint_name + "Attachment") ||
+								v.Parent.FindFirstChild(joint_name + "RigAttachment");
+							const attachment1 =
+								part0.FindFirstChild(joint_name + "Attachment") ||
+								part0.FindFirstChild(joint_name + "RigAttachment");
+							if (
+								attachment0 &&
+								attachment1 &&
+								attachment0.IsA("Attachment") &&
+								attachment1.IsA("Attachment")
+							) {
+								[socket.Attachment0, socket.Attachment1] = [attachment0, attachment1];
+								socket.Parent = v.Parent;
+								v.Destroy();
+							}
 						}
-						if (v.Name === "Head" && v.IsA("BasePart")) {
+						if (v.IsA("BasePart") && v.Name !== "HumanoidRootPart") {
 							v.CanCollide = true;
 						}
 					}

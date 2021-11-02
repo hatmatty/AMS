@@ -70,13 +70,12 @@ const Reducer: Rodux.Reducer<State, Actions> = (state, action) => {
 		}
 	}
 
-	error("");
+	error("something went wrong");
 };
 
 @Controller({})
 export class ToolGui implements OnInit {
-	// @ts-expect-error its ok
-	Store = new Store(Reducer, { update: HttpService.GenerateGUID() });
+	Store = new Store(Reducer, {});
 
 	onInit() {
 		StarterGui.SetCoreGuiEnabled("Backpack", false);

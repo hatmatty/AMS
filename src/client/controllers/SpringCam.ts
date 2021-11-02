@@ -73,7 +73,6 @@ export class SpringCamera implements OnInit {
 
 		this.Running = true;
 
-		print("CREATED", Players.LocalPlayer, Camera);
 		if (!Player.Character) {
 			error("character is required");
 		}
@@ -116,8 +115,6 @@ export class SpringCamera implements OnInit {
 		const spring = new Spring(subject.Position);
 		spring.Speed = 25;
 		spring.Damper = 0.8;
-
-		print("BINDED CAMERA:", subject.Position, Camera.CameraSubject, head.Position);
 
 		// RunService.BindToRenderStep("UpdateSubject", Enum.RenderPriority.Last.Value, (deltaTime) =>
 		// );
@@ -182,7 +179,6 @@ export class SpringCamera implements OnInit {
 	 * Destroys the camera by cleaning up the janitor which has the subject added if the Create() method was ran and unbinds the UpdateSubject function from renderstepped.
 	 */
 	private Destroy() {
-		print("DESTROYED", Players.LocalPlayer);
 		this.janitor.Cleanup();
 		this.charOffset = undefined;
 	}
