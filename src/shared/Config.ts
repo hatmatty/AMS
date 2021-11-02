@@ -12,7 +12,7 @@ const Config = {
 		},
 
 		Bow: {
-			Shoot: 7873680903,
+			Shoot: 7880968321,
 			Holster: 7873723148,
 			Equip: 7873615068,
 		},
