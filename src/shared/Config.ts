@@ -26,6 +26,14 @@ const Config = {
 			Equip: 7873049583,
 		},
 
+		Spear: {
+			Upper: 7881904050,
+			Lower: 7881980633,
+
+			Holster: 7881452961,
+			Equip: 7881948776,
+		},
+
 		Shield: {
 			Block: 7872966176,
 			Holster: 7872995363,
@@ -58,6 +66,7 @@ const Config = {
 		Sparta: "Shield",
 		Athens: "Shield",
 		Bow: "Bow",
+		Dory: "Spear",
 	},
 };
 

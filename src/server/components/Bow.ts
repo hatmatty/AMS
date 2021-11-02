@@ -114,7 +114,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		this.Behavior.RaycastParams = this.CastParams;
 		this.Behavior.CosmeticBulletProvider = this.Provider;
 		this.Behavior.AutoIgnoreContainer = true;
-		this.Behavior.Acceleration = new Vector3(0, -game.Workspace.Gravity / 2, 0);
+		this.Behavior.Acceleration = new Vector3(0, -game.Workspace.Gravity / 6, 0);
 
 		this.InputInfo.Enabled.Begin = {
 			MouseButton1: {
@@ -264,6 +264,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		this.ToggleArrow("Enable");
 		const [Player, Char] = this.GetCharPlayer();
 		this.ActiveAnimation = playAnim(Char, anims.Shoot, { Fade: 0.4 });
+		this.ActiveAnimation.Priority = Enum.AnimationPriority.Action;
 		this.NotMoving = 0;
 
 		Events.ToggleRangedGUI(Player, true);
@@ -278,6 +279,12 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		if (!Humanoid) {
 			error("");
 		}
+
+		const PrevWalkSpeed = Humanoid.WalkSpeed;
+		Humanoid.WalkSpeed = PrevWalkSpeed / 1.5;
+		janitor.Add(() => {
+			Humanoid.WalkSpeed = PrevWalkSpeed;
+		});
 
 		let WillNotMove = false;
 		janitor.Add(

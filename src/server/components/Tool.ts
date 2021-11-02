@@ -197,7 +197,11 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	}
 
 	private Input(state: string, input: { Input: string; State: string }) {
-		this.RequirePlayer();
+		const [Player, Char] = this.GetCharPlayer();
+		const Humanoid = Char.FindFirstChildOfClass("Humanoid");
+		if (!Humanoid || Humanoid.Health <= 0) {
+			return;
+		}
 		const ActionInfo = this.GetActionInfo(state, input);
 		if (ActionInfo === undefined) {
 			return;

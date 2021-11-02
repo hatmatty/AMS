@@ -139,6 +139,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		this.setState("Drawing");
 
 		this.ActiveAnimation = playAnim(this.Player, this.AttackAnimations[this.Direction], { Fade: 0.1 });
+		this.ActiveAnimation.Priority = Enum.AnimationPriority.Action;
 
 		janitor.Add(
 			this.ActiveAnimation.GetMarkerReachedSignal("DrawEnd").Connect(() => {
@@ -227,7 +228,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			this.Hitbox.HitStop();
 		});
 
-		task.wait(this.ActiveAnimation.Length - ReleasePosition - 0.1);
+		task.wait(this.ActiveAnimation.Length - ReleasePosition + 0.1);
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
 		}

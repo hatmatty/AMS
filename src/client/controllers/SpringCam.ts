@@ -55,7 +55,7 @@ export class SpringCamera implements OnInit {
 			return head.Position;
 		}
 
-		return root.Position.add(new Vector3(0, neck.C0.Y, 0));
+		return root.Position.add(new Vector3(0, neck.C0.Y + 1, 0));
 	}
 
 	/**
@@ -173,6 +173,7 @@ export class SpringCamera implements OnInit {
 				rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position.add(lookXZ));
 			}
 		}
+		Camera.FieldOfView = 85;
 	}
 
 	/**

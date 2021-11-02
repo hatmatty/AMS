@@ -4,6 +4,7 @@ import { CollectionService } from "@rbxts/services";
 import { Bow } from "server/components/Bow";
 import { Essential } from "server/components/Essential";
 import { Shield } from "server/components/Shield";
+import { Spear } from "server/components/Spear";
 import { Sword } from "server/components/Sword";
 import { ToolAttributes, ToolInstance } from "server/components/Tool";
 import { playAnim } from "./AnimPlayer";
@@ -26,6 +27,10 @@ function FixAnims(tag: string, instance: Instance) {
 		}
 		case "Bow": {
 			Component = components.getComponent<Bow>(instance);
+			break;
+		}
+		case "Spear": {
+			Component = components.getComponent<Spear>(instance);
 			break;
 		}
 		default: {
