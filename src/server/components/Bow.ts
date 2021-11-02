@@ -51,7 +51,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 	// @ts-ignore
 	ActiveAnimation?: AnimationTrack;
 	Time?: number;
-	Moving = true;
+	NotMoving = 0;
 	Caster: Caster = new FastCast();
 
 	Arrow: BasePart & {
@@ -78,9 +78,9 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 			new NumberSequenceKeypoint(0.25, 0.7),
 			new NumberSequenceKeypoint(0.5, 0.8),
 			new NumberSequenceKeypoint(0.75, 0.9),
-			new NumberSequenceKeypoint(1, 1),
+			new NumberSequenceKeypoint(1, 0.95),
 		]);
-		Trail.Lifetime = 1;
+		Trail.Lifetime = 3;
 
 		const Factor = 100;
 		Trail.MinLength = 0.1 * Factor;
@@ -264,6 +264,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		this.ToggleArrow("Enable");
 		const [Player, Char] = this.GetCharPlayer();
 		this.ActiveAnimation = playAnim(Char, anims.Shoot, { Fade: 0.4 });
+		this.NotMoving = 0;
 
 		Events.ToggleRangedGUI(Player, true);
 
@@ -277,12 +278,22 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		if (!Humanoid) {
 			error("");
 		}
+
+		let WillNotMove = false;
 		janitor.Add(
 			RunService.Heartbeat.Connect(() => {
 				if (Humanoid.MoveDirection !== new Vector3(0, 0, 0)) {
-					this.Moving = true;
+					WillNotMove = false;
+					this.NotMoving = 0;
 				} else {
-					this.Moving = false;
+					if (!WillNotMove) {
+						this.NotMoving = 0.25;
+						WillNotMove = true;
+						task.wait(0.5);
+						if (WillNotMove) {
+							this.NotMoving = 1;
+						}
+					}
 				}
 			}),
 		);
@@ -300,7 +311,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		});
 
 		task.spawn(() => {
-			task.wait(0.9);
+			task.wait(0.5);
 			if (run) {
 				RunMiddleware(RangedDrawMiddleWare, this);
 			}
@@ -311,7 +322,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		if (this.Time === undefined) {
 			error("requires this.time");
 		}
-		return ((this.Moving ? 0 : 1) + math.clamp((tick() - this.Time) / 2, 0, 1)) / 2;
+		return (this.NotMoving + math.clamp((tick() - this.Time) / 2, 0, 1)) / 2;
 	}
 
 	Release(End: Callback, janitor: Janitor) {
