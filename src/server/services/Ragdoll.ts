@@ -52,7 +52,7 @@ export class Ragdoll implements OnInit {
 								v.Destroy();
 							}
 						}
-						if (v.IsA("BasePart") && v.Name !== "HumanoidRootPart") {
+						if (v.IsA("BasePart") && v.Name !== "HumanoidRootPart" && v.Parent === character) {
 							v.CanCollide = true;
 						}
 					}
