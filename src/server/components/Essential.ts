@@ -57,7 +57,6 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 		this.ManageStatusAttribute();
 
 		task.defer(() => {
-			print(this.instance.GetChildren());
 			const BodyAttach = this.instance.FindFirstChild(this.AttachName);
 			if (!BodyAttach || !BodyAttach.IsA("BasePart")) {
 				error(`AttachName is not ${this.AttachName}, got ${BodyAttach}`);

@@ -2,6 +2,7 @@ import Roact from "@rbxts/roact";
 import { RangedPart } from "./RangedPart";
 import { UserInputService, RunService } from "@rbxts/services";
 import { Janitor } from "@rbxts/janitor";
+import { MousePos } from "./MousePosition";
 
 //0.4825
 const Vertex = UDim2.fromScale(0.5, 0.465);
@@ -10,31 +11,7 @@ const MaxDistance = 0.25;
 const DominantSize = 0.02;
 const NormalSize = 0.02 / 5;
 
-export class Ranged extends Roact.Component<{ prevPercentage: number; percentage: number }, { position: UDim2 }> {
-	janitor = new Janitor();
-
-	constructor(props: { prevPercentage: number; percentage: number }) {
-		super(props);
-		this.updatePosition();
-	}
-
-	updatePosition() {
-		if (!UserInputService.MouseEnabled) {
-			this.setState({ position: UDim2.fromScale(0.5, 0.5) });
-		} else {
-			const Pos = UserInputService.GetMouseLocation();
-			this.setState({ position: UDim2.fromOffset(Pos.X, Pos.Y) });
-		}
-	}
-
-	didMount() {
-		this.janitor.Add(RunService.Heartbeat.Connect(() => this.updatePosition()));
-	}
-
-	willUnmount() {
-		this.janitor.Cleanup();
-	}
-
+export class Ranged extends MousePos<{ prevPercentage: number; percentage: number }, { position: UDim2 }> {
 	render() {
 		const Elements: Roact.Element[] = [];
 		return (

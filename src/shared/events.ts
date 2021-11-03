@@ -32,6 +32,7 @@ interface ClientEvents {
 
 	ToolToggled(id: string, state: "Enabled" | "Disabled"): void;
 	SetMobileInput(id: string, inputs: MobileInput[]): void;
+	Hit(damage: number): void;
 	AttackStatus(
 		status: "GAVE_BLOCK" | "GOT_BLOCK" | "DAMAGED" | "HIT" | "SWUNG" | "GOT_SHOT" | "GAVE_SHOT" | "RELEASED_SHOT",
 	): void;

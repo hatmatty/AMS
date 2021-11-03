@@ -5,7 +5,7 @@ import Roact from "@rbxts/roact";
 export function UseSingleFlipper(initVal: number) {
 	const motor = new SingleMotor(initVal);
 
-	const [binding, setBinding] = Roact.createBinding(motor.getValue());
+	const [binding, setBinding] = Roact.createBinding(initVal);
 	motor.onStep(setBinding);
 
 	return [motor, binding, setBinding] as [SingleMotor, Roact.Binding<number>, Roact.BindingFunction<number>];

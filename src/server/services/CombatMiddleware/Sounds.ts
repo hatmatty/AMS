@@ -20,23 +20,19 @@ export class Sounds implements OnInit {
 
 			AddRangedHitMiddleware((stop, weapon, hit, instance, specificLimb) => {
 				if (hit.IsA("Player")) {
-					print("PLAYED HIT SOUND");
 					if (specificLimb !== undefined) {
 						this.PlaySound(specificLimb, "Hit");
 					}
 				} else if (hit.IsA("BasePart") && hit.Name === "Blocker") {
-					print("PLAYED BLOCKED SOUND");
 					this.PlaySound(hit, "Blocked");
 				}
 			});
 
 			AddRangedDrawMiddleware((stop, bow) => {
-				print("DREW BOW!");
 				this.PlaySound(bow.instance.BowAttach, "BowDraw");
 			});
 
 			AddRangedReleasedMiddleware((stop, bow) => {
-				print("FIIRED BOW!");
 				this.PlaySound(bow.instance.BowAttach, "BowFire");
 			});
 

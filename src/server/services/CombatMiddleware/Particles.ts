@@ -33,7 +33,6 @@ export class Particles implements OnInit {
 
 			AddRangedHitMiddleware((stop, weapon, hit, instance) => {
 				if (hit.IsA("BasePart") && hit.Name === "Blocker") {
-					print("EMITTED SPARKS");
 					this.EmitSparks(hit);
 				}
 			});

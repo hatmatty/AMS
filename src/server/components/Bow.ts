@@ -48,6 +48,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 	EnabledLimb = "LeftHand" as CharacterLimb;
 	DisabledLimb = "UpperTorso" as CharacterLimb;
 	ArrowMotor = new Instance("Motor6D");
+	Damage = 0;
 	// @ts-ignore
 	ActiveAnimation?: AnimationTrack;
 	Time?: number;
@@ -174,7 +175,6 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 				error("");
 			}
 			const hit = result.Instance;
-			print(hit);
 
 			const Player = Players.GetPlayerFromCharacter(hit.Parent);
 
@@ -183,6 +183,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 					return;
 				}
 
+				this.Damage = 30 * this.CalculateAccuracy();
 				RunMiddleware(RangedHitMiddleWare, this, Player, instance, hit);
 
 				const Character = hit.Parent;
@@ -194,7 +195,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 					error();
 				}
 
-				Humanoid.TakeDamage(30 * this.CalculateAccuracy());
+				Humanoid.TakeDamage(this.Damage);
 			} else {
 				RunMiddleware(RangedHitMiddleWare, this, hit, instance);
 			}
@@ -359,7 +360,6 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		this.Fire(direction);
 		task.wait(this.ActiveAnimation.Length - this.ActiveAnimation.TimePosition);
 		this.ActiveAnimation.Stop(0.4);
-		print("DID STOP!");
 		End();
 	}
 
