@@ -21,7 +21,6 @@ export class HitGui implements OnInit {
 	}
 
 	SendHit(damage: number) {
-		print(`got ${damage} damage hit`);
 		Roact.unmount(this.GUI);
 		this.GUI = Roact.mount(
 			Roact.createElement(HitDisplay, { damage: math.round(damage) }),

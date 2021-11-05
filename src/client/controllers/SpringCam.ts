@@ -4,9 +4,17 @@ import { Players, RunService, UserInputService } from "@rbxts/services";
 import { Janitor } from "@rbxts/janitor";
 import Spring from "shared/modules/spring";
 import { registerNetworkHandler } from "@flamework/networking/out/handlers";
+import { hasJSDocParameterTags, HighlightSpanKind } from "typescript";
 
 let Camera = game.Workspace.CurrentCamera;
 const Player = Players.LocalPlayer;
+
+import { Equipped, EquippedChanged, GetEquippedCount } from "client/modules/Equipped";
+import Object from "@rbxts/object-utils";
+
+const Yoffset = 0.5;
+const Xoffset = 1.25;
+const Zoffset = 0;
 
 /**
  * Manages the creation of a spring-based camera on a player's character
@@ -17,6 +25,9 @@ export class SpringCamera implements OnInit {
 	private janitor = new Janitor();
 	private charOffset?: Vector3;
 	private Running = false;
+	private Yoffset = 0;
+	private Xoffset = 0;
+	private Zoffset = 0;
 
 	/**
 	 * calls creates the camera by calling Create() when a player's character is loaded in and destroys the camera by calling Destroy() when the player's character is removed.
@@ -34,6 +45,83 @@ export class SpringCamera implements OnInit {
 		if (Player.Character) {
 			this.Create();
 		}
+
+		this.ProtectToolTransparency();
+		EquippedChanged.Connect(() => {
+			this.ModifyOffset();
+		});
+	}
+
+	private ModifyOffset() {
+		if (GetEquippedCount() === 0) {
+			this.Xoffset = 0;
+			this.Yoffset = 0;
+			this.Zoffset = 0;
+		} else {
+			this.Yoffset = Yoffset;
+			this.Xoffset = Xoffset;
+			this.Zoffset = Zoffset;
+		}
+	}
+
+	private ProtectToolTransparency() {
+		this.FirstProtectCheck();
+
+		Player.CharacterAdded.Connect((character) => {
+			this.FirstProtectCheck();
+			character.ChildAdded.Connect((child) => {
+				this.ProtectTool(child);
+			});
+		});
+	}
+
+	private FirstProtectCheck() {
+		if (Player.Character) {
+			if (!Player.HasAppearanceLoaded()) {
+				Player.CharacterAppearanceLoaded.Wait();
+			}
+
+			for (const child of Player.Character.GetChildren()) {
+				this.ProtectTool(child);
+			}
+		}
+	}
+
+	private ProtectTool(tool: Instance) {
+		const name = tool.Name;
+		// @ts-expect-error I'm checking if it exists
+		const ToolType = Config.Tools[name] as string;
+
+		if (
+			name !== "LeftUpperArm" &&
+			name !== "RightUpperArm" &&
+			name !== "LeftLowerArm" &&
+			name !== "RightLowerArm" &&
+			name !== "RightHand" &&
+			name !== "LeftHand"
+		) {
+			if (!tool.IsA("Model") || ToolType === undefined) {
+				return;
+			}
+		}
+
+		const Connection = RunService.Heartbeat.Connect(() => {
+			if (tool.IsA("BasePart")) {
+				tool.LocalTransparencyModifier = 0;
+			}
+			for (const descendant of tool.GetDescendants()) {
+				if (descendant.IsA("BasePart")) {
+					descendant.LocalTransparencyModifier = 0;
+				}
+			}
+		});
+
+		const Character = tool.Parent;
+		tool.AncestryChanged.Connect(() => {
+			if (tool.Parent !== Character || !tool.IsDescendantOf(game)) {
+				Connection.Disconnect();
+			}
+		});
 	}
 
 	private GetPos(): Vector3 {
@@ -55,7 +143,8 @@ export class SpringCamera implements OnInit {
 			return head.Position;
 		}
 
-		return root.Position.add(new Vector3(0, neck.C0.Y + 1, 0));
+		const vector = new Vector3(this.Xoffset, neck.C0.Y + head.Size.Y / 2 + this.Yoffset, this.Zoffset);
+		return root.CFrame.ToWorldSpace(new CFrame(vector)).Position;
 	}
 
 	/**
@@ -63,7 +152,7 @@ export class SpringCamera implements OnInit {
 	 */
 	private Create() {
 		if (this.first) {
-			task.wait(1);
+			task.wait(2);
 			this.first = false;
 		}
 
@@ -151,18 +240,20 @@ export class SpringCamera implements OnInit {
 
 		const head = Player.Character.WaitForChild("Head");
 		const rootPart = Player.Character.WaitForChild("HumanoidRootPart");
+		const humanoid = Player.Character.WaitForChild("Humanoid");
 
-		if (!head || !rootPart || !head.IsA("BasePart") || !rootPart.IsA("BasePart")) {
+		if (!head || !rootPart || !head.IsA("BasePart") || !rootPart.IsA("BasePart") || !humanoid.IsA("Humanoid")) {
 			error(`player head or humanoidrootpart is of an incorrect value - head: ${head},rootPart: ${rootPart}`);
 		}
 
 		// BODY
 		if (
-			Camera.CFrame.Position.sub(subject.Position).Magnitude < 1 ||
-			Camera.CFrame.Position.sub(head.Position).Magnitude < 1
+			Camera.CFrame.Position.sub(subject.Position).Magnitude < 2 ||
+			Camera.CFrame.Position.sub(head.Position).Magnitude < 2
 		) {
-			Camera.CameraSubject = head;
+			Camera.CameraSubject = humanoid;
 			subject.Position = this.GetPos();
+			spring.Target = this.GetPos();
 		} else {
 			spring.Target = this.GetPos();
 			Camera.CameraSubject = subject;
@@ -180,6 +271,10 @@ export class SpringCamera implements OnInit {
 	 * Destroys the camera by cleaning up the janitor which has the subject added if the Create() method was ran and unbinds the UpdateSubject function from renderstepped.
 	 */
 	private Destroy() {
+		this.Yoffset = 0;
+		this.Xoffset = 0;
+		this.Zoffset = 0;
+
 		this.janitor.Cleanup();
 		this.charOffset = undefined;
 	}

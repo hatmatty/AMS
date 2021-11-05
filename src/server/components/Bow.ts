@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { Component } from "@flamework/components";
+import { Component, Components } from "@flamework/components";
 import { Essential } from "./Essential";
 import { ToolAttributes, ToolInstance } from "./Tool";
 import Config from "shared/Config";
@@ -14,6 +14,10 @@ import PartCache from "@rbxts/partcache";
 import { RunService, TweenService, Players } from "@rbxts/services";
 import { PartCache as PartCacheType } from "@rbxts/partcache/out/class";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
+import { Shield } from "./Shield";
+import { Dependency } from "@flamework/core";
+
+const components = Dependency<Components>();
 
 FastCast.VisualizeCasts = false;
 const MAX_DIST = 200;
@@ -164,6 +168,23 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		this.Behavior.CanPierceFunction = (cast, result) => {
 			const hit = result.Instance;
 			if (hit.Parent && hit.Parent.IsA("Accessory") && Players.GetPlayerFromCharacter(hit.Parent.Parent)) {
+				return true;
+			} else if (
+				hit.Parent &&
+				hit.Parent.IsA("Model") &&
+				(hit.Name === "Blocker" || hit.Parent?.FindFirstChild("Blocker"))
+			) {
+				const Shield = components.getComponent<Shield>(hit.Parent);
+				if (Shield.state === "Disabled") {
+					return true;
+				} else {
+					return false;
+				}
+			} else if (
+				hit.Parent?.IsA("Model") &&
+				hit.Parent.Parent?.IsA("Model") &&
+				Players.GetPlayerFromCharacter(hit.Parent.Parent)
+			) {
 				return true;
 			} else {
 				return false;
@@ -389,7 +410,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		this.ToggleArrow("Disable");
 
 		const [Player, Char] = this.GetCharPlayer();
-		this.Arrow.Parent = Char;
+		this.Arrow.Parent = this.instance;
 
 		this.janitor.Add(
 			Events.MouseRay.connect((player, ray) => {

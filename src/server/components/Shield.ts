@@ -108,6 +108,10 @@ if (!Added) {
 		if (hit.Name === "Blocker") {
 			const Shield = components.getComponent<Shield>(hit.Parent as Model);
 
+			if (Shield.state === "Disabled") {
+				return;
+			}
+
 			if (Shield.Player === weapon.Player) {
 				return;
 			}
@@ -124,6 +128,7 @@ if (!Added) {
 
 			weapon.Actions.Release.End();
 			weapon.ActiveAnimation?.Stop(0.2);
+
 			stop(`${Player.Name}'s shield blocked ${weapon.Player?.Name}'s swing`);
 		}
 	});

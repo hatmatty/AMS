@@ -20,7 +20,7 @@ export class Rotation implements OnInit {
 	public Enabled = true;
 	private janitor = new Janitor();
 	private delay = 0.1; // how fast the body rotator should fire an update to the server
-	public ClampValue = 0.5;
+	public ClampValue = 0.4;
 
 	/**
 	 * Manages the starting of the BodyRotation when the player's character is created and connects to the UpdateRotation client event for when the rotation of other character's updates so that it replicates here.
@@ -129,7 +129,7 @@ export class Rotation implements OnInit {
 		LeftShoulderXOffset = 0,
 		LeftShoulderYOffset = 0,
 	) {
-		const factor = 0.8;
+		const factor = 0.6;
 
 		const character = Player.Character;
 

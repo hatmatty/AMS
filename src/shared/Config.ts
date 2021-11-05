@@ -52,19 +52,23 @@ const Config = {
 		Sprinting: true,
 		SpringCamera: true,
 		Ragdoll: true,
+		ToolSelector: true,
 	},
 
 	Attributes: {
 		WalkingSpeed: 14,
 		SprintingSpeed: 18,
-		ShieldHitboxSize: new Vector3(2.5, 2.5, 1),
+		ShieldHitboxSize: new Vector3(2.75, 2.75, 1.5),
+		MaxGetTools: 2,
 	},
 
 	Tools: {
-		Kopis: "Sword",
 		Shield: "Shield",
 		Sparta: "Shield",
 		Athens: "Shield",
+		Roman: "Shield",
+
+		Kopis: "Sword",
 		Bow: "Bow",
 		Dory: "Spear",
 	},

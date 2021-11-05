@@ -45,7 +45,11 @@ export class Stun implements OnInit {
 				animation = Config.Animations.Stunned.Right;
 				break;
 			}
-			case "STAB": {
+			case "DOWN": {
+				animation = Config.Animations.Stunned.Stab;
+				break;
+			}
+			case "UP": {
 				animation = Config.Animations.Stunned.Stab;
 				break;
 			}

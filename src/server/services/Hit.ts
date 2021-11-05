@@ -14,7 +14,6 @@ export class Hit implements OnInit {
 
 			if (instance.IsA("Player")) {
 				Events.Hit(tool.Player, tool.Damage);
-				print(`Sent ${tool.Damage} damage hit to ${tool.Player}`);
 			}
 		}
 

@@ -54,12 +54,10 @@ export class HitDisplay extends Roact.Component<{ damage: number }, { position: 
 		const ID = HttpService.GenerateGUID();
 		this.AnimID = ID;
 
-		const params = { frequency: 1, dampingRatio: 0.4 };
+		const params = { frequency: 1.4, dampingRatio: 0.4 };
+		const fadeParmas = { frequency: 0.5, dampingRatio: 0.4 };
 
 		this.transparencyMotor.setGoal(new Spring(0, params));
-		this.transparencyMotor.onComplete(() => {
-			print(this.transparencyBinding.getValue());
-		});
 
 		this.sizeMotor.setGoal({
 			X: new Instant(Start.X.Scale),
@@ -71,9 +69,9 @@ export class HitDisplay extends Roact.Component<{ damage: number }, { position: 
 		});
 
 		task.spawn(() => {
-			task.wait(1);
+			task.wait(0.7);
 			if (this.AnimID === ID) {
-				this.transparencyMotor.setGoal(new Spring(1, params));
+				this.transparencyMotor.setGoal(new Spring(1, fadeParmas));
 			}
 		});
 	}
@@ -109,7 +107,7 @@ export class HitDisplay extends Roact.Component<{ damage: number }, { position: 
 						BackgroundTransparency={1}
 						Font={Enum.Font.Merriweather}
 						Position={new UDim2(0.5, 0, 0.55, 0)}
-						Size={new UDim2(0.02, 0, 0.02, 0)}
+						Size={new UDim2(0.025, 0, 0.025, 0)}
 						Text={tostring(this.props.damage)}
 						TextColor3={Color3.fromRGB(241, 196, 65)}
 						TextScaled={true}

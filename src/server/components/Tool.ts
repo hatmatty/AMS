@@ -2,7 +2,7 @@
 import { OnInit, OnStart } from "@flamework/core";
 import { Component, BaseComponent } from "@flamework/components";
 import Signal from "@rbxts/signal";
-import { HttpService } from "@rbxts/services";
+import { HttpService, RunService } from "@rbxts/services";
 import { Events } from "server/events";
 import { Janitor } from "@rbxts/janitor";
 import { Players } from "@rbxts/services";

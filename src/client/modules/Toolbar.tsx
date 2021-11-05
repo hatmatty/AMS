@@ -18,30 +18,9 @@ interface props {
 		| undefined;
 }
 
-let Equipped: { [id: string]: boolean } = {};
-
-Events.ToolToggled.connect((id, state) => {
-	Equipped[id] = state === "Enabled" ? true : false;
-});
+import { Equipped } from "./Equipped";
 
 const Player = Players.LocalPlayer;
-function ManageChar(char: Model) {
-	if (!Player.HasAppearanceLoaded()) {
-		Player.CharacterAppearanceLoaded.Wait();
-	}
-	const Humanoid = char.WaitForChild("Humanoid");
-	if (!Humanoid.IsA("Humanoid")) {
-		error("Humanoid is not of class humanoid.");
-	}
-	Humanoid.Died.Connect(() => {
-		Equipped = {};
-	});
-}
-
-if (Player.Character) {
-	ManageChar(Player.Character);
-}
-Player.CharacterAdded.Connect(ManageChar);
 
 export type State = props;
 

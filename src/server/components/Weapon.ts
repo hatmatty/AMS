@@ -45,7 +45,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 
 	Direction: Directions = "RIGHT";
 	Damage = 0;
-	Hitbox: HitboxObject = new RaycastHitbox(this.instance.DmgPart);
+	Hitbox: HitboxObject;
 
 	StoredAnimations: {
 		[index: string]: AnimationTrack;
@@ -69,9 +69,6 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 				}
 			}),
 		);
-
-		this.Hitbox.DetectionMode = 3;
-		this.Hitbox.Visualizer = true;
 	}
 
 	constructor() {
@@ -110,7 +107,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			[Start, End] = [End, Start];
 		}
 
-		const inc = 0.5;
+		const inc = 0.1;
 		for (let i: number = Start.Position.Y + inc; i < End.Position.Y; i += inc) {
 			const Attachment = new Instance("Attachment");
 			Attachment.Position = new Vector3(0, i, 0);
@@ -118,21 +115,22 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			Attachment.Name = AttachmentName;
 		}
 
-		this.Hitbox.Destroy();
-		this.Hitbox = new RaycastHitbox(this.instance.DmgPart);
-
 		const Trail = new Instance("Trail");
 		Trail.Parent = this.instance.DmgPart;
 		Trail.Attachment0 = Start;
 		Trail.Attachment1 = End;
 		Trail.Transparency = new NumberSequence([
-			new NumberSequenceKeypoint(0, 0.95),
-			new NumberSequenceKeypoint(0.25, 0.965),
-			new NumberSequenceKeypoint(0.5, 0.979),
-			new NumberSequenceKeypoint(0.75, 0.985),
+			new NumberSequenceKeypoint(0, 0.9),
+			new NumberSequenceKeypoint(0.25, 0.925),
+			new NumberSequenceKeypoint(0.5, 0.95),
+			new NumberSequenceKeypoint(0.75, 0.975),
 			new NumberSequenceKeypoint(1, 1),
 		]);
 		Trail.Lifetime = 0.2;
+
+		this.Hitbox = new RaycastHitbox(this.instance.DmgPart);
+		this.Hitbox.DetectionMode = 2;
+		this.Hitbox.Visualizer = false;
 	}
 
 	private Draw(End: Callback, janitor: Janitor) {
@@ -184,13 +182,8 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		this.ActiveAnimation.AdjustSpeed(1);
 
 		this.Hitbox.HitStart(this.ActiveAnimation.Length - ReleasePosition);
-		const db = new Map<Instance, boolean>();
+		const db = new Map<Player, boolean>();
 		this.Hitbox.OnHit.Connect((hit) => {
-			if (db.get(hit)) {
-				return;
-			}
-			db.set(hit, true);
-
 			const Player = Players.GetPlayerFromCharacter(hit.Parent);
 			if (Player !== undefined) {
 				if (db.get(Player)) {
@@ -228,7 +221,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			this.Hitbox.HitStop();
 		});
 
-		task.wait(this.ActiveAnimation.Length - ReleasePosition + 0.1);
+		task.wait(this.ActiveAnimation.Length - ReleasePosition);
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
 		}

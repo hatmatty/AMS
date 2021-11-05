@@ -24,6 +24,7 @@ interface ServerEvents {
 		rightShoulderCFrame: CFrame,
 	): void;
 	MouseRay(ray: Ray): void;
+	GetTool(toolName: string): void;
 }
 
 interface ClientEvents {
