@@ -18,17 +18,17 @@ const Config = {
 		},
 
 		Sword: {
-			Left: 7872886466,
-			Right: 7872890697,
-			Stab: 7872877175,
+			Left: 7910092006,
+			Right: 7909977906,
+			Stab: 7910654188,
 
 			Holster: 7872920456,
 			Equip: 7873049583,
 		},
 
 		Spear: {
-			Upper: 7881904050,
-			Lower: 7881980633,
+			Upper: 7911141849,
+			Lower: 7911144969,
 
 			Holster: 7881452961,
 			Equip: 7881948776,
@@ -56,7 +56,7 @@ const Config = {
 	},
 
 	Attributes: {
-		WalkingSpeed: 14,
+		WalkingSpeed: 13,
 		SprintingSpeed: 18,
 		ShieldHitboxSize: new Vector3(2.75, 2.75, 1.5),
 		MaxGetTools: 2,

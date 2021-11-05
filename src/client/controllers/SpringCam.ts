@@ -13,7 +13,7 @@ import { Equipped, EquippedChanged, GetEquippedCount } from "client/modules/Equi
 import Object from "@rbxts/object-utils";
 
 const Yoffset = 0.5;
-const Xoffset = 1.25;
+const Xoffset = 1;
 const Zoffset = 0;
 
 /**

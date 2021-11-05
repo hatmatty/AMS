@@ -129,7 +129,7 @@ export class Rotation implements OnInit {
 		LeftShoulderXOffset = 0,
 		LeftShoulderYOffset = 0,
 	) {
-		const factor = 0.6;
+		const factor = 1.2;
 
 		const character = Player.Character;
 
@@ -287,9 +287,6 @@ export class Rotation implements OnInit {
 	 * @returns a number which if negative is divded by 3 to make it less negative and then clamped to be between -0.5 and 0.5.
 	 */
 	private CapY(value: number) {
-		if (value < 0) {
-			value = value / 3;
-		}
 		return math.clamp(value, -this.ClampValue, this.ClampValue);
 	}
 
@@ -298,6 +295,7 @@ export class Rotation implements OnInit {
 	 * @returns a number between -0.5 and 0.5.
 	 */
 	private CapX(value: number) {
+		value = value / 3;
 		return math.clamp(value, -this.ClampValue, this.ClampValue);
 	}
 

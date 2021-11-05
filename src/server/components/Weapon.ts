@@ -40,6 +40,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		LEFT: number;
 		RIGHT: number;
 	};
+	protected abstract Fade?: number;
 
 	Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
 
@@ -136,7 +137,9 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	private Draw(End: Callback, janitor: Janitor) {
 		this.setState("Drawing");
 
-		this.ActiveAnimation = playAnim(this.Player, this.AttackAnimations[this.Direction], { Fade: 0.1 });
+		this.ActiveAnimation = playAnim(this.Player, this.AttackAnimations[this.Direction], {
+			Fade: this.Fade !== undefined ? this.Fade : undefined || 0.1,
+		});
 		this.ActiveAnimation.Priority = Enum.AnimationPriority.Action;
 
 		janitor.Add(
@@ -221,10 +224,15 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			this.Hitbox.HitStop();
 		});
 
+		this.ActiveAnimation.Stopped.Connect(() => {
+			print("STOPPED!");
+		});
+
 		task.wait(this.ActiveAnimation.Length - ReleasePosition);
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
 		}
+		this.ActiveAnimation.Stop(this.Fade !== undefined ? this.Fade : undefined || 0.2);
 		End();
 	}
 }

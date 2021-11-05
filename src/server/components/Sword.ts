@@ -24,4 +24,5 @@ export class Sword extends Weapon {
 		RIGHT: anims.Right,
 		LEFT: anims.Left,
 	};
+	Fade = undefined;
 }

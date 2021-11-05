@@ -24,4 +24,5 @@ export class Spear extends Weapon {
 		RIGHT: anims.Lower,
 		LEFT: anims.Lower,
 	};
+	Fade = undefined;
 }
