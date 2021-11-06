@@ -12,13 +12,13 @@ export class ToolSelect extends Roact.Component<props> {
 			<textbutton
 				Key={this.props.tool}
 				AutomaticSize={Enum.AutomaticSize.Y}
-				BackgroundColor3={Color3.fromRGB(255, 255, 255)}
-				BackgroundTransparency={0.8}
+				BackgroundColor3={Color3.fromRGB(0, 0, 0)}
+				BackgroundTransparency={0.9}
 				Font={Enum.Font.Fantasy}
 				Text={this.props.tool}
 				RichText={true}
 				Size={new UDim2(0.1, 0, 0.1, 0)}
-				TextColor3={Color3.fromRGB(0, 0, 0)}
+				TextColor3={Color3.fromRGB(255, 255, 255)}
 				TextScaled={true}
 				TextSize={14}
 				TextTransparency={0.5}

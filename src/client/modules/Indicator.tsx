@@ -21,7 +21,7 @@ export class Indicator extends Roact.Component<props> {
 	didMount() {
 		this.motor.setGoal(new Spring(0, { frequency: 0.5, dampingRatio: 0.4 }));
 		task.spawn(() => {
-			task.wait(0.05);
+			task.wait(0.1);
 			this.motor.setGoal(new Spring(1, { frequency: 0.5, dampingRatio: 0.4 }));
 		});
 	}

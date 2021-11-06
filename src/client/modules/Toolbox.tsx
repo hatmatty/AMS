@@ -140,7 +140,7 @@ export class Toolbox extends Roact.Component<props> {
 		return (
 			<imagebutton
 				Image={undefined} // EDIT THIS TO ADD YOUR IMAGE!!!
-				BackgroundColor3={Color3.fromRGB(255, 255, 255)}
+				BackgroundColor3={Color3.fromRGB(0, 0, 0)}
 				BackgroundTransparency={this.visibleBinding.map(handleTransparency(0.95))}
 				AnchorPoint={new Vector2(0.5, 0.5)}
 				Position={this.posBinding.map((val) => {
@@ -162,8 +162,8 @@ export class Toolbox extends Roact.Component<props> {
 			>
 				<uiaspectratioconstraint AspectRatio={1} />
 				<frame
-					BackgroundColor3={Color3.fromRGB(255, 255, 255)}
-					BackgroundTransparency={this.enabledBinding.map(handleTransparency(0.9))}
+					BackgroundColor3={Color3.fromRGB(0, 0, 0)}
+					BackgroundTransparency={this.enabledBinding.map(handleTransparency(0.85))}
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					Position={UDim2.fromScale(0.5, 0.5)}
 					Size={UDim2.fromScale(1, 1)}
