@@ -22,7 +22,7 @@ export { AddHitMiddleware, AddDamageMiddleware, AddSwingMiddleware, AddDrawMiddl
 
 const ReleasePosition = 3;
 const BaseDamage = 20;
-const MaxDamage = 50;
+const MaxDamage = 40;
 const secToMax = 2;
 
 export interface WeaponInstance extends ToolInstance {
@@ -41,6 +41,8 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		RIGHT: number;
 	};
 	protected abstract Fade?: number;
+	protected abstract weaponPlayerInit(): void;
+	protected Trail: Trail;
 
 	Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
 
@@ -55,6 +57,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	ActiveAnimation?: AnimationTrack;
 
 	playerInit(player: Player) {
+		this.weaponPlayerInit();
 		const Params = new RaycastParams();
 		const [Player, Character] = this.GetCharPlayer();
 
@@ -108,7 +111,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			[Start, End] = [End, Start];
 		}
 
-		const inc = 0.1;
+		const inc = 0.4;
 		for (let i: number = Start.Position.Y + inc; i < End.Position.Y; i += inc) {
 			const Attachment = new Instance("Attachment");
 			Attachment.Position = new Vector3(0, i, 0);
@@ -117,6 +120,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		}
 
 		const Trail = new Instance("Trail");
+		this.Trail = Trail;
 		Trail.Parent = this.instance.DmgPart;
 		Trail.Attachment0 = Start;
 		Trail.Attachment1 = End;
@@ -136,17 +140,8 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 
 	private Draw(End: Callback, janitor: Janitor) {
 		this.setState("Drawing");
-
-		this.ActiveAnimation = playAnim(this.Player, this.AttackAnimations[this.Direction], {
-			Fade: this.Fade !== undefined ? this.Fade : undefined || 0.1,
-		});
-		this.ActiveAnimation.Priority = Enum.AnimationPriority.Action;
-
-		janitor.Add(
-			this.ActiveAnimation.GetMarkerReachedSignal("DrawEnd").Connect(() => {
-				this.ActiveAnimation?.AdjustSpeed(0);
-			}),
-		);
+		print(this.Direction);
+		this.setActiveAnimation(this.AttackAnimations[this.Direction], janitor);
 
 		this.Damage = BaseDamage;
 
@@ -228,11 +223,27 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			print("STOPPED!");
 		});
 
-		task.wait(this.ActiveAnimation.Length - ReleasePosition);
+		print(this.ActiveAnimation.Length);
+		task.wait(this.ActiveAnimation.Length - ReleasePosition - 0.1);
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
 		}
 		this.ActiveAnimation.Stop(this.Fade !== undefined ? this.Fade : undefined || 0.2);
 		End();
 	}
+
+	protected setActiveAnimation(animation: number, janitor: Janitor) {
+		this.ActiveAnimation = playAnim(this.Player, animation, {
+			Fade: this.Fade !== undefined ? this.Fade : undefined || 0.1,
+		});
+		this.ActiveAnimation.Priority = Enum.AnimationPriority.Action;
+
+		janitor.Add(
+			this.ActiveAnimation.GetMarkerReachedSignal("DrawEnd").Connect(() => {
+				this.ActiveAnimation?.AdjustSpeed(0);
+			}),
+		);
+	}
+
+	Destroy() {}
 }

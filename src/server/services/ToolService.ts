@@ -206,7 +206,6 @@ export class ToolService implements OnInit {
 				return;
 			}
 			AncestryChanged.Disconnect();
-
 			this.store.dispatch({ type: "TOOL_REMOVED", parent: Parent, tool: tool });
 
 			if (tool.instance.IsDescendantOf(game)) {

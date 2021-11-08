@@ -38,7 +38,8 @@ export class ToggleButton implements OnInit {
 		const player = this.GetPlayerFromUserName(parent);
 
 		if (player === undefined) {
-			error("parent must be a player's username");
+			// got workspace
+			return;
 		}
 
 		const playerTools = state[parent];

@@ -16,11 +16,20 @@ import { PartCache as PartCacheType } from "@rbxts/partcache/out/class";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
 import { Shield } from "./Shield";
 import { Dependency } from "@flamework/core";
+import {
+	CreateBehaviorParams,
+	DrawShoot,
+	ManageRay,
+	Ranged,
+	ReleaseShot,
+	SetupRanged,
+} from "server/modules/RangedUtil";
+import { CreateWeld } from "server/modules/CreateWeld";
+import { isConstructSignatureDeclaration } from "typescript";
 
 const components = Dependency<Components>();
 
-FastCast.VisualizeCasts = false;
-const MAX_DIST = 200;
+FastCast.VisualizeCasts = true;
 
 interface RangedInstance extends ToolInstance {
 	BowAttach: BasePart;
@@ -33,17 +42,14 @@ interface RangedInstance extends ToolInstance {
 }
 const anims = Config.Animations.Bow;
 
-export const [RangedHitMiddleWare, AddRangedHitMiddleware] = GenerateMiddleware<[Bow, Instance, BasePart, BasePart?]>();
-export const [RangedDrawMiddleWare, AddRangedDrawMiddleware] = GenerateMiddleware<[Bow]>();
-export const [RangedReleasedMiddleWare, AddRangedReleasedMiddleware] = GenerateMiddleware<[Bow]>();
-
 @Component({
 	tag: "Bow",
 	defaults: {
 		BUTTON_TOGGLE: "Two",
 	},
 })
-export class Bow extends Essential<ToolAttributes, RangedInstance> {
+export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ranged {
+	Name = "Bow";
 	Ray = new Ray();
 	AttachName = "BowAttach";
 	Incompatible = ["Bow", "Shield", "RbxTool", "Sword", "Spear"];
@@ -53,9 +59,15 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 	DisabledLimb = "UpperTorso" as CharacterLimb;
 	ArrowMotor = new Instance("Motor6D");
 	Damage = 0;
+	MaxDamage = 40;
+	MAX_DIST = 200;
+	AnimationShootPosition = 2;
+	Velocity = 200;
+	MaxTime = 2;
+	MinWaitTime = 1;
 	// @ts-ignore
 	ActiveAnimation?: AnimationTrack;
-	Time?: number;
+	Time = tick();
 	NotMoving = 0;
 	Caster: Caster = new FastCast();
 
@@ -65,13 +77,17 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 	Provider: PartCacheType<BasePart>;
 	CastParams: RaycastParams;
 	Behavior: FastCastBehavior;
+	MainPart: BasePart;
 
 	constructor() {
 		super();
+		this.MainPart = this.BodyAttach;
+		task.defer(() => {
+			this.MainPart = this.BodyAttach;
+		});
 		this.Arrow = this.instance.Arrow;
 		const Attachment0 = new Instance("Attachment");
 		const Attachment1 = new Instance("Attachment");
-
 		Attachment0.Position = new Vector3(0, -0.1, 0);
 		Attachment1.Position = new Vector3(0, 0.1, 0);
 
@@ -109,17 +125,8 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		this.Provider = new PartCache(NewArrow, 10);
 
 		const StoredArrows = new Instance("Folder");
-		StoredArrows.Parent = this.instance;
+		StoredArrows.Parent = game.Workspace;
 		this.Provider.SetCacheParent(StoredArrows);
-
-		this.CastParams = new RaycastParams();
-		this.CastParams.FilterType = Enum.RaycastFilterType.Blacklist;
-
-		this.Behavior = FastCast.newBehavior();
-		this.Behavior.RaycastParams = this.CastParams;
-		this.Behavior.CosmeticBulletProvider = this.Provider;
-		this.Behavior.AutoIgnoreContainer = true;
-		this.Behavior.Acceleration = new Vector3(0, -game.Workspace.Gravity / 6, 0);
 
 		this.InputInfo.Enabled.Begin = {
 			MouseButton1: {
@@ -152,9 +159,23 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		RodTop.Attachment1 = Top;
 		RodBottom.Attachment1 = Bottom;
 
+		[this.Behavior, this.CastParams] = CreateBehaviorParams(this.Provider);
+
 		this.Caster.LengthChanged.Connect((cast, lastpoint, dir, displacement, segVel, arrow) => {
 			if (!arrow?.IsA("BasePart")) {
 				return;
+			}
+
+			if (arrow.GetAttribute("Visible") === undefined) {
+				for (const v of arrow.GetDescendants()) {
+					if (v.IsA("BasePart") && v.Name !== "ArrowAttach") {
+						v.Transparency = 0;
+					}
+					if (v.IsA("Trail")) {
+						v.Enabled = false;
+					}
+				}
+				arrow.SetAttribute("Visible", true);
 			}
 
 			const Trail = arrow.FindFirstChildWhichIsA("Trail");
@@ -163,65 +184,6 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 			}
 
 			arrow.CFrame = CFrame.lookAt(lastpoint.add(dir.mul(displacement)), lastpoint);
-		});
-
-		this.Behavior.CanPierceFunction = (cast, result) => {
-			const hit = result.Instance;
-			if (hit.Parent && hit.Parent.IsA("Accessory") && Players.GetPlayerFromCharacter(hit.Parent.Parent)) {
-				return true;
-			} else if (
-				hit.Parent &&
-				hit.Parent.IsA("Model") &&
-				(hit.Name === "Blocker" || hit.Parent?.FindFirstChild("Blocker"))
-			) {
-				const Shield = components.getComponent<Shield>(hit.Parent);
-				if (Shield.state === "Disabled") {
-					return true;
-				} else {
-					return false;
-				}
-			} else if (
-				hit.Parent?.IsA("Model") &&
-				hit.Parent.Parent?.IsA("Model") &&
-				Players.GetPlayerFromCharacter(hit.Parent.Parent)
-			) {
-				return true;
-			} else {
-				return false;
-			}
-		};
-
-		this.Caster.RayHit.Connect((caster, result, segmentVelocity, instance) => {
-			if (!instance || !instance.IsA("BasePart")) {
-				error("");
-			}
-			const hit = result.Instance;
-
-			const Player = Players.GetPlayerFromCharacter(hit.Parent);
-
-			if (Player !== undefined) {
-				if (Player === this.Player) {
-					return;
-				}
-
-				this.Damage = 30 * this.CalculateAccuracy();
-				RunMiddleware(RangedHitMiddleWare, this, Player, instance, hit);
-
-				const Character = hit.Parent;
-				if (!Character) {
-					error();
-				}
-				const Humanoid = Character.FindFirstChildWhichIsA("Humanoid");
-				if (!Humanoid) {
-					error();
-				}
-
-				Humanoid.TakeDamage(this.Damage);
-			} else {
-				RunMiddleware(RangedHitMiddleWare, this, hit, instance);
-			}
-
-			this.ArrowHit(result, instance);
 		});
 
 		this.InputInfo.Drawing = {
@@ -237,22 +199,25 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 
 		this.Actions.Draw = new Action((End, janitor) => this.Draw(End, janitor));
 		this.Actions.Release = new Action((End, janitor) => this.Release(End, janitor));
+
+		SetupRanged(this);
 	}
 
-	ArrowHit(result: RaycastResult, instance: BasePart) {
-		if (!result.Instance.Anchored) {
-			const Trail = instance.FindFirstChildWhichIsA("Trail");
-			if (Trail) {
-				Trail.Enabled = false;
+	RangedHit(result: RaycastResult, instance: BasePart) {
+		instance.Anchored = false;
+		for (const descendant of instance.GetDescendants()) {
+			if (descendant.IsA("BasePart")) {
+				descendant.Anchored = false;
 			}
-
-			return this.Provider.ReturnPart(instance);
 		}
+		const Weld = CreateWeld(instance, result.Instance);
+		Weld.Parent = result.Instance;
 
 		task.spawn(() => {
-			task.wait(10);
+			task.wait(5);
 			if (instance && instance.IsDescendantOf(game)) {
-				for (const v of instance.GetChildren()) {
+				instance.SetAttribute("Visible", false);
+				for (const v of instance.GetDescendants()) {
 					if (v.IsA("BasePart")) {
 						TweenService.Create(v, new TweenInfo(0.5), {
 							Transparency: 1,
@@ -261,97 +226,30 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 				}
 			}
 
-			task.wait(0.5);
-			this.Provider.ReturnPart(instance);
-			for (const v of instance.GetChildren()) {
-				if (v.IsA("BasePart") && v.Name !== "ArrowAttach") {
-					v.Transparency = 0;
-				}
-				if (v.IsA("Trail")) {
-					v.Enabled = false;
-				}
-			}
+			Weld.Destroy();
+			task.spawn(() => {
+				task.defer(() => {
+					this.Provider.ReturnPart(instance);
+					task.defer(() => {
+						for (const v of instance.GetDescendants()) {
+							if (v.IsA("BasePart") && v.Name !== "ArrowAttach") {
+								v.Transparency = 0;
+							}
+							if (v.IsA("Trail")) {
+								v.Enabled = false;
+							}
+						}
+					});
+				});
+			});
 		});
-	}
-
-	GetMousePos(unitRay: Ray): Vector3 {
-		const [ori, dir] = [unitRay.Origin, unitRay.Direction.mul(MAX_DIST)];
-		const result = game.Workspace.Raycast(ori, dir, this.CastParams);
-		return (result && result.Position) || ori.add(dir);
 	}
 
 	Draw(End: Callback, janitor: Janitor) {
-		this.Time = tick();
 		this.setState("Drawing");
 		this.ToggleArrow("Enable");
-		const [Player, Char] = this.GetCharPlayer();
-		this.ActiveAnimation = playAnim(Char, anims.Shoot, { Fade: 0.4 });
-		this.ActiveAnimation.Priority = Enum.AnimationPriority.Action;
-		this.NotMoving = 0;
 
-		Events.ToggleRangedGUI(Player, true);
-
-		janitor.Add(
-			this.ActiveAnimation.GetMarkerReachedSignal("HoldShoot").Connect(() => {
-				this.ActiveAnimation?.AdjustSpeed(0);
-			}),
-		);
-
-		const Humanoid = Char.FindFirstChildWhichIsA("Humanoid");
-		if (!Humanoid) {
-			error("");
-		}
-
-		const PrevWalkSpeed = Humanoid.WalkSpeed;
-		Humanoid.WalkSpeed = PrevWalkSpeed / 1.5;
-		janitor.Add(() => {
-			Humanoid.WalkSpeed = PrevWalkSpeed;
-		});
-
-		let WillNotMove = false;
-		janitor.Add(
-			RunService.Heartbeat.Connect(() => {
-				if (Humanoid.MoveDirection !== new Vector3(0, 0, 0)) {
-					WillNotMove = false;
-					this.NotMoving = 0;
-				} else {
-					if (!WillNotMove) {
-						this.NotMoving = 0.25;
-						WillNotMove = true;
-						task.wait(0.5);
-						if (WillNotMove) {
-							this.NotMoving = 1;
-						}
-					}
-				}
-			}),
-		);
-
-		let run = true;
-		janitor.Add(() => {
-			run = false;
-			Events.ToggleRangedGUI(Player, false);
-		});
-		task.spawn(() => {
-			while (run) {
-				Events.UpdateRangedGUI(Player, this.CalculateAccuracy());
-				task.wait(0.2);
-			}
-		});
-
-		task.spawn(() => {
-			task.wait(0.5);
-			if (run) {
-				RunMiddleware(RangedDrawMiddleWare, this);
-			}
-		});
-	}
-
-	CalculateAccuracy() {
-		if (this.Time === undefined) {
-			error("requires this.time");
-		}
-		return (this.NotMoving + math.clamp((tick() - this.Time) / 2, 0, 1)) / 2;
+		DrawShoot(this, janitor, "HoldShoot", anims.Shoot);
 	}
 
 	Release(End: Callback, janitor: Janitor) {
@@ -362,39 +260,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		});
 		this.ToggleArrow("Disable");
 
-		if (this.ActiveAnimation === undefined || this.Time === undefined) {
-			error("");
-		}
-		if (tick() - this.Time < 1) {
-			this.ActiveAnimation.Stop(0.3);
-			return End();
-		}
-
-		RunMiddleware(RangedReleasedMiddleWare, this);
-
-		this.ActiveAnimation.TimePosition = 2;
-		this.ActiveAnimation.AdjustSpeed(1);
-
-		const pos = this.GetMousePos(this.Ray);
-		const direction = pos.sub(this.instance.BowAttach.Position).Unit;
-
-		this.Fire(direction);
-		task.wait(this.ActiveAnimation.Length - this.ActiveAnimation.TimePosition);
-		this.ActiveAnimation.Stop(0.4);
-		End();
-	}
-
-	Fire(direction: Vector3) {
-		const directionCF = new CFrame(new Vector3(), direction);
-		const spreadDirection = CFrame.fromOrientation(0, 0, math.random(0, math.pi * 2));
-		const spreadAngle = CFrame.fromOrientation(math.rad(math.random(-8, 8)) * (1 - this.CalculateAccuracy()), 0, 0);
-		const finalDirection = directionCF.mul(spreadDirection).mul(spreadAngle).LookVector;
-		this.Caster.Fire(
-			this.instance.BowAttach.Position,
-			finalDirection,
-			200 * this.CalculateAccuracy(),
-			this.Behavior,
-		);
+		ReleaseShot(this, End);
 	}
 
 	playerInit(player: Player) {
@@ -409,18 +275,9 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 		this.ArrowMotor.Name = "Arrow" + this.id;
 		this.ToggleArrow("Disable");
 
-		const [Player, Char] = this.GetCharPlayer();
 		this.Arrow.Parent = this.instance;
 
-		this.janitor.Add(
-			Events.MouseRay.connect((player, ray) => {
-				if (player === this.Player) {
-					this.Ray = ray;
-				}
-			}),
-		);
-
-		this.CastParams.FilterDescendantsInstances = [Char];
+		ManageRay(this);
 	}
 
 	ToggleArrow(state: "Enable" | "Disable") {
@@ -434,4 +291,10 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> {
 			}
 		}
 	}
+
+	Destroy() {
+		this.Provider.Dispose();
+	}
+
+	WorkspaceInit = undefined;
 }

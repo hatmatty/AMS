@@ -3,7 +3,7 @@ import { AddBlockedMiddleware } from "server/components/Shield";
 import { AddHitMiddleware } from "server/components/Weapon";
 import { ReplicatedStorage } from "@rbxts/services";
 import Config from "shared/Config";
-import { AddRangedHitMiddleware } from "server/components/Bow";
+import { AddRangedHitMiddleware } from "server/modules/RangedUtil";
 
 /**
  * Attaches to the Hit and Blocked middleware and emits sparks on the blocked middleware and gore on the hit middleware if a player has been hit.

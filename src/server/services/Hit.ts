@@ -1,13 +1,12 @@
 import { Service, OnInit } from "@flamework/core";
-import { AddRangedHitMiddleware } from "server/components/Bow";
 import { AddHitMiddleware, Weapon } from "server/components/Weapon";
 import { Events } from "server/events";
-import { Bow } from "server/components/Bow";
+import { AddRangedHitMiddleware, Ranged } from "server/modules/RangedUtil";
 
 @Service({})
 export class Hit implements OnInit {
 	onInit() {
-		function sendHit(stop: Callback, tool: Weapon | Bow, instance: Instance) {
+		function sendHit(stop: Callback, tool: Weapon | Ranged, instance: Instance) {
 			if (!tool.Player) {
 				return;
 			}

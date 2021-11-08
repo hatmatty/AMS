@@ -19,7 +19,7 @@ export class Rotation implements OnInit {
 	 */
 	public Enabled = true;
 	private janitor = new Janitor();
-	private delay = 0.1; // how fast the body rotator should fire an update to the server
+	private delay = 0.4; // how fast the body rotator should fire an update to the server
 	public ClampValue = 0.4;
 
 	/**
@@ -287,6 +287,9 @@ export class Rotation implements OnInit {
 	 * @returns a number which if negative is divded by 3 to make it less negative and then clamped to be between -0.5 and 0.5.
 	 */
 	private CapY(value: number) {
+		if (value <= 0) {
+			value /= 3;
+		}
 		return math.clamp(value, -this.ClampValue, this.ClampValue);
 	}
 

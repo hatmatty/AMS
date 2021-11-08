@@ -3,7 +3,11 @@ import { AddBlockedMiddleware } from "server/components/Shield";
 import { AddHitMiddleware, AddSwingMiddleware } from "server/components/Weapon";
 import Config from "shared/Config";
 import { ReplicatedStorage } from "@rbxts/services";
-import { AddRangedDrawMiddleware, AddRangedHitMiddleware, AddRangedReleasedMiddleware } from "server/components/Bow";
+import {
+	AddRangedDrawMiddleware,
+	AddRangedHitMiddleware,
+	AddRangedReleasedMiddleware,
+} from "server/modules/RangedUtil";
 
 /**
  * Attaches to the hit, blocked, and swing middlewares and plays a sound on these events.
@@ -29,11 +33,19 @@ export class Sounds implements OnInit {
 			});
 
 			AddRangedDrawMiddleware((stop, bow) => {
-				this.PlaySound(bow.instance.BowAttach, "BowDraw");
+				if (bow.Name === "Spear") {
+					return;
+				} else {
+					this.PlaySound(bow.MainPart, "BowDraw");
+				}
 			});
 
 			AddRangedReleasedMiddleware((stop, bow) => {
-				this.PlaySound(bow.instance.BowAttach, "BowFire");
+				if (bow.Name === "Spear") {
+					this.PlaySound(bow.MainPart, "Swing");
+				} else {
+					this.PlaySound(bow.MainPart, "BowFire");
+				}
 			});
 
 			AddBlockedMiddleware((stop, weapon, shield) => {

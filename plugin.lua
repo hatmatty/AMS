@@ -1,4 +1,4 @@
-local Version = "0.3.0"
+local Version = "0.4.0"
 
 local PluginFolder = script.Parent
 if not PluginFolder:IsA("Folder") then
@@ -117,17 +117,6 @@ function DoUpdateScripts()
     local newAnimations = Animations:Clone()
     newAnimations.Parent = game.Workspace
 
-
-    if oldConfig then
-        oldConfig.Parent = newShared
-        warn("You have a config that may need to be updated! If you press setup again your old config will be deleted. OLD:", oldConfig, "- NEW:", newConfig)
-        if oldConfig:GetAttribute("Version") and oldConfig:GetAttribute("Version") == Version then
-            warn("You are updating to the same version.")
-        end
-    else
-        warn("Make sure you export and set new animations. Config:", newConfig, "- Animations:", newAnimations)
-    end
-
     if not game.Workspace:GetAttribute("AET_INITED") then
         game.Workspace:SetAttribute("AET_INITED", true)
         local newTeam = Instance.new("Team")
@@ -149,6 +138,21 @@ function DoUpdateScripts()
         CreateTeamTool("Roman")
         CreateTeamTool("Shield")
         CreateTeamTool("Sparta")
+    end
+
+    if oldConfig then
+        oldConfig.Parent = newShared
+        warn("You have a config that may need to be updated! If you press setup again your old config will be deleted. OLD:", oldConfig, "- NEW:", newConfig)
+        if oldConfig:GetAttribute("Version") and oldConfig:GetAttribute("Version") == Version then
+            warn("You are updating to the same version.")
+        end
+    else
+        warn("If you haven't already you will need to setup animations. Here's how...")
+        print("For every animation save in the", newAnimations, "model, which is located in the Workspace, do this:")
+        print("1. Right click the animation save and click save to roblox and then copy the animation id." )
+        print("2. Find the name of the exported animation inside the", newConfig, ", which is located in the ReplicatedStorage.")
+        print("3. Next to your animation name in the", newConfig, "you will need to replace the ID there with the animation ID you just copied.")
+        print("4. After you have finished exporting and pasting all animations inside the", newConfig, "head over to game settings. Go into the avatar section and set 'Animation' to 'Standard'")
     end
 end
 

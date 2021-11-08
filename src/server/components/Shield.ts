@@ -93,7 +93,9 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 		End();
 	}
 
+	WorkspaceInit = undefined;
 	playerInit() {}
+	Destroy() {}
 }
 
 const components = Dependency<Components>();

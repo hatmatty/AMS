@@ -60,8 +60,11 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	private LastParent?: Instance;
 
 	protected abstract PlayerInit?(player: Player): void;
+	protected abstract WorkspaceInit?: () => void;
+	protected abstract PlayerDestroy?: () => void;
+	protected abstract Destroy(): void;
 
-	protected janitor = new Janitor();
+	public janitor = new Janitor();
 	private ButtonedInputInfo?: InputInfo;
 	public id = HttpService.GenerateGUID();
 	public state = "nil";
@@ -144,18 +147,24 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	}
 
 	private UpdateAncestry() {
+		print(this.LastParent, this.instance.Parent);
 		if (this.instance.Parent !== this.LastParent) {
+			print("GOT HERE");
 			this.LastParent = this.instance.Parent;
 
 			this.janitor.Cleanup();
 			const Player = Players.GetPlayerFromCharacter(this.instance.Parent);
-			if (Player && Player !== this.Player) {
+			print(Player);
+			if (Player) {
+				print("GOT PLAYER");
 				this.InitPlayer();
 			} else {
+				print("GOT WORKSPACE");
 				this.InitWorkspace();
 			}
 		} else if (!this.instance.IsDescendantOf(game)) {
 			this.janitor.Cleanup();
+			this.Destroy();
 			pcall(() => {
 				this.instance.Destroy();
 			});
@@ -183,7 +192,16 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	}
 
 	private InitWorkspace() {
-		warn("this section // for dropping items // has not yet been implemented, did you mean to do this?");
+		if (this.WorkspaceInit) {
+			this.WorkspaceInit();
+		} else {
+			warn("this section // for dropping items // has not yet been implemented, did you mean to do this?");
+			this.instance.Destroy();
+		}
+
+		if (this.PlayerDestroy) {
+			this.PlayerDestroy();
+		}
 	}
 
 	private SetupInput() {
@@ -302,7 +320,7 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 		return string.sub(str, 0, 7) === "BUTTON_";
 	}
 
-	protected GetCharPlayer() {
+	public GetCharPlayer() {
 		const Player = this.Player;
 		if (!Player) {
 			error("player required");

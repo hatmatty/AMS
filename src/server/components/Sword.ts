@@ -25,4 +25,7 @@ export class Sword extends Weapon {
 		LEFT: anims.Left,
 	};
 	Fade = undefined;
+
+	weaponPlayerInit() {}
+	WorkspaceInit = undefined;
 }

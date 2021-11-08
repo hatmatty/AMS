@@ -31,7 +31,7 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	protected abstract playerInit(Player: Player): void;
 
 	public EssentialAnimation?: AnimationTrack;
-	private Motor6D?: Motor6D;
+	protected Motor6D?: Motor6D;
 	// workaround
 	public BodyAttach: BasePart = new Instance("Part");
 
@@ -67,6 +67,7 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	}
 
 	protected PlayerInit(player: Player) {
+		print("Initting Player", player);
 		this.Actions.Disable.Start();
 		this.playerInit(player);
 	}
@@ -125,13 +126,19 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	}
 
 	protected SetMotor6D(limb: BasePart) {
+		print(limb, this.BodyAttach);
 		if (!this.Motor6D) {
+			print("ERROR!");
 			error("Motor6D required");
 		}
 
+		print(1);
+		this.Motor6D.Parent = this.BodyAttach;
+		print(2);
 		this.Motor6D.Part0 = limb;
+		print(3);
 		this.Motor6D.Part1 = this.BodyAttach;
-		this.Motor6D.Parent = limb;
+		print(4);
 	}
 
 	private Setup() {
@@ -162,19 +169,28 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 				Events.ToolToggled(Player, this.id, "Disabled");
 			}
 
-			if (!this.Motor6D) {
+			print(5);
+
+			if (!this.Motor6D || !this.Motor6D.IsDescendantOf(game)) {
 				this.Setup();
 			}
 
+			print(6);
+
 			this.SetMotor6D(this.GetLimb(Limb));
+
+			print(7);
 
 			if (this.EssentialAnimation) {
 				this.EssentialAnimation.Stop();
 			}
 
+			print(8);
+
 			this.EssentialAnimation = playAnim(Player, Animation, { Looped: true });
 			this.setState(option + "d");
 			End();
+			print(10);
 		};
 	}
 
@@ -183,6 +199,17 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	protected Enable = this.create("Enable");
 
 	protected Disable = this.create("Disable");
+
+	PlayerDestroy = () => {
+		if (!this.Player) {
+			error("Player required to destroy.");
+		}
+		this.Motor6D?.Destroy();
+		this.Motor6D = undefined;
+		this.EssentialAnimation?.Stop();
+		this.EssentialAnimation = undefined;
+		Events.ToolToggled(this.Player, this.id, "Disabled");
+	};
 
 	Actions = {
 		Enable: new Action((End) => this.Enable(End)),
