@@ -1,4 +1,4 @@
-## Why Advabced Melee System?
+## Why Advanced Melee System?
 
 #### AMS is unique
 - Draw Combat (weapons can be drawn back to do higher damage)
