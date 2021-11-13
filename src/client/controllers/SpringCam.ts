@@ -152,8 +152,8 @@ export class SpringCamera implements OnInit {
 	 */
 	private Create() {
 		if (this.first) {
-			task.wait(2);
 			this.first = false;
+			task.wait(2);
 		}
 
 		if (this.Running === true) {
@@ -179,10 +179,10 @@ export class SpringCamera implements OnInit {
 			error();
 		}
 
-		const head = Player.Character.WaitForChild("Head");
-		const root = Player.Character.WaitForChild("HumanoidRootPart");
+		const head = Player.Character.WaitForChild("Head", 2);
+		const root = Player.Character.WaitForChild("HumanoidRootPart", 2);
 
-		if (!head.IsA("BasePart") || !root.IsA("BasePart")) {
+		if (!head?.IsA("BasePart") || !root?.IsA("BasePart")) {
 			error("got a part with an incorrect type");
 		}
 
@@ -238,11 +238,12 @@ export class SpringCamera implements OnInit {
 			error("Subject is nil");
 		}
 
-		const head = Player.Character.WaitForChild("Head");
-		const rootPart = Player.Character.WaitForChild("HumanoidRootPart");
-		const humanoid = Player.Character.WaitForChild("Humanoid");
+		const head = Player.Character.FindFirstChild("Head");
+		const rootPart = Player.Character.FindFirstChild("HumanoidRootPart");
+		const humanoid = Player.Character.FindFirstChildWhichIsA("Humanoid");
 
-		if (!head || !rootPart || !head.IsA("BasePart") || !rootPart.IsA("BasePart") || !humanoid.IsA("Humanoid")) {
+		if (!head || !rootPart || !head.IsA("BasePart") || !rootPart.IsA("BasePart") || !humanoid) {
+			return;
 			error(`player head or humanoidrootpart is of an incorrect value - head: ${head},rootPart: ${rootPart}`);
 		}
 

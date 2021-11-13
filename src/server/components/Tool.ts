@@ -147,19 +147,14 @@ export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
 	}
 
 	private UpdateAncestry() {
-		print(this.LastParent, this.instance.Parent);
 		if (this.instance.Parent !== this.LastParent) {
-			print("GOT HERE");
 			this.LastParent = this.instance.Parent;
 
 			this.janitor.Cleanup();
 			const Player = Players.GetPlayerFromCharacter(this.instance.Parent);
-			print(Player);
 			if (Player) {
-				print("GOT PLAYER");
 				this.InitPlayer();
 			} else {
-				print("GOT WORKSPACE");
 				this.InitWorkspace();
 			}
 		} else if (!this.instance.IsDescendantOf(game)) {

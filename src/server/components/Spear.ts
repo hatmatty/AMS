@@ -22,13 +22,24 @@ import { Players } from "@rbxts/services";
 const anims = Config.Animations.Spear;
 FastCast.VisualizeCasts = false;
 
+import { WeaponInstance } from "./Weapon";
+
+interface SpearInstance extends WeaponInstance {
+	DmgPart: BasePart & {
+		End: Attachment;
+		Start: Attachment;
+		RangedEnd: Attachment;
+		RangedStart: Attachment;
+	};
+}
+
 @Component({
 	tag: "Spear",
 	defaults: {
 		BUTTON_TOGGLE: "One",
 	},
 })
-export class Spear extends Weapon implements Ranged {
+export class Spear extends Weapon<SpearInstance> implements Ranged {
 	Name = "Spear";
 	Locked = false;
 	AttachName = "SpearAttach";
@@ -43,11 +54,13 @@ export class Spear extends Weapon implements Ranged {
 		RIGHT: anims.Lower,
 		LEFT: anims.Lower,
 	};
+	WalkEffect = false;
 	Fade = undefined;
 	MinWaitTime = 1;
 	AnimationShootPosition = 3;
-	Velocity = 200;
-	MaxDamage = 95;
+	Velocity = 100;
+	Gravity = new Vector3(0, -game.Workspace.Gravity / 3, 0);
+	MaxDamage = 80;
 	Caster: Caster = new FastCast();
 	Ray = new Ray();
 	MAX_DIST = 200;
@@ -58,6 +71,7 @@ export class Spear extends Weapon implements Ranged {
 	CastParams: RaycastParams;
 	Behavior: FastCastBehavior;
 	LockedJoint?: Weld;
+	RangedTrail: Trail;
 
 	constructor() {
 		super();
@@ -76,14 +90,14 @@ export class Spear extends Weapon implements Ranged {
 			},
 		};
 
-		[this.Behavior, this.CastParams] = CreateBehaviorParams();
+		[this.Behavior, this.CastParams] = CreateBehaviorParams(this);
 
 		this.Actions.StartThrow = new Action((End, janitor) => this.StartThrow(End, janitor));
 		this.Actions.EndThrow = new Action((End, janitor) => this.EndThrow(End, janitor));
 
 		this.Caster.LengthChanged.Connect((caster, lastpoint, dir, displacement, velocity, instance) => {
 			this.BodyAttach.CFrame = CFrame.lookAt(lastpoint.add(dir.mul(displacement)), lastpoint).mul(
-				CFrame.Angles(0, math.rad(90), 0),
+				CFrame.Angles(0, math.rad(90), 0).mul(CFrame.Angles(math.rad(90), 0, 0)),
 			);
 		});
 		SetupRanged(this);
@@ -93,37 +107,71 @@ export class Spear extends Weapon implements Ranged {
 			this.Prompt.Parent = this.BodyAttach;
 		});
 
+		this.Prompt.ActionText = "Pickup";
+
 		this.Prompt.Triggered.Connect((player) => {
 			const Char = player.Character;
 			if (Char && Char.IsA("Model")) {
 				const Humanoid = Char.FindFirstChild("Humanoid");
 				if (Humanoid && Humanoid.IsA("Humanoid") && Humanoid.Health > 0) {
 					this.instance.Parent = Char;
-					print(this.instance.Parent);
 				}
 			}
 		});
 
 		this.Prompt.RequiresLineOfSight = false;
+		const RangedTrail = new Instance("Trail");
+		RangedTrail.Attachment0 = this.instance.DmgPart.RangedStart;
+		RangedTrail.Attachment1 = this.instance.DmgPart.RangedEnd;
+		RangedTrail.Enabled = false;
+		RangedTrail.Transparency = new NumberSequence([
+			new NumberSequenceKeypoint(0, 0.6),
+			new NumberSequenceKeypoint(0.25, 0.7),
+			new NumberSequenceKeypoint(0.5, 0.8),
+			new NumberSequenceKeypoint(0.75, 0.9),
+			new NumberSequenceKeypoint(1, 0.95),
+		]);
+		RangedTrail.Lifetime = 3;
+		RangedTrail.Parent = this.instance.DmgPart;
+
+		this.RangedTrail = RangedTrail;
 	}
 
 	RangedHit(result: RaycastResult) {
 		this.LockedJoint = CreateWeld(this.BodyAttach, result.Instance);
+		this.BodyAttach.Anchored = false;
 		const Player = Players.GetPlayerFromCharacter(result.Instance.Parent);
 		if (Player && result.Instance.Parent?.IsA("Model")) {
 			const Char = result.Instance.Parent;
 			const Humanoid = Char.FindFirstChildWhichIsA("Humanoid");
-			const Head = Char.FindFirstChild("Head");
+			if (!Humanoid) {
+				error("could not get humanoid");
+			}
 
-			if (Head && Head.IsA("Part") && Humanoid && Humanoid.Health <= 0) {
+			if (Humanoid.Health <= 0) {
 				task.wait(1);
-				this.LockedJoint.Destroy();
 				this.BodyAttach.Anchored = true;
+				this.BodyAttach.CanCollide = true;
+				this.LockedJoint.Destroy();
 				this.BodyAttach.Position = result.Instance.Position;
 				this.LockedJoint = undefined;
 			}
+
+			this.janitor.Add(
+				Humanoid.Died.Connect(() => {
+					task.wait(1);
+					this.BodyAttach.Anchored = true;
+					this.BodyAttach.CanCollide = true;
+					if (this.LockedJoint) {
+						this.LockedJoint.Destroy();
+					}
+					this.BodyAttach.Position = result.Instance.Position;
+					this.LockedJoint = undefined;
+				}),
+			);
 		}
 		this.Prompt.Enabled = true;
+		this.RangedTrail.Enabled = false;
 	}
 
 	StartThrow(End: Callback, janitor: Janitor) {
@@ -139,7 +187,8 @@ export class Spear extends Weapon implements Ranged {
 		});
 
 		if (ReleaseShot(this, End)) {
-			this.Trail.Lifetime = 4;
+			this.BodyAttach.Anchored = true;
+			this.RangedTrail.Enabled = true;
 			this.instance.Parent = game.Workspace;
 		}
 	}
@@ -147,17 +196,17 @@ export class Spear extends Weapon implements Ranged {
 	WorkspaceInit = () => {};
 
 	weaponPlayerInit() {
-		print("PLAYER GOT INITED");
 		ManageRay(this);
 		if (this.LockedJoint) {
 			this.Locked = false;
 			this.LockedJoint.Destroy();
 			this.LockedJoint = undefined;
 		}
-		this.BodyAttach.Anchored = false;
 		this.Prompt.Enabled = false;
 		this.BodyAttach.CanCollide = false;
-		this.Trail.Lifetime = 0.2;
+		this.BodyAttach.Anchored = false;
+
+		this.RangedTrail.Enabled = false;
 	}
 
 	Destroy() {}

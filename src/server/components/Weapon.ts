@@ -33,7 +33,7 @@ export interface WeaponInstance extends ToolInstance {
 }
 
 @Component()
-export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
+export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends Essential<ToolAttributes, T> {
 	protected abstract AttackAnimations: {
 		UP: number;
 		DOWN: number;
@@ -43,6 +43,15 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 	protected abstract Fade?: number;
 	protected abstract weaponPlayerInit(): void;
 	protected Trail: Trail;
+	protected TrailLifetime = 0.2;
+	protected TrailTransparency = new NumberSequence([
+		new NumberSequenceKeypoint(0, 0.9),
+		new NumberSequenceKeypoint(0.25, 0.925),
+		new NumberSequenceKeypoint(0.5, 0.95),
+		new NumberSequenceKeypoint(0.75, 0.975),
+		new NumberSequenceKeypoint(1, 1),
+	]);
+	Speed = 1;
 
 	Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
 
@@ -111,7 +120,7 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			[Start, End] = [End, Start];
 		}
 
-		const inc = 0.4;
+		const inc = 0.1;
 		for (let i: number = Start.Position.Y + inc; i < End.Position.Y; i += inc) {
 			const Attachment = new Instance("Attachment");
 			Attachment.Position = new Vector3(0, i, 0);
@@ -124,23 +133,19 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		Trail.Parent = this.instance.DmgPart;
 		Trail.Attachment0 = Start;
 		Trail.Attachment1 = End;
-		Trail.Transparency = new NumberSequence([
-			new NumberSequenceKeypoint(0, 0.9),
-			new NumberSequenceKeypoint(0.25, 0.925),
-			new NumberSequenceKeypoint(0.5, 0.95),
-			new NumberSequenceKeypoint(0.75, 0.975),
-			new NumberSequenceKeypoint(1, 1),
-		]);
-		Trail.Lifetime = 0.2;
+		Trail.Transparency = this.TrailTransparency;
+		Trail.Lifetime = this.TrailLifetime;
 
 		this.Hitbox = new RaycastHitbox(this.instance.DmgPart);
 		this.Hitbox.DetectionMode = 2;
 		this.Hitbox.Visualizer = false;
+		// Trail.Enabled = false;
 	}
 
 	private Draw(End: Callback, janitor: Janitor) {
 		this.setState("Drawing");
-		print(this.Direction);
+		const [Player, Char] = this.GetCharPlayer();
+		Char.SetAttribute("Swinging", true);
 		this.setActiveAnimation(this.AttackAnimations[this.Direction], janitor);
 
 		this.Damage = BaseDamage;
@@ -164,6 +169,14 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		RunMiddleware(DrawMiddleware, this);
 	}
 
+	protected SetAnchored(bool: boolean) {
+		for (const instance of this.instance.GetDescendants()) {
+			if (instance.IsA("BasePart")) {
+				instance.Anchored = bool;
+			}
+		}
+	}
+
 	private Release(End: Callback, janitor: Janitor) {
 		this.setState("Releasing");
 		if (!this.Actions.Draw.Status || this.Actions.Draw.Status === "ENDED") {
@@ -174,12 +187,15 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 			error("Active Animation Required From Draw");
 		}
 
+		const [Player, Char] = this.GetCharPlayer();
+
 		RunMiddleware(SwingMiddleware, this);
 
 		this.ActiveAnimation.TimePosition = ReleasePosition;
-		this.ActiveAnimation.AdjustSpeed(1);
+		this.ActiveAnimation.AdjustSpeed(this.Speed);
 
-		this.Hitbox.HitStart(this.ActiveAnimation.Length - ReleasePosition);
+		const RemainingLength = (this.ActiveAnimation.Length - ReleasePosition) * (1 / this.Speed);
+		this.Hitbox.HitStart(RemainingLength);
 		const db = new Map<Player, boolean>();
 		this.Hitbox.OnHit.Connect((hit) => {
 			const Player = Players.GetPlayerFromCharacter(hit.Parent);
@@ -215,20 +231,20 @@ export abstract class Weapon extends Essential<ToolAttributes, WeaponInstance> {
 		// janitor.Add(this.Hitbox.OnHit.Connect((hit, humanoid) => {}));
 
 		janitor.Add(() => {
+			Char.SetAttribute("Swinging", undefined);
 			this.setState("Enabled");
 			this.Hitbox.HitStop();
 		});
 
-		this.ActiveAnimation.Stopped.Connect(() => {
-			print("STOPPED!");
-		});
+		const HitStop = 0.2;
+		task.wait(RemainingLength - HitStop);
 
-		print(this.ActiveAnimation.Length);
-		task.wait(this.ActiveAnimation.Length - ReleasePosition - 0.1);
+		this.Hitbox.HitStop();
+
+		task.wait(HitStop - 0.1);
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
 		}
-		this.ActiveAnimation.Stop(this.Fade !== undefined ? this.Fade : undefined || 0.2);
 		End();
 	}
 

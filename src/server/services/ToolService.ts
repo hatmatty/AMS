@@ -226,9 +226,9 @@ export class ToolService implements OnInit {
 			error(`tool name proived: ${toolName} was not found in the config `);
 		}
 
-		let ToolModel = ReplicatedStorage.Assets.Tools.FindFirstChild(toolName);
+		let ToolModel = ReplicatedStorage["AMS-Assets"].Tools.FindFirstChild(toolName);
 		if (!ToolModel) {
-			error(`Tool model for tool ${toolName} not found in replicated storage/assets/tools`);
+			error(`Tool model for tool ${toolName} not found in replicated storage/ams-assets/tools`);
 		}
 
 		ToolModel = ToolModel.Clone();

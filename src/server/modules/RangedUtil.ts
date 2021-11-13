@@ -33,7 +33,9 @@ export interface Ranged {
 	Velocity: number;
 	AnimationShootPosition: number;
 	MaxDamage: number;
+	Gravity: Vector3;
 	instance: Model;
+	WalkEffect: boolean;
 
 	Damage: number;
 	MAX_DIST: number;
@@ -82,7 +84,6 @@ export function SetupRanged(Tool: Ranged) {
 
 	Tool.Caster.RayHit.Connect((caster, result, segmentVelocity, instance) => {
 		const hit = result.Instance;
-		print(hit);
 
 		const Player = Players.GetPlayerFromCharacter(hit.Parent);
 
@@ -121,7 +122,6 @@ export function Fire(Tool: Ranged) {
 	const spreadDirection = CFrame.fromOrientation(0, 0, math.random(0, math.pi * 2));
 	const spreadAngle = CFrame.fromOrientation(math.rad(math.random(-8, 8)) * (1 - Accuracy), 0, 0);
 	const finalDirection = directionCF.mul(spreadDirection).mul(spreadAngle).LookVector;
-	print(Tool.MainPart);
 	Tool.Caster.Fire(Tool.MainPart.Position, finalDirection, Tool.Velocity, Tool.Behavior);
 }
 
@@ -176,7 +176,9 @@ export function DrawShoot(Tool: Ranged, janitor: Janitor, animHoldEventName: str
 		Events.ToggleRangedGUI(Player, false);
 	});
 	task.spawn(() => {
+		print("CREATED WHILE LOOP");
 		while (run) {
+			print("SENT EVENT!", run);
 			Events.UpdateRangedGUI(Player, CalculateAccuracy(Tool));
 			task.wait(0.2);
 		}
@@ -190,18 +192,17 @@ export function DrawShoot(Tool: Ranged, janitor: Janitor, animHoldEventName: str
 	});
 }
 
-export function CreateBehaviorParams(BulletProvider?: PartCache) {
+export function CreateBehaviorParams(Tool: Ranged, BulletProvider?: PartCache) {
 	const CastParams = new RaycastParams();
 	CastParams.FilterType = Enum.RaycastFilterType.Blacklist;
 
 	const Behavior = FastCast.newBehavior();
 	Behavior.RaycastParams = CastParams;
 	if (BulletProvider) {
-		print("GOT HERE!");
 		Behavior.CosmeticBulletProvider = BulletProvider;
 	}
 	Behavior.AutoIgnoreContainer = true;
-	Behavior.Acceleration = new Vector3(0, -game.Workspace.Gravity / 6, 0);
+	Behavior.Acceleration = Tool.Gravity;
 
 	return [Behavior, CastParams] as [FastCastBehavior, RaycastParams];
 }

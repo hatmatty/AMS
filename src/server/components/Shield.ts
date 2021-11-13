@@ -65,7 +65,6 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 			Blocker.CanCollide = false;
 			Blocker.CanTouch = true;
 			Blocker.Anchored = false;
-			Blocker.Position = BodyAttach.Position;
 			Blocker.Size = Config.Attributes.ShieldHitboxSize;
 
 			const Weld = new Instance("Weld");
@@ -73,15 +72,21 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 			Weld.Parent = BodyAttach;
 			Weld.Part0 = BodyAttach;
 			Weld.Part1 = Blocker;
+			Weld.C0 = new CFrame(new Vector3(0, 0, 0.25));
 
 			Blocker.Parent = this.instance;
 		});
 	}
 
 	private Block(End: Callback, janitor: Janitor) {
+		const [Player, Char] = this.GetCharPlayer();
+		if (Char.GetAttribute("Swinging") !== undefined) {
+			return End();
+		}
+
 		this.setState("Blocking");
 		const Fade = 0.2;
-		const AnimTrack = playAnim(this.Player, Config.Animations.Shield.Block, { Fade: Fade });
+		const AnimTrack = playAnim(Char, Config.Animations.Shield.Block, { Fade: Fade });
 		janitor.Add(() => {
 			AnimTrack.Stop(Fade);
 		});

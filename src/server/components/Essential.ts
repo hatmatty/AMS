@@ -10,6 +10,7 @@ import { BaseComponent } from "@rbxts/flamework";
 import { DisableIncompatibleTools } from "server/modules/IncompatibleTools";
 import { Events } from "server/events";
 import { HighlightSpanKind } from "typescript";
+import Object from "@rbxts/object-utils";
 
 const components = Dependency<Components>();
 
@@ -67,9 +68,22 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	}
 
 	protected PlayerInit(player: Player) {
-		print("Initting Player", player);
 		this.Actions.Disable.Start();
 		this.playerInit(player);
+		const Character = player.Character;
+		const Humanoid = Character?.FindFirstChildWhichIsA("Humanoid");
+		if (!Humanoid) {
+			error("");
+		}
+		this.janitor.Add(
+			Humanoid.Died.Connect(() => {
+				for (const action of Object.values(this.Actions)) {
+					if (action.Status === "STARTED") {
+						action.End();
+					}
+				}
+			}),
+		);
 	}
 
 	private ManageStatusAttribute() {
@@ -126,19 +140,13 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 	}
 
 	protected SetMotor6D(limb: BasePart) {
-		print(limb, this.BodyAttach);
 		if (!this.Motor6D) {
-			print("ERROR!");
 			error("Motor6D required");
 		}
 
-		print(1);
 		this.Motor6D.Parent = this.BodyAttach;
-		print(2);
 		this.Motor6D.Part0 = limb;
-		print(3);
 		this.Motor6D.Part1 = this.BodyAttach;
-		print(4);
 	}
 
 	private Setup() {
@@ -168,29 +176,19 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 				Animation = this.DisableAnimation;
 				Events.ToolToggled(Player, this.id, "Disabled");
 			}
-
-			print(5);
-
 			if (!this.Motor6D || !this.Motor6D.IsDescendantOf(game)) {
 				this.Setup();
 			}
 
-			print(6);
-
 			this.SetMotor6D(this.GetLimb(Limb));
-
-			print(7);
 
 			if (this.EssentialAnimation) {
 				this.EssentialAnimation.Stop();
 			}
 
-			print(8);
-
 			this.EssentialAnimation = playAnim(Player, Animation, { Looped: true });
 			this.setState(option + "d");
 			End();
-			print(10);
 		};
 	}
 

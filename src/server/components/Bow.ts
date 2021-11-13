@@ -50,6 +50,7 @@ const anims = Config.Animations.Bow;
 })
 export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ranged {
 	Name = "Bow";
+	Gravity = new Vector3(0, -game.Workspace.Gravity / 6, 0);
 	Ray = new Ray();
 	AttachName = "BowAttach";
 	Incompatible = ["Bow", "Shield", "RbxTool", "Sword", "Spear"];
@@ -65,6 +66,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ra
 	Velocity = 200;
 	MaxTime = 2;
 	MinWaitTime = 1;
+	WalkEffect = true;
 	// @ts-ignore
 	ActiveAnimation?: AnimationTrack;
 	Time = tick();
@@ -159,7 +161,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ra
 		RodTop.Attachment1 = Top;
 		RodBottom.Attachment1 = Bottom;
 
-		[this.Behavior, this.CastParams] = CreateBehaviorParams(this.Provider);
+		[this.Behavior, this.CastParams] = CreateBehaviorParams(this, this.Provider);
 
 		this.Caster.LengthChanged.Connect((cast, lastpoint, dir, displacement, segVel, arrow) => {
 			if (!arrow?.IsA("BasePart")) {
@@ -213,36 +215,37 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ra
 		const Weld = CreateWeld(instance, result.Instance);
 		Weld.Parent = result.Instance;
 
-		task.spawn(() => {
-			task.wait(5);
-			if (instance && instance.IsDescendantOf(game)) {
-				instance.SetAttribute("Visible", false);
-				for (const v of instance.GetDescendants()) {
-					if (v.IsA("BasePart")) {
-						TweenService.Create(v, new TweenInfo(0.5), {
-							Transparency: 1,
-						}).Play();
-					}
+		task.wait(10);
+
+		if (instance && instance.IsDescendantOf(game)) {
+			for (const v of instance.GetDescendants()) {
+				if (v.IsA("BasePart")) {
+					TweenService.Create(v, new TweenInfo(0.5), {
+						Transparency: 1,
+					}).Play();
 				}
 			}
+		}
 
-			Weld.Destroy();
-			task.spawn(() => {
-				task.defer(() => {
-					this.Provider.ReturnPart(instance);
-					task.defer(() => {
-						for (const v of instance.GetDescendants()) {
-							if (v.IsA("BasePart") && v.Name !== "ArrowAttach") {
-								v.Transparency = 0;
-							}
-							if (v.IsA("Trail")) {
-								v.Enabled = false;
-							}
-						}
-					});
-				});
-			});
-		});
+		task.wait(0.5);
+
+		Weld.Destroy();
+		for (const v of instance.GetDescendants()) {
+			if (v.IsA("BasePart") && v.Name !== "ArrowAttach") {
+				v.Transparency = 0;
+			}
+			if (v.IsA("Trail")) {
+				v.Enabled = false;
+			}
+		}
+		if (!this.instance.IsDescendantOf(game)) {
+			if (instance.IsDescendantOf(game)) {
+				instance.Destroy();
+			}
+			return;
+		}
+		this.Provider.ReturnPart(instance);
+		instance.Position = new Vector3(0, -100, 0);
 	}
 
 	Draw(End: Callback, janitor: Janitor) {

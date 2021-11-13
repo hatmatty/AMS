@@ -45,9 +45,9 @@ export class Particles implements OnInit {
 		let Blood3 = part.FindFirstChild("Blood3");
 
 		if (!Blood1 || !Blood2 || !Blood3) {
-			Blood1 = ReplicatedStorage.Assets.Particles.Blood1.Clone();
-			Blood2 = ReplicatedStorage.Assets.Particles.Blood2.Clone();
-			Blood3 = ReplicatedStorage.Assets.Particles.Blood3.Clone();
+			Blood1 = ReplicatedStorage["AMS-Assets"].Particles.Blood1.Clone();
+			Blood2 = ReplicatedStorage["AMS-Assets"].Particles.Blood2.Clone();
+			Blood3 = ReplicatedStorage["AMS-Assets"].Particles.Blood3.Clone();
 
 			Blood1.Parent = part;
 			Blood2.Parent = part;
@@ -66,7 +66,7 @@ export class Particles implements OnInit {
 	EmitSparks(part: BasePart) {
 		let SparkEmitter = part.FindFirstChild("SparkEmitter");
 		if (!SparkEmitter) {
-			SparkEmitter = ReplicatedStorage.Assets.Particles.SparkEmitter.Clone();
+			SparkEmitter = ReplicatedStorage["AMS-Assets"].Particles.SparkEmitter.Clone();
 			SparkEmitter.Parent = part;
 		}
 

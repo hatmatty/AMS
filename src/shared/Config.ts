@@ -23,7 +23,7 @@ const Config = {
 			Stab: 7921640417,
 
 			Holster: 7872920456,
-			Equip: 7873049583,
+			Equip: 7978204845,
 		},
 
 		Spear: {
@@ -45,7 +45,6 @@ const Config = {
 		Gore: true,
 		Sparks: true,
 		Sounds: true,
-		Stuns: true,
 		Rotation: true,
 		Direction: true,
 		CameraShake: true,
@@ -53,12 +52,14 @@ const Config = {
 		SpringCamera: true,
 		Ragdoll: true,
 		ToolSelector: true,
+		StunOnBlock: true,
+		StunOnHit: true,
 	},
 
 	Attributes: {
 		WalkSpeed: 13,
 		SprintingSpeed: 18,
-		ShieldHitboxSize: new Vector3(2.75, 2.75, 1),
+		ShieldHitboxSize: new Vector3(2.5, 2.5, 0.75),
 		MaxGetTools: 2,
 	},
 

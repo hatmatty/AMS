@@ -1,5 +1,5 @@
 interface ReplicatedStorage extends Instance {
-	Assets: Folder & {
+	["AMS-Assets"]: Folder & {
 		Tools: Folder;
 		Particles: Folder & {
 			Blood1: ParticleEmitter;
