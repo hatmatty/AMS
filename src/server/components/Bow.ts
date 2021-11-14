@@ -29,8 +29,6 @@ import { isConstructSignatureDeclaration } from "typescript";
 
 const components = Dependency<Components>();
 
-FastCast.VisualizeCasts = true;
-
 interface RangedInstance extends ToolInstance {
 	BowAttach: BasePart;
 	stringTOP: BasePart;

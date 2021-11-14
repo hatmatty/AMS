@@ -4,15 +4,13 @@ local PluginFolder = script.Parent
 if not PluginFolder:IsA("Folder") then
     error("Plugin folder is not a folder.")
 end
-local Assets = PluginFolder.Assets
-local rbxts_include = PluginFolder["rbxts_include"]
-local shared = PluginFolder.shared
-local server = PluginFolder.server
-local client = PluginFolder.client
+local Assets = PluginFolder["AMS-assets"]
+local rbxts_include = PluginFolder["AMS-rbxts_include"]
+local shared = PluginFolder["AMS-shared"]
+local server = PluginFolder["AMS-server"]
+local client = PluginFolder["AMS-client"]
 local Animations = PluginFolder.Animations
-local Animate = PluginFolder.Animate
 local PlayerModule = PluginFolder.PlayerModule
-Animate.Disabled = true
 
 function ToggleScripts(instance: Instance, bool: boolean)
     for _,v in pairs(instance:GetDescendants()) do
@@ -86,20 +84,13 @@ function DoUpdateScripts()
     local newInclude = rbxts_include:Clone()
     newInclude.Parent = ReplicatedStorage
 
-    local newAnimate = Animate:Clone()
     local newPlayerModule = PlayerModule:Clone()
-
-    if StarterCharacterScripts:FindFirstChild("Animate") then
-        StarterCharacterScripts.Animate:Destroy()
-    end
 
     if StarterPlayerScripts:FindFirstChild("PlayerModule") then
         StarterPlayerScripts.PlayerModule:Destroy()
     end
 
-    newAnimate.Parent = StarterCharacterScripts
     newPlayerModule.Parent = StarterPlayerScripts
-    newAnimate.Disabled = false 
 
     local newShared = shared:Clone()
     newShared.Parent = ReplicatedStorage

@@ -58,8 +58,8 @@ export class Sounds implements OnInit {
 		}
 	}
 
-	PlaySound(part: BasePart, soundType: keyof ReplicatedStorage["AMS-Assets"]["Sounds"]) {
-		const SoundFolder = ReplicatedStorage["AMS-Assets"].Sounds[soundType] as Folder;
+	PlaySound(part: BasePart, soundType: keyof ReplicatedStorage["AMS-assets"]["Sounds"]) {
+		const SoundFolder = ReplicatedStorage["AMS-assets"].Sounds[soundType] as Folder;
 		const Sounds = SoundFolder.GetChildren();
 		const Sound = Sounds[math.random(0, Sounds.size() - 1)].Clone();
 		if (!Sound.IsA("Sound")) {

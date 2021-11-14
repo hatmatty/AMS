@@ -5,6 +5,26 @@ import { createElement } from "typedoc/dist/lib/utils/jsx";
 import { MobileInput } from "shared/Types";
 import { ParseInput, Unparse } from "shared/modules/InputParser";
 
+const Inputs = new Map<Enum.KeyCode | Enum.UserInputType, boolean>();
+const InputList = [
+	Enum.KeyCode.One,
+	Enum.KeyCode.Two,
+	Enum.KeyCode.Three,
+	Enum.KeyCode.Four,
+	Enum.KeyCode.Five,
+	Enum.KeyCode.Six,
+	Enum.KeyCode.Seven,
+	Enum.KeyCode.Eight,
+	Enum.KeyCode.Nine,
+	Enum.KeyCode.E,
+	Enum.UserInputType.MouseButton1,
+	Enum.UserInputType.MouseButton2,
+];
+
+for (const input of InputList) {
+	Inputs.set(input, true);
+}
+
 /**
  * Manages the sending of input events from the client to the server through the Input server event.
  */
@@ -66,6 +86,10 @@ export class Input implements OnInit {
 	private static createInputEvent(event: typeof UserInputService.InputBegan | typeof UserInputService.InputBegan) {
 		event.Connect((input, gameProcessedEvent) => {
 			if (gameProcessedEvent) {
+				return;
+			}
+
+			if (!Inputs.get(input.KeyCode) && !Inputs.get(input.UserInputType)) {
 				return;
 			}
 

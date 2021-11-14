@@ -20,7 +20,8 @@ export class Rotation implements OnInit {
 	public Enabled = true;
 	private janitor = new Janitor();
 	private delay = 0.4; // how fast the body rotator should fire an update to the server
-	public ClampValue = 0.4;
+	public ClampValue = 0.5;
+	private Factor = 1;
 
 	/**
 	 * Manages the starting of the BodyRotation when the player's character is created and connects to the UpdateRotation client event for when the rotation of other character's updates so that it replicates here.
@@ -129,7 +130,7 @@ export class Rotation implements OnInit {
 		LeftShoulderXOffset = 0,
 		LeftShoulderYOffset = 0,
 	) {
-		const factor = 1.2;
+		const factor = this.Factor;
 
 		const character = Player.Character;
 
@@ -287,8 +288,10 @@ export class Rotation implements OnInit {
 	 * @returns a number which if negative is divded by 3 to make it less negative and then clamped to be between -0.5 and 0.5.
 	 */
 	private CapY(value: number) {
-		if (value <= 0) {
-			value /= 3;
+		if (value <= 0.05) {
+			this.Factor = 3;
+		} else {
+			this.Factor = 1;
 		}
 		return math.clamp(value, -this.ClampValue, this.ClampValue);
 	}
@@ -298,7 +301,7 @@ export class Rotation implements OnInit {
 	 * @returns a number between -0.5 and 0.5.
 	 */
 	private CapX(value: number) {
-		value = value / 3;
+		value /= 3;
 		return math.clamp(value, -this.ClampValue, this.ClampValue);
 	}
 

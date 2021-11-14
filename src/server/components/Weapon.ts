@@ -241,7 +241,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 		this.Hitbox.HitStop();
 
-		task.wait(HitStop - 0.1);
+		task.wait(HitStop);
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
 		}
