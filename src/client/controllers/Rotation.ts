@@ -250,10 +250,10 @@ export class Rotation implements OnInit {
 			!RightShoulder ||
 			!RightShoulder.IsA("Motor6D")
 		) {
-			error("could not find the correct value for a player joint");
+			return;
 		}
 
-		const TweenTime = 0.1;
+		const TweenTime = 0.4;
 		TweenService.Create(
 			Neck,
 			new TweenInfo(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, false, 0),

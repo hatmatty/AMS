@@ -1,4 +1,4 @@
-import { Component, Components } from "@flamework/components";
+import { Component } from "@flamework/components";
 import { Tool, ToolAttributes, ToolInstance, InputInfo, Actions, ITool } from "./Tool";
 import { Action } from "server/modules/Action";
 import { CharacterLimb } from "shared/Types";
@@ -12,18 +12,17 @@ import { Events } from "server/events";
 import { HighlightSpanKind } from "typescript";
 import Object from "@rbxts/object-utils";
 
-const components = Dependency<Components>();
-
 /**
  * The base class for both the shield and sword.
  *
  * @states - "Enabled", "Disabled"
  */
 @Component()
-export abstract class Essential<A extends ToolAttributes, I extends ToolInstance>
+export abstract class Essential<A extends ToolAttributes = ToolAttributes, I extends ToolInstance = ToolInstance>
 	extends Tool<A, I>
 	implements OnStart
 {
+	public static Tools = new Map<ToolInstance, Essential>();
 	public abstract EnableAnimation: number;
 	public abstract DisableAnimation: number;
 	protected abstract AttachName: string;
@@ -64,6 +63,11 @@ export abstract class Essential<A extends ToolAttributes, I extends ToolInstance
 			}
 
 			this.BodyAttach = BodyAttach;
+		});
+		Essential.Tools.set(this.instance, this);
+
+		this.janitor.Add(() => {
+			Essential.Tools.delete(this.instance);
 		});
 	}
 

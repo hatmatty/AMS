@@ -1,4 +1,4 @@
-local Version = "0.4.0"
+local Version = "0.4.5"
 
 local PluginFolder = script.Parent
 if not PluginFolder:IsA("Folder") then
@@ -9,6 +9,10 @@ local rbxts_include = PluginFolder["AMS-rbxts_include"]
 local shared = PluginFolder["AMS-shared"]
 local server = PluginFolder["AMS-server"]
 local client = PluginFolder["AMS-client"]
+local Animate = PluginFolder.Animate
+local JumpDebouncer = PluginFolder.JumpDebouncer
+Animate.Disabled = true
+JumpDebouncer.Disabled = true
 local Animations = PluginFolder.Animations
 local PlayerModule = PluginFolder.PlayerModule
 
@@ -28,7 +32,7 @@ ToggleScripts(shared, true)
 local Config = shared.Config:Clone()
 shared.Config:Destroy()
 
-local toolbar = plugin:CreateToolbar("AET")
+local toolbar = plugin:CreateToolbar("Advanced Melee System")
 
 local Setup = toolbar:CreateButton("Setup", "Sets up and updates AET.", "")
 local InitalizeTool = toolbar:CreateButton("Initalize Tool", "Initializes a tool.", "")
@@ -40,17 +44,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
 local ServerScriptService = game:GetService("ServerScriptService")
 local StarterPlayer = game:GetService("StarterPlayer")
-local StarterCharacterScripts = StarterPlayer.StarterCharacterScripts
 local StarterPlayerScripts = StarterPlayer.StarterPlayerScripts
+local StarterCharacterScripts = StarterPlayer.StarterCharacterScripts
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
 
-function DoUpdateScripts()
-    local GameInclude = ReplicatedStorage:FindFirstChild("rbxts_include")
-    local GameShared = ReplicatedStorage:FindFirstChild("shared")
-    local GameClient = ServerScriptService:FindFirstChild("server")
-    local GameServer = StarterPlayerScripts:FindFirstChild("client")
-    local GameChar = StarterCharacterScripts:FindFirstChild("char")
+function DoUpdateScripts() 
+    local GameInclude = ReplicatedStorage:FindFirstChild("AMS-rbxts_include")
+    local GameShared = ReplicatedStorage:FindFirstChild("AMS-shared")
+    local GameClient = ServerScriptService:FindFirstChild("AMS-server")
+    local GameServer = StarterPlayerScripts:FindFirstChild("AMS-client")
     local newConfig: ModuleScript = GameShared and GameShared.Config:Clone() or Config:Clone()
     newConfig:SetAttribute("Version", Version)
     local oldConfig = GameShared and GameShared:FindFirstChild("Config_OLD") and GameShared:FindFirstChild("Config_OLD"):Clone()
@@ -69,10 +72,6 @@ function DoUpdateScripts()
 
     if GameServer then
         GameServer:Destroy()
-    end
-
-    if GameChar then
-        GameChar:Destroy()
     end
     
     local newServer = server:Clone()
@@ -107,6 +106,25 @@ function DoUpdateScripts()
     end
     local newAnimations = Animations:Clone()
     newAnimations.Parent = game.Workspace
+
+    
+
+    if StarterCharacterScripts:FindFirstChild("Animate") then
+        StarterCharacterScripts.Animate:Destroy()
+    end
+
+    if StarterCharacterScripts:FindFirstChild("JumpDebouncer") then
+        StarterCharacterScripts.JumpDebouncer:Destroy()
+    end
+
+    local newAnimate = Animate:Clone()
+    local newJumpDebouncer = JumpDebouncer:Clone()
+    newAnimate.Disabled = false
+    newJumpDebouncer.Disabled = false
+
+    newJumpDebouncer.Parent = StarterCharacterScripts
+    newAnimate.Parent = StarterCharacterScripts
+    
 
     if not game.Workspace:GetAttribute("AET_INITED") then
         game.Workspace:SetAttribute("AET_INITED", true)
@@ -148,7 +166,7 @@ function DoUpdateScripts()
 end
 
 function DoUpdateAssets()
-    local GameAssets = ReplicatedStorage:FindFirstChild("Assets")
+    local GameAssets = ReplicatedStorage:FindFirstChild("AMS-assets")
     if not GameAssets then
         local newAssets = Assets:Clone()
         newAssets.Parent = ReplicatedStorage
@@ -176,10 +194,10 @@ function DoUpdateAssets()
 end
 
 function DoAddConfig()
-    local GameShared = ReplicatedStorage:FindFirstChild("shared")
+    local GameShared = ReplicatedStorage:FindFirstChild("AMS-shared")
     if not GameShared then
         GameShared = Instance.new("Folder")
-        GameShared.Name = "shared"
+        GameShared.Name = "AMS-shared"
         GameShared.Parent = ReplicatedStorage
     end
     local OldConfig = GameShared:FindFirstChild("Config")

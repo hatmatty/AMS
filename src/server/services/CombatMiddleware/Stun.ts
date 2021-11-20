@@ -1,5 +1,6 @@
 import { Components } from "@flamework/components";
 import { Service, OnInit, Dependency } from "@flamework/core";
+import { Essential } from "server/components/Essential";
 import { AddBlockedMiddleware } from "server/components/Shield";
 import { Spear } from "server/components/Spear";
 import { Sword } from "server/components/Sword";
@@ -26,14 +27,10 @@ export class Stun implements OnInit {
 						if (child.IsA("Model")) {
 							// @ts-expect-error im checking
 							const toolType = Config.Tools[child.Name] as string | undefined;
-							if (toolType !== undefined) {
-								let weapon: Weapon | undefined;
-								if (toolType === "Sword") {
-									weapon = components.getComponent<Sword>(child);
-								} else if (toolType === "Spear") {
-									weapon = components.getComponent<Spear>(child);
-								} else if (toolType === "Javelin") {
-									weapon = components.getComponent<Spear>(child);
+							if (toolType !== undefined && toolType !== "Bow") {
+								const weapon = Essential.Tools.get(child);
+								if (!weapon) {
+									return;
 								}
 
 								if (weapon) {
@@ -51,7 +48,11 @@ export class Stun implements OnInit {
 										} else if (weapon.state === "Releasing") {
 											weapon.Actions.Release.End();
 										}
-										weapon.ActiveAnimation?.Stop();
+										// @ts-expect-error im checking
+										const ActiveAnimation = weapon.ActiveAnimation as AnimationTrack | undefined;
+										if (ActiveAnimation) {
+											ActiveAnimation.Stop();
+										}
 										weapon.setState("Stunned");
 
 										Promise.delay(BlockedStunTime / 2).then(() => {

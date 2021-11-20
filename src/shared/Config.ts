@@ -12,9 +12,9 @@ const Config = {
 		},
 
 		Bow: {
-			Shoot: 7880968321,
+			Shoot: 8000240237,
 			Holster: 7873723148,
-			Equip: 7873615068,
+			Equip: 8000339022,
 		},
 
 		Sword: {
@@ -23,7 +23,7 @@ const Config = {
 			Stab: 7921640417,
 
 			Holster: 7872920456,
-			Equip: 7978204845,
+			Equip: 8000323371,
 		},
 
 		Spear: {
@@ -31,13 +31,13 @@ const Config = {
 			Lower: 7921656531,
 
 			Holster: 7881452961,
-			Equip: 7881948776,
+			Equip: 8000459921,
 		},
 
 		Shield: {
 			Block: 7872966176,
 			Holster: 7872995363,
-			Equip: 7872952487,
+			Equip: 8000387589,
 		},
 	},
 
@@ -54,6 +54,9 @@ const Config = {
 		ToolSelector: true,
 		StunOnBlock: true,
 		StunOnHit: true,
+		DontBlockWhenAttacking: true,
+		DontBlockWhenEnabled: true,
+		DontBlockWhenDisabled: true,
 	},
 
 	Attributes: {

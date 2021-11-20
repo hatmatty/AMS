@@ -40,6 +40,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		LEFT: number;
 		RIGHT: number;
 	};
+	private timePassed = 0;
 	protected abstract Fade?: number;
 	protected abstract weaponPlayerInit(): void;
 	protected Trail: Trail;
@@ -51,7 +52,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		new NumberSequenceKeypoint(0.75, 0.975),
 		new NumberSequenceKeypoint(1, 1),
 	]);
-	Speed = 1;
+	Speed = 1.25;
 
 	Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
 
@@ -138,8 +139,8 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 		this.Hitbox = new RaycastHitbox(this.instance.DmgPart);
 		this.Hitbox.DetectionMode = 2;
-		this.Hitbox.Visualizer = false;
-		// Trail.Enabled = false;
+		this.Hitbox.Visualizer = true;
+		Trail.Enabled = false;
 	}
 
 	private Draw(End: Callback, janitor: Janitor) {
@@ -156,6 +157,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		});
 
 		let timePassed = 0;
+		this.timePassed = timePassed;
 		const time = secToMax / 20;
 		while (IncreaseDamage) {
 			task.wait(time);
@@ -164,6 +166,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 			if (timePassed >= secToMax) {
 				IncreaseDamage = false;
 			}
+			this.timePassed = timePassed;
 		}
 
 		RunMiddleware(DrawMiddleware, this);
@@ -185,6 +188,14 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.Actions.Draw.End();
 		if (!this.ActiveAnimation) {
 			error("Active Animation Required From Draw");
+		}
+
+		if (this.timePassed < 0.25) {
+			task.wait(0.25 - this.timePassed);
+		}
+
+		if (this.Actions.Release.Status === "ENDED") {
+			return;
 		}
 
 		const [Player, Char] = this.GetCharPlayer();
@@ -228,8 +239,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 			}
 		});
 
-		// janitor.Add(this.Hitbox.OnHit.Connect((hit, humanoid) => {}));
-
 		janitor.Add(() => {
 			Char.SetAttribute("Swinging", undefined);
 			this.setState("Enabled");
@@ -242,6 +251,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.Hitbox.HitStop();
 
 		task.wait(HitStop);
+		// @ts-expect-error time is passing
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
 		}

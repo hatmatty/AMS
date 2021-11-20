@@ -9,7 +9,7 @@ import { CharacterLimb } from "shared/Types";
 import { EndOfLineState } from "typescript";
 import { Essential } from "./Essential";
 import { ToolAttributes, ToolInstance } from "./Tool";
-import { AddHitMiddleware, Weapon } from "./Weapon";
+import { AddHitMiddleware, Weapon, WeaponInstance } from "./Weapon";
 
 let Added = false;
 
@@ -83,19 +83,44 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 		if (Char.GetAttribute("Swinging") !== undefined) {
 			return End();
 		}
+		this.GetWeapon();
 
 		this.setState("Blocking");
-		const Fade = 0.2;
+		const Fade = 0.15;
 		const AnimTrack = playAnim(Char, Config.Animations.Shield.Block, { Fade: Fade });
 		janitor.Add(() => {
 			AnimTrack.Stop(Fade);
 		});
 	}
 
+	private GetWeapon(): Instance[] {
+		const [Player, Char] = this.GetCharPlayer();
+		Char.GetChildren().forEach((child) => {
+			components;
+		});
+		return [];
+	}
+
 	private EndBlock(End: Callback) {
 		this.setState("Enabled");
 		this.Actions.Block.End();
 		End();
+	}
+
+	public IsAttacking(): boolean {
+		const [Player, Char] = this.GetCharPlayer();
+		Char.GetChildren().forEach((child) => {
+			if (child.IsA("Model")) {
+				const Tool = Essential.Tools.get(child);
+				if (Tool) {
+					if (Tool.state === "Releasing" || Tool.state === "Drawing") {
+						return true;
+					}
+				}
+			}
+		});
+
+		return false;
 	}
 
 	WorkspaceInit = undefined;
@@ -114,9 +139,26 @@ if (!Added) {
 	AddHitMiddleware((stop, weapon, hit, db) => {
 		if (hit.Name === "Blocker") {
 			const Shield = components.getComponent<Shield>(hit.Parent as Model);
+			if (!Shield) {
+				error(`Expected shield from ${hit.Parent}`);
+			}
 
-			if (Shield.state === "Disabled") {
-				return;
+			if (Config.Elements.DontBlockWhenDisabled) {
+				if (Shield.state === "Disabled") {
+					return;
+				}
+			}
+
+			if (Config.Elements.DontBlockWhenEnabled) {
+				if (Shield.state === "Enabled") {
+					return;
+				}
+			}
+
+			if (Config.Elements.DontBlockWhenAttacking) {
+				if (Shield.IsAttacking()) {
+					return;
+				}
 			}
 
 			if (Shield.Player === weapon.Player) {

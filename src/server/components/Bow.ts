@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { Component, Components } from "@flamework/components";
+import { Component } from "@flamework/components";
 import { Essential } from "./Essential";
 import { ToolAttributes, ToolInstance } from "./Tool";
 import Config from "shared/Config";
@@ -26,8 +26,6 @@ import {
 } from "server/modules/RangedUtil";
 import { CreateWeld } from "server/modules/CreateWeld";
 import { isConstructSignatureDeclaration } from "typescript";
-
-const components = Dependency<Components>();
 
 interface RangedInstance extends ToolInstance {
 	BowAttach: BasePart;
@@ -203,32 +201,15 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ra
 		SetupRanged(this);
 	}
 
-	RangedHit(result: RaycastResult, instance: BasePart) {
-		instance.Anchored = false;
-		for (const descendant of instance.GetDescendants()) {
-			if (descendant.IsA("BasePart")) {
-				descendant.Anchored = false;
-			}
+	ReturnArrow(arrow: BasePart, weld: Weld) {
+		if (!arrow.IsDescendantOf(game)) {
+			opcall(() => {
+				weld.Destroy();
+				arrow.Destroy();
+			});
+			return;
 		}
-		const Weld = CreateWeld(instance, result.Instance);
-		Weld.Parent = result.Instance;
-
-		task.wait(10);
-
-		if (instance && instance.IsDescendantOf(game)) {
-			for (const v of instance.GetDescendants()) {
-				if (v.IsA("BasePart")) {
-					TweenService.Create(v, new TweenInfo(0.5), {
-						Transparency: 1,
-					}).Play();
-				}
-			}
-		}
-
-		task.wait(0.5);
-
-		Weld.Destroy();
-		for (const v of instance.GetDescendants()) {
+		for (const v of arrow.GetDescendants()) {
 			if (v.IsA("BasePart") && v.Name !== "ArrowAttach") {
 				v.Transparency = 0;
 			}
@@ -236,14 +217,72 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ra
 				v.Enabled = false;
 			}
 		}
-		if (!this.instance.IsDescendantOf(game)) {
-			if (instance.IsDescendantOf(game)) {
-				instance.Destroy();
+		weld.Destroy();
+		arrow.Anchored = true;
+		this.Provider.ReturnPart(arrow);
+	}
+
+	RangedHit(result: RaycastResult, instance: BasePart) {
+		instance.Anchored = false;
+		const Weld = CreateWeld(instance, result.Instance);
+		Weld.Parent = result.Instance;
+
+		const Player = Players.GetPlayerFromCharacter(result.Instance.Parent);
+		let DeadConnection: RBXScriptConnection | undefined;
+		let Died = false;
+		if (Player && result.Instance.Parent?.IsA("Model")) {
+			const Char = result.Instance.Parent;
+			const Humanoid = Char.FindFirstChildWhichIsA("Humanoid");
+			if (!Humanoid) {
+				error("could not get humanoid");
 			}
+
+			if (Humanoid.Health <= 0) {
+				return this.ReturnArrow(instance, Weld);
+			} else {
+				DeadConnection = Humanoid.Died.Connect(() => {
+					DeadConnection?.Disconnect();
+					Died = true;
+					for (const v of instance.GetDescendants()) {
+						if (v.IsA("BasePart")) {
+							TweenService.Create(v, new TweenInfo(3), {
+								Transparency: 1,
+							}).Play();
+						}
+					}
+					task.wait(3);
+					return this.ReturnArrow(instance, Weld);
+				});
+			}
+		}
+
+		const Trail = instance.FindFirstChildWhichIsA("Trail");
+		if (Trail) {
+			Trail.Enabled = false;
+		}
+
+		task.wait(9);
+
+		if (DeadConnection) {
+			DeadConnection.Disconnect();
+		}
+
+		if (Died) {
 			return;
 		}
-		this.Provider.ReturnPart(instance);
-		instance.Position = new Vector3(0, -100, 0);
+
+		if (instance.IsDescendantOf(game)) {
+			for (const v of instance.GetDescendants()) {
+				if (v.IsA("BasePart")) {
+					TweenService.Create(v, new TweenInfo(1), {
+						Transparency: 1,
+					}).Play();
+				}
+			}
+		}
+
+		task.wait(1);
+		this.ReturnArrow(instance, Weld);
 	}
 
 	Draw(End: Callback, janitor: Janitor) {
