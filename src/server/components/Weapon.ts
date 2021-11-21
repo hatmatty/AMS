@@ -1,8 +1,6 @@
-import RaycastHitbox, { HitboxObject } from "@rbxts/raycast-hitbox";
 import { Essential } from "./Essential";
 import { Component } from "@flamework/components";
 import { ToolAttributes, ToolInstance } from "./Tool";
-import Config from "shared/Config";
 import { Action } from "server/modules/Action";
 import { Events } from "server/events";
 import { playAnim } from "server/modules/AnimPlayer";
@@ -10,7 +8,7 @@ import { Janitor } from "@rbxts/janitor";
 import { Players } from "@rbxts/services";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
 import { Directions } from "shared/types";
-import { ClientCast, ClientCaster } from "@rbxts/clientcast";
+import ClientCast from "@rbxts/clientcast";
 
 const AttachmentName = "DmgPoint";
 
@@ -59,7 +57,8 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 	Direction: Directions = "RIGHT";
 	Damage = 0;
-	Hitbox: HitboxObject;
+	Hitbox;
+	db: Map<Instance, boolean> = new Map();
 
 	StoredAnimations: {
 		[index: string]: AnimationTrack;
@@ -75,7 +74,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		Params.FilterDescendantsInstances = [Character, this.instance];
 		Params.FilterType = Enum.RaycastFilterType.Blacklist;
 
-		this.Hitbox.RaycastParams = Params;
+		this.Hitbox.EditRaycastParams(Params);
 
 		this.janitor.Add(
 			Events.Direction.connect((player, direction) => {
@@ -84,6 +83,8 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				}
 			}),
 		);
+
+		this.Hitbox.SetOwner(Player);
 	}
 
 	constructor() {
@@ -138,10 +139,46 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		Trail.Transparency = this.TrailTransparency;
 		Trail.Lifetime = this.TrailLifetime;
 
-		this.Hitbox = new RaycastHitbox(this.instance.DmgPart);
-		this.Hitbox.DetectionMode = 2;
-		this.Hitbox.Visualizer = true;
+		print(ClientCast);
+		this.Hitbox = new ClientCast(this.instance.DmgPart, new RaycastParams());
 		Trail.Enabled = false;
+
+		this.Hitbox.Collided.Connect((collision) => {
+			const hit = collision.Instance;
+			if (this.db.get(hit)) {
+				return;
+			}
+			this.db.set(hit, true);
+
+			const Player = Players.GetPlayerFromCharacter(hit.Parent);
+			if (Player !== undefined) {
+				if (this.db.get(Player)) {
+					return;
+				}
+				this.db.set(Player, true);
+
+				if (Player === this.Player) {
+					return;
+				}
+
+				RunMiddleware(HitMiddleWare, this, Player, this.db);
+
+				const Character = hit.Parent;
+				if (!Character) {
+					error();
+				}
+				const Humanoid = Character.FindFirstChildWhichIsA("Humanoid");
+				if (!Humanoid) {
+					error();
+				}
+
+				RunMiddleware(DamageMiddleware, this, Player);
+
+				Humanoid.TakeDamage(this.Damage);
+			} else {
+				RunMiddleware(HitMiddleWare, this, hit, this.db);
+			}
+		});
 	}
 
 	private Draw(End: Callback, janitor: Janitor) {
@@ -207,49 +244,22 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.ActiveAnimation.AdjustSpeed(this.Speed);
 
 		const RemainingLength = (this.ActiveAnimation.Length - ReleasePosition) * (1 / this.Speed);
-		this.Hitbox.HitStart(RemainingLength);
-		const db = new Map<Player, boolean>();
-		this.Hitbox.OnHit.Connect((hit) => {
-			const Player = Players.GetPlayerFromCharacter(hit.Parent);
-			if (Player !== undefined) {
-				if (db.get(Player)) {
-					return;
-				}
-				db.set(Player, true);
-
-				if (Player === this.Player) {
-					return;
-				}
-
-				RunMiddleware(HitMiddleWare, this, Player, db);
-
-				const Character = hit.Parent;
-				if (!Character) {
-					error();
-				}
-				const Humanoid = Character.FindFirstChildWhichIsA("Humanoid");
-				if (!Humanoid) {
-					error();
-				}
-
-				RunMiddleware(DamageMiddleware, this, Player);
-
-				Humanoid.TakeDamage(this.Damage);
-			} else {
-				RunMiddleware(HitMiddleWare, this, hit, db);
-			}
-		});
+		this.Hitbox.Start();
+		this.Hitbox.StartDebug();
+		this.Hitbox.SetOwner(Player);
+		this.db = new Map<Instance, boolean>();
 
 		janitor.Add(() => {
 			Char.SetAttribute("Swinging", undefined);
 			this.setState("Enabled");
-			this.Hitbox.HitStop();
+			this.Hitbox.Stop();
+			this.Hitbox.DisableDebug();
 		});
 
 		const HitStop = 0.2;
 		task.wait(RemainingLength - HitStop);
 
-		this.Hitbox.HitStop();
+		this.Hitbox.Stop();
 
 		task.wait(HitStop);
 		// @ts-expect-error time is passing
