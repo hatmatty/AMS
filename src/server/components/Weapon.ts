@@ -10,6 +10,7 @@ import { Janitor } from "@rbxts/janitor";
 import { Players } from "@rbxts/services";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
 import { Directions } from "shared/types";
+import { ClientCast, ClientCaster } from "@rbxts/clientcast";
 
 const AttachmentName = "DmgPoint";
 

@@ -32,6 +32,7 @@
   "dependencies": {
     "@flamework/core": "^1.0.0-beta.1",
     "@rbxts/camera-shaker": "^1.0.5",
+    "@rbxts/clientcast": "^1.0.1",
     "@rbxts/fastcast": "^13.2.0-ts.2",
     "@rbxts/flipper": "^2.0.1",
     "@rbxts/janitor": "^1.13.12-ts.1",
@@ -41,6 +42,7 @@
     "@rbxts/roact": "^1.4.0-ts.0",
     "@rbxts/roact-rodux": "^0.2.2-ts.5",
     "@rbxts/rodux": "^3.0.0-ts.3",
+    "@rbxts/securehitbox": "^1.0.0",
     "@rbxts/signal": "^1.0.3",
     "@rbxts/types": "^1.0.538",
     "flamework": "^4.2.1"
