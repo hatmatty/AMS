@@ -18,38 +18,63 @@ const Config = {
 		},
 
 		Sword: {
-			Left: 7921642085,
-			Right: 7921644381,
-			Stab: 7921640417,
+			Attack: {
+				Left: 7921642085,
+				Right: 7921644381,
+				Stab: 7921640417,
+				Overhead: 8079836535,
+			},
+
+			Block: {
+				Up: 8080168777,
+				Down: 8086282564,
+				Left: 8080156569,
+				Right: 8080166525,
+			},
 
 			Holster: 7872920456,
 			Equip: 8000323371,
 		},
 
 		Spear: {
-			Upper: 7921664513,
-			Lower: 7921656531,
+			Attack: {
+				Left: 8081419189,
+				Right: 8081414401,
+				Upper: 8081434481,
+				Lower: 7921656531,
+			},
+
+			Block: {
+				Up: 8081174155,
+				Down: 8081183780,
+				Left: 8081193234,
+				Right: 8081394152,
+			},
 
 			Holster: 7881452961,
-			Equip: 8000459921,
+			Equip: 8072356978,
 		},
 
 		Shield: {
-			Block: 7872966176,
+			Block: 8081494360,
+			Testudo: 8082262094,
 			Holster: 7872995363,
 			Equip: 8000387589,
 		},
 	},
 
 	Elements: {
+		ClientTrackedCollisions: true,
+		DirectionalArrows: true,
+		DisableCameraShake: true,
+		DisableSpringCamera: true,
+		EnhancedFOV: true,
+		FirstPerson: true,
 		Gore: true,
 		Sparks: true,
 		Sounds: true,
 		Rotation: true,
 		Direction: true,
-		CameraShake: true,
-		Sprinting: true,
-		SpringCamera: true,
 		Ragdoll: true,
 		ToolSelector: true,
 		StunOnBlock: true,
@@ -57,12 +82,13 @@ const Config = {
 		DontBlockWhenAttacking: true,
 		DontBlockWhenEnabled: true,
 		DontBlockWhenDisabled: true,
+		HigherCamera: true,
 	},
 
 	Attributes: {
-		WalkSpeed: 13,
-		SprintingSpeed: 18,
-		ShieldHitboxSize: new Vector3(2.5, 2.5, 0.75),
+		WalkSpeed: 15,
+		CameraOffset: new Vector3(0, 2, 0),
+		ShieldHitboxSize: new Vector3(3, 3, 1),
 		MaxGetTools: 2,
 	},
 
@@ -71,7 +97,6 @@ const Config = {
 		Sparta: "Shield",
 		Athens: "Shield",
 		Roman: "Shield",
-
 		Kopis: "Sword",
 		Bow: "Bow",
 		Dory: "Spear",

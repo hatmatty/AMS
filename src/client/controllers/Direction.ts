@@ -1,5 +1,6 @@
 import { Controller, OnStart, OnInit } from "@flamework/core";
 import { Players, RunService, UserInputService } from "@rbxts/services";
+import Signal from "@rbxts/signal";
 import { Events } from "client/events";
 import { Directions } from "shared/types";
 const Camera = game.Workspace.CurrentCamera;
@@ -20,9 +21,10 @@ const Camera = game.Workspace.CurrentCamera;
 @Controller()
 export class Direction implements OnInit {
 	/** stores the direction the player's camera is facing in */
-	private Direction: Directions = "RIGHT";
+	public Direction: Directions = "RIGHT";
 	/** stores the amount of heartbeats the camera has moved in a direction */
 	private prevX = 0;
+	public DirectionChanged = new Signal<(Direction: Directions) => void>();
 
 	onInit() {
 		this.PCInit();
@@ -45,7 +47,7 @@ export class Direction implements OnInit {
 
 			const index = this.GetIndexofAbsoluteLargest(mouse_location);
 			let Direction: Directions | undefined;
-			if (math.abs(mouse_location[index]) > 3) {
+			if (math.abs(mouse_location[index]) >= 6) {
 				const isNegative = mouse_location[index] < 0 ? true : false;
 				if (index === "Y") {
 					if (isNegative) {
@@ -65,6 +67,7 @@ export class Direction implements OnInit {
 			if (Direction !== undefined && Direction !== this.Direction) {
 				this.Direction = Direction;
 				Events.Direction(this.Direction);
+				this.DirectionChanged.Fire(this.Direction);
 			}
 		});
 	}

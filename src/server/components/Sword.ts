@@ -5,6 +5,8 @@ import { ToolAttributes, ToolInstance } from "./Tool";
 import { Weapon } from "./Weapon";
 
 const anims = Config.Animations.Sword;
+const attackAnims = anims.Attack;
+const blockAnims = anims.Block;
 
 @Component({
 	tag: "Sword",
@@ -13,16 +15,24 @@ const anims = Config.Animations.Sword;
 	},
 })
 export class Sword extends Weapon {
+	className = "Sword" as const;
+	inheritance = ["Weapon", "Essential"];
 	AttachName = "SwordAttach";
 	EnableAnimation = anims.Equip;
 	DisableAnimation = anims.Holster;
 	EnabledLimb = "RightHand" as CharacterLimb;
 	DisabledLimb = "LowerTorso" as CharacterLimb;
 	AttackAnimations = {
-		UP: anims.Stab,
-		DOWN: anims.Stab,
-		RIGHT: anims.Right,
-		LEFT: anims.Left,
+		UP: attackAnims.Overhead,
+		DOWN: attackAnims.Stab,
+		RIGHT: attackAnims.Right,
+		LEFT: attackAnims.Left,
+	};
+	BlockAnimations = {
+		UP: blockAnims.Up,
+		DOWN: blockAnims.Down,
+		RIGHT: blockAnims.Right,
+		LEFT: blockAnims.Left,
 	};
 	Fade = undefined;
 

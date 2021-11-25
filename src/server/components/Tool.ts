@@ -50,10 +50,11 @@ const ToolAdded = new Signal<ToolSignal>();
 export { ToolAdded };
 
 @Component()
-export abstract class Tool<A extends ToolAttributes, I extends ToolInstance>
+export abstract class Tool<A extends ToolAttributes = ToolAttributes, I extends ToolInstance = ToolInstance>
 	extends BaseComponent<A, I>
 	implements OnStart
 {
+	public abstract className: string;
 	public abstract Incompatible: string[];
 	public abstract Actions: Actions;
 	public abstract InputInfo: InputInfo;

@@ -21,7 +21,7 @@ export class Shake implements OnInit {
 	});
 
 	onInit() {
-		if (!Config.Elements.CameraShake) {
+		if (Config.Elements.DisableCameraShake) {
 			return;
 		}
 

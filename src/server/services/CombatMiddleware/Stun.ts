@@ -10,7 +10,7 @@ import Config from "shared/Config";
 
 const components = Dependency<Components>();
 const BlockedStunTime = 0.8;
-const RegularStunTime = 0.2;
+const RegularStunTime = 0.3;
 
 /**
  * Attaches to the blocked middleware and stuns the player who is blocked.
@@ -24,47 +24,51 @@ export class Stun implements OnInit {
 					const Character = hit.Character as Model;
 
 					for (const child of Character.GetChildren()) {
-						if (child.IsA("Model")) {
+						if (child.IsA("Model") && child.FindFirstChild("DmgPart")) {
 							// @ts-expect-error im checking
-							const toolType = Config.Tools[child.Name] as string | undefined;
-							if (toolType !== undefined && toolType !== "Bow") {
-								const weapon = Essential.Tools.get(child);
-								if (!weapon) {
-									return;
-								}
+							const weapon = Weapon.Weapons.get(child);
+							if (!weapon) {
+								continue;
+							}
 
-								if (weapon) {
-									if (weapon.state === "Disabled") {
-										continue;
-									} else if (weapon.state === "Stunned") {
-										return; // already stunned
-									} else if (
-										weapon.state === "Drawing" ||
-										weapon.state === "Releasing" ||
-										weapon.state === "Enabled"
-									) {
-										if (weapon.state === "Drawing") {
-											weapon.Actions.Draw.End();
-										} else if (weapon.state === "Releasing") {
-											weapon.Actions.Release.End();
+							if (weapon) {
+								if (weapon.state === "Disabled") {
+									continue;
+								} else if (weapon.state === "Stunned") {
+									return; // already stunned
+								} else if (
+									weapon.state === "Drawing" ||
+									weapon.state === "Releasing" ||
+									weapon.state === "Enabled"
+								) {
+									if (weapon.state === "Drawing") {
+										if (weapon.Actions.Draw.Status !== "STARTED") {
+											warn(`${weapon} state is drawing but status for draw is not started.`);
+											continue;
 										}
-										// @ts-expect-error im checking
-										const ActiveAnimation = weapon.ActiveAnimation as AnimationTrack | undefined;
-										if (ActiveAnimation) {
-											ActiveAnimation.Stop();
-										}
-										weapon.setState("Stunned");
-
-										Promise.delay(BlockedStunTime / 2).then(() => {
-											weapon?.setState("Enabled");
-										});
+										weapon.Actions.Draw.End();
 									}
+									if (weapon.state === "Releasing") {
+										if (weapon.Actions.Release.Status !== "STARTED") {
+											warn(`${weapon} state is releasing but status for release is not started.`);
+											continue;
+										}
+										weapon.Actions.Release.End();
+									}
+									const ActiveAnimation = weapon.ActiveAnimation as AnimationTrack | undefined;
+									if (ActiveAnimation) {
+										ActiveAnimation.Stop();
+									}
+									weapon.setState("Stunned");
+									Promise.delay(RegularStunTime).then(() => {
+										weapon.setState("Enabled");
+									});
 								}
 							}
 						}
 					}
 
-					this.Stun(hit, weapon.Direction);
+					this.Stun(hit, weapon.SetDirection);
 				}
 			});
 		}
@@ -75,7 +79,7 @@ export class Stun implements OnInit {
 				if (!Player) {
 					error();
 				}
-				this.Stun(Player, weapon.Direction);
+				this.Stun(Player, weapon.SetDirection);
 
 				const Connection = weapon.Actions.Release.Ended.Connect(() => {
 					Connection.Disconnect();

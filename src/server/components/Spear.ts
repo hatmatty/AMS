@@ -20,6 +20,9 @@ import { Weapon } from "./Weapon";
 import { Players } from "@rbxts/services";
 
 const anims = Config.Animations.Spear;
+const attackAnims = anims.Attack;
+const blockAnims = anims.Block;
+
 FastCast.VisualizeCasts = false;
 
 import { WeaponInstance } from "./Weapon";
@@ -40,7 +43,7 @@ interface SpearInstance extends WeaponInstance {
 	},
 })
 export class Spear extends Weapon<SpearInstance> implements Ranged {
-	Name = "Spear";
+	className = "Spear" as const;
 	Locked = false;
 	AttachName = "SpearAttach";
 	EnableAnimation = anims.Equip;
@@ -49,10 +52,16 @@ export class Spear extends Weapon<SpearInstance> implements Ranged {
 	DisabledLimb = "UpperTorso" as CharacterLimb;
 	Prompt = new Instance("ProximityPrompt");
 	AttackAnimations = {
-		UP: anims.Upper,
-		DOWN: anims.Lower,
-		RIGHT: anims.Lower,
-		LEFT: anims.Lower,
+		UP: attackAnims.Upper,
+		DOWN: attackAnims.Lower,
+		RIGHT: attackAnims.Right,
+		LEFT: attackAnims.Left,
+	};
+	BlockAnimations = {
+		UP: blockAnims.Up,
+		DOWN: blockAnims.Down,
+		RIGHT: blockAnims.Right,
+		LEFT: blockAnims.Left,
 	};
 	WalkEffect = false;
 	Fade = undefined;

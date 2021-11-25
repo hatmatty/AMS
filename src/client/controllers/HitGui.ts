@@ -3,6 +3,7 @@ import Roact from "@rbxts/roact";
 import { HitDisplay } from "client/modules/HitDisplay";
 import { Players } from "@rbxts/services";
 import { Events } from "client/events";
+import { Init } from "@rbxts/securehitbox";
 
 const Player = Players.LocalPlayer;
 const PlayerGui = Player.WaitForChild("PlayerGui");
@@ -15,6 +16,7 @@ export class HitGui implements OnInit {
 	GUI = Roact.mount(Roact.createElement("ScreenGui"), PlayerGui, "HitDisplay");
 	Inited = false;
 	onInit() {
+		Init();
 		Events.Hit.connect((damage) => {
 			this.SendHit(damage);
 		});

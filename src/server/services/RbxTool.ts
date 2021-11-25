@@ -5,6 +5,7 @@ import { HttpService, Players, CollectionService } from "@rbxts/services";
 import { ToolService } from "./ToolService";
 import { Janitor } from "@rbxts/janitor";
 import { DisableIncompatibleTools } from "server/modules/IncompatibleTools";
+import { Essential } from "server/components/Essential";
 
 @Service({})
 export class RbxTool implements OnInit {
@@ -96,7 +97,7 @@ export class RbxTool implements OnInit {
 							return;
 						}
 
-						if (DisableIncompatibleTools(character, this.Incompatible, [tool])) {
+						if (DisableIncompatibleTools(character, this.Incompatible, [tool], Essential.Tools)) {
 							tool.Parent = character;
 						}
 					}
@@ -152,7 +153,7 @@ export class RbxTool implements OnInit {
 						if (tool.Parent === character) {
 							return;
 						}
-						if (DisableIncompatibleTools(character, this.Incompatible, [tool])) {
+						if (DisableIncompatibleTools(character, this.Incompatible, [tool], Essential.Tools)) {
 							tool.Parent = character;
 						}
 						return;

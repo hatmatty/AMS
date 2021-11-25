@@ -33,7 +33,7 @@ export class SpringCamera implements OnInit {
 	 * calls creates the camera by calling Create() when a player's character is loaded in and destroys the camera by calling Destroy() when the player's character is removed.
 	 */
 	onInit() {
-		if (!Config.Elements.SpringCamera) {
+		if (Config.Elements.DisableSpringCamera) {
 			return;
 		}
 
@@ -46,7 +46,6 @@ export class SpringCamera implements OnInit {
 			this.Create();
 		}
 
-		this.ProtectToolTransparency();
 		EquippedChanged.Connect(() => {
 			this.ModifyOffset();
 		});
@@ -62,66 +61,6 @@ export class SpringCamera implements OnInit {
 			this.Xoffset = Xoffset;
 			this.Zoffset = Zoffset;
 		}
-	}
-
-	private ProtectToolTransparency() {
-		this.FirstProtectCheck();
-
-		Player.CharacterAdded.Connect((character) => {
-			this.FirstProtectCheck();
-			character.ChildAdded.Connect((child) => {
-				this.ProtectTool(child);
-			});
-		});
-	}
-
-	private FirstProtectCheck() {
-		if (Player.Character) {
-			if (!Player.HasAppearanceLoaded()) {
-				Player.CharacterAppearanceLoaded.Wait();
-			}
-
-			for (const child of Player.Character.GetChildren()) {
-				this.ProtectTool(child);
-			}
-		}
-	}
-
-	private ProtectTool(tool: Instance) {
-		const name = tool.Name;
-		// @ts-expect-error I'm checking if it exists
-		const ToolType = Config.Tools[name] as string;
-
-		if (
-			name !== "LeftUpperArm" &&
-			name !== "RightUpperArm" &&
-			name !== "LeftLowerArm" &&
-			name !== "RightLowerArm" &&
-			name !== "RightHand" &&
-			name !== "LeftHand"
-		) {
-			if (!tool.IsA("Model") || ToolType === undefined) {
-				return;
-			}
-		}
-
-		const Connection = RunService.Heartbeat.Connect(() => {
-			if (tool.IsA("BasePart")) {
-				tool.LocalTransparencyModifier = 0;
-			}
-			for (const descendant of tool.GetDescendants()) {
-				if (descendant.IsA("BasePart")) {
-					descendant.LocalTransparencyModifier = 0;
-				}
-			}
-		});
-
-		const Character = tool.Parent;
-		tool.AncestryChanged.Connect(() => {
-			if (tool.Parent !== Character || !tool.IsDescendantOf(game)) {
-				Connection.Disconnect();
-			}
-		});
 	}
 
 	private GetPos(): Vector3 {
@@ -265,7 +204,6 @@ export class SpringCamera implements OnInit {
 				rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position.add(lookXZ));
 			}
 		}
-		Camera.FieldOfView = 85;
 	}
 
 	/**

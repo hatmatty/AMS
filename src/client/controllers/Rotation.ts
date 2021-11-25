@@ -19,7 +19,7 @@ export class Rotation implements OnInit {
 	 */
 	public Enabled = true;
 	private janitor = new Janitor();
-	private delay = 0.4; // how fast the body rotator should fire an update to the server
+	private delay = 0.1; // how fast the body rotator should fire an update to the server
 	public ClampValue = 0.5;
 	private Factor = 1;
 
@@ -113,7 +113,7 @@ export class Rotation implements OnInit {
 
 		coroutine.resume(
 			coroutine.create(() => {
-				while (run && Promise.delay(this.delay).await()[0]) {
+				while (run && task.wait(this.delay) !== undefined && run) {
 					Events.UpdateRotation(Neck.C0, Waist.C0, LeftShoulder.C0, RightShoulder.C0);
 				}
 			}),

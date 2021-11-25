@@ -19,7 +19,7 @@ export const [RangedReleasedMiddleWare, AddRangedReleasedMiddleware] = GenerateM
 const components = Dependency<Components>();
 
 export interface Ranged {
-	Name: string;
+	className: string;
 	janitor: Janitor;
 	GetCharPlayer(): [Player, Model];
 	Ray: Ray;
@@ -66,6 +66,9 @@ export function SetupRanged(Tool: Ranged) {
 			(hit.Name === "Blocker" || hit.Parent?.FindFirstChild("Blocker"))
 		) {
 			const Shield = components.getComponent<Shield>(hit.Parent);
+			if (!Shield) {
+				return false;
+			}
 			if (Shield.state === "Disabled") {
 				return true;
 			} else {
@@ -176,9 +179,7 @@ export function DrawShoot(Tool: Ranged, janitor: Janitor, animHoldEventName: str
 		Events.ToggleRangedGUI(Player, false);
 	});
 	task.spawn(() => {
-		print("CREATED WHILE LOOP");
 		while (run) {
-			print("SENT EVENT!", run);
 			Events.UpdateRangedGUI(Player, CalculateAccuracy(Tool));
 			task.wait(0.2);
 		}

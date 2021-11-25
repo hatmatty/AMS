@@ -1,9 +1,11 @@
 import { Controller, OnStart, OnInit } from "@flamework/core";
-import { ContextActionService, HttpService, UserInputService } from "@rbxts/services";
+import { ContextActionService, HttpService, UserInputService, Players } from "@rbxts/services";
 import { Events } from "client/events";
 import { createElement } from "typedoc/dist/lib/utils/jsx";
 import { MobileInput } from "shared/Types";
 import { ParseInput, Unparse } from "shared/modules/InputParser";
+import { isPartiallyEmittedExpression } from "typescript";
+import Object from "@rbxts/object-utils";
 
 const Inputs = new Map<Enum.KeyCode | Enum.UserInputType, boolean>();
 const InputList = [
@@ -25,6 +27,8 @@ for (const input of InputList) {
 	Inputs.set(input, true);
 }
 
+const Player = Players.LocalPlayer;
+
 /**
  * Manages the sending of input events from the client to the server through the Input server event.
  */
@@ -40,6 +44,16 @@ export class Input implements OnInit {
 	onInit() {
 		Input.createInputEvent(UserInputService.InputBegan);
 		Input.createInputEvent(UserInputService.InputEnded);
+
+		Player.CharacterRemoving.Connect(() => {
+			for (const id of Object.keys(this.BindedActions)) {
+				for (const action of this.BindedActions[id]) {
+					ContextActionService.UnbindAction(action);
+				}
+				// @ts-expect-error im removing!
+				this.BindedActions[id] = undefined;
+			}
+		});
 
 		this.StartMobileInput();
 	}

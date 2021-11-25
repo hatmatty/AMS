@@ -17,7 +17,7 @@ import {
 @Service({})
 export class CameraShake implements OnInit {
 	onInit() {
-		if (Config.Elements.CameraShake) {
+		if (!Config.Elements.DisableCameraShake) {
 			AddBlockedMiddleware((stop, weapon, shield) => {
 				if (!weapon.Player) {
 					error();

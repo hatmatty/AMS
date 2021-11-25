@@ -1,12 +1,13 @@
 import { Component, Components } from "@flamework/components";
 import { Dependency } from "@flamework/core";
 import { Janitor } from "@rbxts/janitor";
+import { Events } from "server/events";
 import { Action } from "server/modules/Action";
 import { playAnim } from "server/modules/AnimPlayer";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
-import Config from "shared/Config";
-import { CharacterLimb } from "shared/Types";
-import { EndOfLineState } from "typescript";
+import Config, { Animations } from "shared/Config";
+import { CharacterLimb, Directions } from "shared/Types";
+import { createPrinter, EndOfLineState } from "typescript";
 import { Essential } from "./Essential";
 import { ToolAttributes, ToolInstance } from "./Tool";
 import { AddHitMiddleware, Weapon, WeaponInstance } from "./Weapon";
@@ -17,6 +18,7 @@ interface ShieldInstance extends ToolInstance {
 	ShieldAttach: BasePart;
 }
 
+const anims = Config.Animations.Shield;
 @Component({
 	tag: "Shield",
 	defaults: {
@@ -24,13 +26,16 @@ interface ShieldInstance extends ToolInstance {
 	},
 })
 export class Shield extends Essential<ToolAttributes, ShieldInstance> {
+	className = "Shield" as const;
 	AttachName = "ShieldAttach";
 	Incompatible = ["Shield", "Bow"];
 	EnableAnimation = Config.Animations.Shield.Equip;
 	DisableAnimation = Config.Animations.Shield.Holster;
-
 	EnabledLimb = "LeftUpperArm" as CharacterLimb;
 	DisabledLimb = "UpperTorso" as CharacterLimb;
+	Direction: Directions = "RIGHT";
+	BlockAnimation?: AnimationTrack;
+	TestudoEnabled = false;
 
 	constructor() {
 		super();
@@ -51,9 +56,17 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 						Position: UDim2.fromScale(0.6175, 0.0),
 					},
 				},
+
+				E: {
+					Action: "Testudo",
+					Mobile: {
+						Position: UDim2.fromScale(0.8175, 0.0),
+					},
+				},
 			},
 		};
 
+		this.Actions.Testudo = new Action((End, janitor) => this.Testudo(End, janitor));
 		this.Actions.Block = new Action((End, janitor) => this.Block(End, janitor));
 		this.Actions.EndBlock = new Action((End) => this.EndBlock(End));
 
@@ -78,93 +91,137 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 		});
 	}
 
-	private Block(End: Callback, janitor: Janitor) {
+	private Testudo(End: Callback, janitor: Janitor) {
 		const [Player, Char] = this.GetCharPlayer();
-		if (Char.GetAttribute("Swinging") !== undefined) {
+		this.BlockAnimation?.Stop(0.15);
+		if (this.TestudoEnabled) {
+			this.BlockAnimation = playAnim(Char, anims.Block, { Fade: 0.15 });
+			this.TestudoEnabled = false;
+		} else {
+			this.BlockAnimation = playAnim(Char, anims.Testudo, { Fade: 0.15 });
+			this.TestudoEnabled = true;
+		}
+		End();
+	}
+
+	private Block(End: Callback, janitor: Janitor) {
+		if (this.IsAttacking()) {
 			return End();
 		}
-		this.GetWeapon();
+		this.TestudoEnabled = false;
+		const [Player, Char] = this.GetCharPlayer();
 
 		this.setState("Blocking");
 		const Fade = 0.15;
-		const AnimTrack = playAnim(Char, Config.Animations.Shield.Block, { Fade: Fade });
+		this.BlockAnimation = playAnim(Char, anims.Block, { Fade: Fade });
 		janitor.Add(() => {
-			AnimTrack.Stop(Fade);
+			this.BlockAnimation?.Stop(Fade);
 		});
-	}
-
-	private GetWeapon(): Instance[] {
-		const [Player, Char] = this.GetCharPlayer();
-		Char.GetChildren().forEach((child) => {
-			components;
-		});
-		return [];
 	}
 
 	private EndBlock(End: Callback) {
 		this.setState("Enabled");
+		this.TestudoEnabled = false;
 		this.Actions.Block.End();
 		End();
 	}
 
-	public IsAttacking(): boolean {
+	public GetWeapons(): Weapon[] {
+		const Weapons: Weapon[] = [];
 		const [Player, Char] = this.GetCharPlayer();
 		Char.GetChildren().forEach((child) => {
-			if (child.IsA("Model")) {
-				const Tool = Essential.Tools.get(child);
-				if (Tool) {
-					if (Tool.state === "Releasing" || Tool.state === "Drawing") {
-						return true;
-					}
-				}
+			// @ts-expect-error am checking
+			const weapon = Weapon.Weapons.get(child);
+			if (weapon) {
+				Weapons.push(weapon);
 			}
 		});
+		return Weapons;
+	}
 
-		return false;
+	public FindWeapon(): Weapon | undefined {
+		let Weapon: Weapon | undefined = undefined;
+		this.GetWeapons().forEach((weapon) => {
+			if (weapon.state !== "Disabled") {
+				if (Weapon) {
+					error("Found 2 enabled weapons.");
+				}
+				Weapon = weapon;
+			}
+		});
+		return Weapon;
+	}
+
+	public IsAttacking(): boolean {
+		let returnVal = false;
+		this.GetWeapons().forEach((weapon) => {
+			if (weapon.state === "Releasing" || weapon.state === "Drawing") {
+				returnVal = true;
+			}
+		});
+		return returnVal;
 	}
 
 	WorkspaceInit = undefined;
-	playerInit() {}
+	playerInit() {
+		const [Player, Char] = this.GetCharPlayer();
+		this.janitor.Add(
+			Events.Direction.connect((player, direction) => {
+				if (player === this.Player) {
+					this.Direction = direction;
+				}
+			}),
+		);
+	}
 	Destroy() {}
 }
 
 const components = Dependency<Components>();
 
-const [BlockedMiddleware, AddBlockedMiddleware] = GenerateMiddleware<[Weapon, Shield]>();
+const [BlockedMiddleware, AddBlockedMiddleware] = GenerateMiddleware<[Weapon, Essential]>();
 export { AddBlockedMiddleware };
 
 if (!Added) {
 	Added = true;
 
 	AddHitMiddleware((stop, weapon, hit, db) => {
-		if (hit.Name === "Blocker") {
-			const Shield = components.getComponent<Shield>(hit.Parent as Model);
-			if (!Shield) {
-				error(`Expected shield from ${hit.Parent}`);
+		if (hit.Name === "Blocker" && hit.Parent?.IsA("Model")) {
+			const Component = Essential.Tools.get(hit.Parent);
+
+			if (!Component) {
+				error(`Expected shield or weapon from ${hit.Parent}`);
 			}
 
+			print(Component.className);
+
 			if (Config.Elements.DontBlockWhenDisabled) {
-				if (Shield.state === "Disabled") {
+				if (Component.state === "Disabled") {
 					return;
 				}
 			}
 
 			if (Config.Elements.DontBlockWhenEnabled) {
-				if (Shield.state === "Enabled") {
+				if (Component.state === "Enabled") {
 					return;
 				}
 			}
 
 			if (Config.Elements.DontBlockWhenAttacking) {
-				if (Shield.IsAttacking()) {
+				if (Component.state !== "Blocking") {
 					return;
+				}
+				if (Component.className === "Shield") {
+					const Shield = Component as Shield;
+					if (Shield.IsAttacking()) {
+						return;
+					}
 				}
 			}
 
-			if (Shield.Player === weapon.Player) {
+			if (Component.Player === weapon.Player) {
 				return;
 			}
-			const Player = Shield.Player;
+			const Player = Component.Player;
 			if (!Player) {
 				error();
 			}
@@ -173,7 +230,7 @@ if (!Added) {
 			}
 			db.set(Player, true);
 
-			RunMiddleware(BlockedMiddleware, weapon, Shield);
+			RunMiddleware(BlockedMiddleware, weapon, Component);
 
 			weapon.Actions.Release.End();
 			weapon.ActiveAnimation?.Stop(0.2);

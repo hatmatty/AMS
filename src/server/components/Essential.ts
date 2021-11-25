@@ -11,6 +11,7 @@ import { DisableIncompatibleTools } from "server/modules/IncompatibleTools";
 import { Events } from "server/events";
 import { HighlightSpanKind } from "typescript";
 import Object from "@rbxts/object-utils";
+import Signal from "@rbxts/signal";
 
 /**
  * The base class for both the shield and sword.
@@ -34,6 +35,8 @@ export abstract class Essential<A extends ToolAttributes = ToolAttributes, I ext
 	protected Motor6D?: Motor6D;
 	// workaround
 	public BodyAttach: BasePart = new Instance("Part");
+	public WasEnabled = new Signal();
+	public WasDisabled = new Signal();
 
 	InputInfo = {
 		Disabled: {
@@ -66,7 +69,7 @@ export abstract class Essential<A extends ToolAttributes = ToolAttributes, I ext
 		});
 		Essential.Tools.set(this.instance, this);
 
-		this.janitor.Add(() => {
+		this.maid.GiveTask(() => {
 			Essential.Tools.delete(this.instance);
 		});
 	}
@@ -127,7 +130,7 @@ export abstract class Essential<A extends ToolAttributes = ToolAttributes, I ext
 
 	private CanEquip(): boolean {
 		const [Player, Character] = this.GetCharPlayer();
-		return DisableIncompatibleTools(Character, this.Incompatible, [this.instance]);
+		return DisableIncompatibleTools(Character, this.Incompatible, [this.instance], Essential.Tools);
 	}
 
 	protected GetLimb(limbName: CharacterLimb): BasePart {
@@ -172,10 +175,13 @@ export abstract class Essential<A extends ToolAttributes = ToolAttributes, I ext
 					return End();
 				}
 
+				this.WasEnabled.Fire();
+
 				Limb = this.EnabledLimb;
 				Animation = this.EnableAnimation;
 				Events.ToolToggled(Player, this.id, "Enabled");
 			} else {
+				this.WasDisabled.Fire();
 				Limb = this.DisabledLimb;
 				Animation = this.DisableAnimation;
 				Events.ToolToggled(Player, this.id, "Disabled");

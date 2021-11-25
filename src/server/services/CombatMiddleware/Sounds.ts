@@ -32,19 +32,19 @@ export class Sounds implements OnInit {
 				}
 			});
 
-			AddRangedDrawMiddleware((stop, bow) => {
-				if (bow.Name === "Spear") {
+			AddRangedDrawMiddleware((stop, rangedTool) => {
+				if (rangedTool.className === "Spear") {
 					return;
 				} else {
-					this.PlaySound(bow.MainPart, "BowDraw");
+					this.PlaySound(rangedTool.MainPart, "BowDraw");
 				}
 			});
 
-			AddRangedReleasedMiddleware((stop, bow) => {
-				if (bow.Name === "Spear") {
-					this.PlaySound(bow.MainPart, "Swing");
+			AddRangedReleasedMiddleware((stop, rangedTool) => {
+				if (rangedTool.className === "Spear") {
+					this.PlaySound(rangedTool.MainPart, "Swing");
 				} else {
-					this.PlaySound(bow.MainPart, "BowFire");
+					this.PlaySound(rangedTool.MainPart, "BowFire");
 				}
 			});
 

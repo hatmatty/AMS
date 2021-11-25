@@ -116,6 +116,10 @@ export class ToolGui implements OnInit {
 	Store = new Store(Reducer);
 
 	onInit() {
+		if (!Config.Elements.ToolSelector) {
+			return;
+		}
+
 		StarterGui.SetCoreGuiEnabled("Backpack", false);
 
 		Roact.mount(

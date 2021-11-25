@@ -117,13 +117,13 @@ function DoUpdateScripts()
         StarterCharacterScripts.JumpDebouncer:Destroy()
     end
 
-    local newAnimate = Animate:Clone()
+    -- local newAnimate = Animate:Clone()
     local newJumpDebouncer = JumpDebouncer:Clone()
-    newAnimate.Disabled = false
+    -- newAnimate.Disabled = false
     newJumpDebouncer.Disabled = false
 
     newJumpDebouncer.Parent = StarterCharacterScripts
-    newAnimate.Parent = StarterCharacterScripts
+    -- newAnimate.Parent = StarterCharacterScripts
     
 
     if not game.Workspace:GetAttribute("AET_INITED") then

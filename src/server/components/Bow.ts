@@ -45,7 +45,7 @@ const anims = Config.Animations.Bow;
 	},
 })
 export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ranged {
-	Name = "Bow";
+	className = "Bow" as const;
 	Gravity = new Vector3(0, -game.Workspace.Gravity / 6, 0);
 	Ray = new Ray();
 	AttachName = "BowAttach";
