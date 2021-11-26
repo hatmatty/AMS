@@ -47,6 +47,7 @@ interface ClientEvents {
 	ButtonChanged(state: "ADDED" | "REMOVED" | "UPDATED", id: string, tool?: Tool | Model, button?: number): void;
 	DisplayMessage(mesasge: string): void;
 	ToggleDirectionalArrows(bool: boolean): void;
+	Killed(playerName: string): void;
 }
 
 export const GlobalEvents = Networking.createEvent<ServerEvents, ClientEvents>();

@@ -12,6 +12,7 @@ export function playAnim(
 	info?: {
 		Looped?: boolean;
 		Fade?: number;
+		Play?: boolean;
 	},
 ) {
 	if (!character) {
@@ -53,6 +54,10 @@ export function playAnim(
 	}
 
 	AnimationTrack.Looped = true;
+	if (info && info.Play === false) {
+		return AnimationTrack;
+	}
+
 	AnimationTrack.Play(info && info.Fade);
 
 	return AnimationTrack;

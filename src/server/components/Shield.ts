@@ -4,6 +4,7 @@ import { Janitor } from "@rbxts/janitor";
 import { Events } from "server/events";
 import { Action } from "server/modules/Action";
 import { playAnim } from "server/modules/AnimPlayer";
+import { TryCancelWeapon, TryStopSwing } from "server/modules/CancelWeapon";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
 import Config, { Animations } from "shared/Config";
 import { CharacterLimb, Directions } from "shared/Types";
@@ -57,7 +58,7 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 					},
 				},
 
-				E: {
+				Q: {
 					Action: "Testudo",
 					Mobile: {
 						Position: UDim2.fromScale(0.8175, 0.0),
@@ -105,7 +106,12 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 	}
 
 	private Block(End: Callback, janitor: Janitor) {
-		if (this.IsAttacking()) {
+		const Weapon = this.GetActiveWeapon();
+		if (Weapon?.state === "Blocking") {
+			Weapon.Actions.EndBlock.Start();
+		}
+		if (Weapon && this.IsAttacking()) {
+			TryStopSwing(Weapon);
 			return End();
 		}
 		this.TestudoEnabled = false;
@@ -120,6 +126,11 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 	}
 
 	private EndBlock(End: Callback) {
+		const Weapon = this.GetActiveWeapon();
+		if (Weapon && this.IsAttacking()) {
+			TryStopSwing(Weapon);
+			return End();
+		}
 		this.setState("Enabled");
 		this.TestudoEnabled = false;
 		this.Actions.Block.End();
@@ -139,7 +150,7 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 		return Weapons;
 	}
 
-	public FindWeapon(): Weapon | undefined {
+	public GetActiveWeapon(): Weapon | undefined {
 		let Weapon: Weapon | undefined = undefined;
 		this.GetWeapons().forEach((weapon) => {
 			if (weapon.state !== "Disabled") {

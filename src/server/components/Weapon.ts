@@ -11,6 +11,8 @@ import { Directions } from "shared/types";
 import ClientCast from "@rbxts/clientcast";
 import Config from "shared/Config";
 import Signal from "@rbxts/signal";
+import { IsAttacking, TryCancelWeapon, TryStopSwing } from "server/modules/CancelWeapon";
+import { textChangeRangeIsUnchanged } from "typescript";
 
 const AttachmentName = "DmgPoint";
 
@@ -69,6 +71,12 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		LEFT: number;
 		RIGHT: number;
 	};
+	private LoadedAnimations?: {
+		UP: AnimationTrack;
+		DOWN: AnimationTrack;
+		LEFT: AnimationTrack;
+		RIGHT: AnimationTrack;
+	};
 	private timePassed = 0;
 	protected abstract Fade?: number;
 	protected abstract weaponPlayerInit(): void;
@@ -81,10 +89,11 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		new NumberSequenceKeypoint(0.75, 0.975),
 		new NumberSequenceKeypoint(1, 1),
 	]);
-	Speed = 1.38;
+	Speed = 1.35;
 	Ping = 0;
 
 	Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
+	ShouldEnableArrows = false;
 
 	Direction: Directions = "RIGHT";
 	SetDirection: Directions = "RIGHT";
@@ -100,6 +109,10 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	BlockAnimation?: AnimationTrack;
 	DirectionChanged = new Signal<(Direction: Directions) => void>();
 	FirsTimeDisabled = true;
+	TimeSwingEnded?: number;
+	TimeSwingStarted?: number;
+	TimeDrawStarted?: number;
+	HitStopLength = 0.2 as const;
 
 	playerInit(player: Player) {
 		this.weaponPlayerInit();
@@ -125,6 +138,22 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		} else {
 			this.Hitbox.SetOwner(undefined); // server
 		}
+
+		this.LoadedAnimations = {
+			UP: playAnim(Character, this.AttackAnimations.UP, { Play: false }),
+			DOWN: playAnim(Character, this.AttackAnimations.DOWN, { Play: false }),
+			RIGHT: playAnim(Character, this.AttackAnimations.RIGHT, { Play: false }),
+			LEFT: playAnim(Character, this.AttackAnimations.LEFT, { Play: false }),
+		};
+
+		this.janitor.Add(() => {
+			this.LoadedAnimations?.UP?.Destroy();
+			this.LoadedAnimations?.DOWN?.Destroy();
+			this.LoadedAnimations?.RIGHT?.Destroy();
+			this.LoadedAnimations?.LEFT?.Destroy();
+			this.LoadedAnimations = undefined;
+		});
+
 		this.UpdatePing();
 	}
 
@@ -154,20 +183,30 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 		this.maid.GiveTask(this.DirectionChanged);
 
-		this.InputInfo.Enabled.Begin = {
-			MouseButton1: {
-				Action: "Draw",
-				Mobile: {
-					Position: UDim2.fromScale(0.6175, 0.2),
-				},
+		const EndBlock = {
+			Action: "EndBlock",
+			Mobile: {
+				Position: UDim2.fromScale(0.6175, 0.0),
 			},
+		};
 
-			MouseButton2: {
-				Action: "Block",
-				Mobile: {
-					Position: UDim2.fromScale(0.6175, 0.0),
-				},
+		const Block = {
+			Action: "Block",
+			Mobile: {
+				Position: UDim2.fromScale(0.6175, 0.0),
 			},
+		};
+
+		const Draw = {
+			Action: "Draw",
+			Mobile: {
+				Position: UDim2.fromScale(0.6175, 0.2),
+			},
+		};
+
+		this.InputInfo.Enabled.Begin = {
+			MouseButton1: Draw,
+			MouseButton2: Block,
 		};
 
 		this.InputInfo.Drawing = {
@@ -179,23 +218,22 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 					},
 				},
 			},
+
+			Begin: {
+				MouseButton2: Block,
+			},
+		};
+
+		this.InputInfo.Releasing = {
+			Begin: {
+				MouseButton2: Block,
+			},
 		};
 
 		this.InputInfo.Blocking = {
 			Begin: {
-				MouseButton2: {
-					Action: "EndBlock",
-					Mobile: {
-						Position: UDim2.fromScale(0.6175, 0.0),
-					},
-				},
-
-				MouseButton1: {
-					Action: "Draw",
-					Mobile: {
-						Position: UDim2.fromScale(0.6175, 0.2),
-					},
-				},
+				MouseButton1: Draw,
+				MouseButton2: EndBlock,
 			},
 		};
 
@@ -322,7 +360,14 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	}
 
 	private Block(End: Callback, janitor: Janitor) {
+		if (TryStopSwing(this) && !this.ReturnToBlock) {
+			return End();
+		}
+		if (IsAttacking(this)) {
+			return End();
+		}
 		const [Player, Char] = this.GetCharPlayer();
+		this.ReturnToBlock = false;
 		for (const child of Char.GetChildren()) {
 			if (child.IsA("Model")) {
 				const tool = Essential.Tools.get(child);
@@ -347,6 +392,10 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	}
 
 	private EndBlock(End: Callback, janitor: Janitor) {
+		if (TryStopSwing(this)) {
+			this.setState("Blocking");
+			return End();
+		}
 		this.setState("Enabled");
 		this.BlockAnimation?.Stop(0.15);
 		this.BlockAnimation?.Destroy();
@@ -361,8 +410,10 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		}
 		Events.ToggleDirectionalArrows(Player, false);
 		this.setState("Drawing");
+		this.ShouldEnableArrows = true;
 		this.SetDirection = this.Direction;
-		this.setActiveAnimation(this.AttackAnimations[this.Direction], janitor);
+		this.setActiveAnimation(this.Direction, janitor);
+		this.TimeDrawStarted = tick();
 
 		this.Damage = BaseDamage;
 
@@ -403,20 +454,24 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	private Release(End: Callback, janitor: Janitor) {
 		this.setState("Releasing");
 		const [Player, Char] = this.GetCharPlayer();
-		let Enabled = false;
+		const Humanoid = Char.FindFirstChildWhichIsA("Humanoid");
+		if (!Humanoid) {
+			error("");
+		}
 		janitor.Add(() => {
 			this.setState("Enabled");
 			this.Hitbox.Stop();
 			this.Trail.Enabled = false;
+			this.TimeSwingEnded = tick();
 
 			if (this.ReturnToBlock) {
 				this.setState("Blocking");
 				this.SetBlockAnimation(this.BlockAnimations[this.Direction]);
 			}
 
-			if (!Enabled) {
+			if (this.ShouldEnableArrows) {
 				Events.ToggleDirectionalArrows(Player, true);
-				Enabled = true;
+				this.ShouldEnableArrows = false;
 			}
 		});
 		if (!this.Actions.Draw.Status || this.Actions.Draw.Status === "ENDED") {
@@ -426,10 +481,10 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		if (!this.ActiveAnimation) {
 			error("Active Animation Required From Draw");
 		}
-
 		if (this.timePassed < this.FadeInTime) {
 			task.wait(this.FadeInTime - this.timePassed);
 		}
+		this.TimeSwingStarted = tick();
 
 		if (this.Actions.Release.Status === "ENDED") {
 			return;
@@ -439,9 +494,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 		this.ActiveAnimation.TimePosition = ReleasePosition;
 		this.ActiveAnimation.AdjustSpeed(this.Speed);
-		this.ActiveAnimation.Stopped.Connect(() => {
-			this.ActiveAnimation?.Stop(this.FadeInTime);
-		});
 
 		const RemainingLength = (this.ActiveAnimation.Length - ReleasePosition) * (1 / this.Speed);
 		this.Hitbox.Start();
@@ -450,13 +502,13 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 		task.spawn(() => {
 			task.wait(RemainingLength - 0.1);
-			if (!Enabled) {
+			if (this.ShouldEnableArrows) {
 				Events.ToggleDirectionalArrows(Player, true);
-				Enabled = true;
+				this.ShouldEnableArrows = false;
 			}
 		});
 
-		task.wait(RemainingLength - 0.2);
+		task.wait(RemainingLength - this.HitStopLength);
 
 		this.Hitbox.Stop();
 
@@ -467,20 +519,32 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		End();
 	}
 
-	protected setActiveAnimation(animation: number, janitor: Janitor, timePosition?: number) {
+	public TryDestroyActiveAnimation() {
 		if (this.ActiveAnimation) {
-			this.ActiveAnimation.Stop(this.FadeInTime);
-			this.ActiveAnimation.Destroy();
+			this.ActiveAnimation.Stop(this.FadeInTime / 2);
 			this.ActiveAnimation = undefined;
 		}
-		this.ActiveAnimation = playAnim(this.Player, animation, {
-			Fade: this.Fade !== undefined ? this.Fade : undefined || this.FadeInTime,
-		});
+	}
+
+	protected setActiveAnimation(direction: Directions, janitor: Janitor, timePosition?: number) {
+		this.TryDestroyActiveAnimation();
+		if (!this.LoadedAnimations) {
+			error("attempting to set active animation when animations have not been loaded");
+		}
+		this.ActiveAnimation = this.LoadedAnimations[direction];
+		this.ActiveAnimation.Play(this.FadeInTime);
+
 		this.ActiveAnimation.Priority = Enum.AnimationPriority.Action;
 
 		janitor.Add(
 			this.ActiveAnimation.GetMarkerReachedSignal("DrawEnd").Connect(() => {
 				this.ActiveAnimation?.AdjustSpeed(0);
+			}),
+		);
+
+		janitor.Add(
+			this.ActiveAnimation.Stopped.Connect(() => {
+				this.TryDestroyActiveAnimation();
 			}),
 		);
 

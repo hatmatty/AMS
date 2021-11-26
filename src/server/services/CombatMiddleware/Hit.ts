@@ -13,6 +13,15 @@ export class Hit implements OnInit {
 
 			if (instance.IsA("Player")) {
 				Events.Hit(tool.Player, tool.Damage);
+				if (instance.Character) {
+					const Humanoid = instance.Character.FindFirstChildOfClass("Humanoid");
+					if (!Humanoid || Humanoid.Health <= 0) {
+						return;
+					}
+					if (Humanoid.Health - tool.Damage <= 0) {
+						Events.Killed(tool.Player, instance.DisplayName);
+					}
+				}
 			}
 		}
 

@@ -5,11 +5,13 @@ import { AddBlockedMiddleware } from "server/components/Shield";
 import { Spear } from "server/components/Spear";
 import { Sword } from "server/components/Sword";
 import { AddHitMiddleware, Weapon } from "server/components/Weapon";
+import { Events } from "server/events";
 import { playAnim } from "server/modules/AnimPlayer";
+import { CancelAttack, IsAttacking, TryCancelWeapon } from "server/modules/CancelWeapon";
 import Config from "shared/Config";
 
 const components = Dependency<Components>();
-const BlockedStunTime = 0.8;
+const BlockedStunTime = 0.65;
 const RegularStunTime = 0.3;
 
 /**
@@ -19,7 +21,7 @@ const RegularStunTime = 0.3;
 export class Stun implements OnInit {
 	onInit() {
 		if (Config.Elements.StunOnHit) {
-			AddHitMiddleware((stop, weapon, hit) => {
+			AddHitMiddleware((stop, hitterWeapon, hit) => {
 				if (hit.IsA("Player")) {
 					const Character = hit.Character as Model;
 
@@ -36,39 +38,28 @@ export class Stun implements OnInit {
 									continue;
 								} else if (weapon.state === "Stunned") {
 									return; // already stunned
-								} else if (
-									weapon.state === "Drawing" ||
-									weapon.state === "Releasing" ||
-									weapon.state === "Enabled"
-								) {
-									if (weapon.state === "Drawing") {
-										if (weapon.Actions.Draw.Status !== "STARTED") {
-											warn(`${weapon} state is drawing but status for draw is not started.`);
-											continue;
-										}
-										weapon.Actions.Draw.End();
+								} else if (IsAttacking(weapon) || weapon.state === "Enabled") {
+									weapon.ShouldEnableArrows = false;
+
+									if (weapon.state === "Enabled") {
+										Events.ToggleDirectionalArrows(hit, false);
+									} else if (IsAttacking(weapon)) {
+										CancelAttack(weapon);
 									}
-									if (weapon.state === "Releasing") {
-										if (weapon.Actions.Release.Status !== "STARTED") {
-											warn(`${weapon} state is releasing but status for release is not started.`);
-											continue;
-										}
-										weapon.Actions.Release.End();
-									}
-									const ActiveAnimation = weapon.ActiveAnimation as AnimationTrack | undefined;
-									if (ActiveAnimation) {
-										ActiveAnimation.Stop();
-									}
+
 									weapon.setState("Stunned");
-									Promise.delay(RegularStunTime).then(() => {
-										weapon.setState("Enabled");
+									Promise.delay(RegularStunTime - 0.05).then(() => {
+										Events.ToggleDirectionalArrows(hit, true);
+										Promise.delay(0.05).then(() => {
+											weapon.setState("Enabled");
+										});
 									});
 								}
 							}
 						}
 					}
 
-					this.Stun(hit, weapon.SetDirection);
+					this.Stun(hit, hitterWeapon.SetDirection, RegularStunTime);
 				}
 			});
 		}
@@ -79,21 +70,25 @@ export class Stun implements OnInit {
 				if (!Player) {
 					error();
 				}
-				this.Stun(Player, weapon.SetDirection);
+				weapon.ShouldEnableArrows = false;
+				this.Stun(Player, weapon.SetDirection, BlockedStunTime);
 
 				const Connection = weapon.Actions.Release.Ended.Connect(() => {
 					Connection.Disconnect();
 					weapon.setState("Stunned");
 
-					Promise.delay(BlockedStunTime).then(() => {
-						weapon.setState("Enabled");
+					Promise.delay(BlockedStunTime - 0.2).then(() => {
+						Events.ToggleDirectionalArrows(Player, true);
+						Promise.delay(0.2).then(() => {
+							weapon.setState("Enabled");
+						});
 					});
 				});
 			});
 		}
 	}
 
-	Stun(Player: Player, Direction: string, time = BlockedStunTime) {
+	Stun(Player: Player, Direction: string, duration: number) {
 		let animation: number;
 		switch (Direction) {
 			case "LEFT": {
@@ -116,6 +111,21 @@ export class Stun implements OnInit {
 				error(`Implement animation for direction: ${Direction}`);
 			}
 		}
-		playAnim(Player, animation);
+		const StunAnim = playAnim(Player, animation);
+		const AnimLength = 0.63333332538605;
+		task.defer(() => {
+			if (duration >= AnimLength) {
+				StunAnim.AdjustSpeed((AnimLength - 0.1) / duration);
+
+				const connection = StunAnim.Stopped.Connect(() => {
+					StunAnim.Destroy();
+					connection.Disconnect();
+				});
+			} else {
+				task.wait(duration);
+				StunAnim.Stop(0.2);
+				StunAnim.Destroy();
+			}
+		});
 	}
 }

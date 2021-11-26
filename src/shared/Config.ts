@@ -88,7 +88,7 @@ const Config = {
 	Attributes: {
 		WalkSpeed: 15,
 		CameraOffset: new Vector3(0, 2, 0),
-		ShieldHitboxSize: new Vector3(3, 3, 1),
+		ShieldHitboxSize: new Vector3(5, 4, 1),
 		MaxGetTools: 2,
 	},
 
