@@ -58,14 +58,14 @@ export interface WeaponInstance extends ToolInstance {
 @Component()
 export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends Essential<ToolAttributes, T> {
 	static Weapons = new Map<WeaponInstance, Weapon>();
-	FadeInTime = 0.35;
-	protected abstract AttackAnimations: {
+	readonly FadeInTime = 0.35;
+	protected abstract readonly AttackAnimations: {
 		UP: number;
 		DOWN: number;
 		LEFT: number;
 		RIGHT: number;
 	};
-	protected abstract BlockAnimations: {
+	protected abstract readonly BlockAnimations: {
 		UP: number;
 		DOWN: number;
 		LEFT: number;
@@ -81,18 +81,18 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	protected abstract Fade?: number;
 	protected abstract weaponPlayerInit(): void;
 	protected Trail: Trail;
-	protected TrailLifetime = 0.2;
-	protected TrailTransparency = new NumberSequence([
+	protected readonly TrailLifetime = 0.2;
+	protected readonly TrailTransparency = new NumberSequence([
 		new NumberSequenceKeypoint(0, 0.9),
 		new NumberSequenceKeypoint(0.25, 0.925),
 		new NumberSequenceKeypoint(0.5, 0.95),
 		new NumberSequenceKeypoint(0.75, 0.975),
 		new NumberSequenceKeypoint(1, 1),
 	]);
-	Speed = 1.35;
+	readonly Speed = 1.4;
 	Ping = 0;
 
-	Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
+	readonly Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
 	ShouldEnableArrows = false;
 
 	Direction: Directions = "RIGHT";
@@ -101,18 +101,15 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	Hitbox;
 	db: Map<Instance, boolean> = new Map();
 
-	StoredAnimations: {
-		[index: string]: AnimationTrack;
-	} = {};
-
 	ActiveAnimation?: AnimationTrack;
 	BlockAnimation?: AnimationTrack;
 	DirectionChanged = new Signal<(Direction: Directions) => void>();
-	FirsTimeDisabled = true;
+	FirstTimeDisabled = true;
 	TimeSwingEnded?: number;
 	TimeSwingStarted?: number;
 	TimeDrawStarted?: number;
-	HitStopLength = 0.2 as const;
+	readonly HitStopLength = 0;
+	TimeStopped?: number;
 
 	playerInit(player: Player) {
 		this.weaponPlayerInit();
@@ -154,7 +151,22 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 			this.LoadedAnimations = undefined;
 		});
 
+		this.InitAnim(this.LoadedAnimations.UP);
+		this.InitAnim(this.LoadedAnimations.DOWN);
+		this.InitAnim(this.LoadedAnimations.RIGHT);
+		this.InitAnim(this.LoadedAnimations.LEFT);
+
 		this.UpdatePing();
+	}
+
+	InitAnim(anim: AnimationTrack) {
+		this.janitor.Add(
+			anim.GetMarkerReachedSignal("DrawEnd").Connect(() => {
+				if (this.state === "Drawing") {
+					anim.AdjustSpeed(0);
+				}
+			}),
+		);
 	}
 
 	UpdatePing() {
@@ -273,6 +285,14 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 		this.Hitbox.Collided.Connect((collision) => {
 			const hit = collision.Instance;
+			if (
+				hit.Name !== "Blocker" &&
+				this.TimeSwingStarted !== undefined &&
+				tick() - this.TimeSwingStarted <= 0.125
+			) {
+				print("RETURNED", tick() - this.TimeSwingStarted);
+				return;
+			}
 			if (this.db.get(hit)) {
 				return;
 			}
@@ -281,13 +301,15 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				error("Expected basepart.");
 			}
 			const Amount = hit.Position.sub(this.instance.DmgPart.Position).Magnitude;
-			if (Amount > 5 + this.Ping * Config.Attributes.WalkSpeed * 2 || Amount > 15) {
+			if (Amount > 7 + this.Ping * Config.Attributes.WalkSpeed * 2 || Amount > 15) {
 				print("Stopped hit from", this.Player);
 				if (Amount > 15) {
 					if (Players.GetPlayerFromCharacter(hit.Parent)) {
 						Events.DisplayMessage(
 							Players.GetPlayers(),
-							`${this.Player} attempted to hit ${hit} from ${Amount} studs with ${this.Ping}s ping.`,
+							`${this.Player} attempted to hit ${Players.GetPlayerFromCharacter(
+								hit.Parent,
+							)}'s ${hit} from ${Amount} studs with ${this.Ping}s ping.`,
 						);
 					}
 				}
@@ -335,8 +357,8 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.maid.GiveTask(
 			this.WasDisabled.Connect(() => {
 				const [Player, Character] = this.GetCharPlayer();
-				if (this.FirsTimeDisabled) {
-					this.FirsTimeDisabled = false;
+				if (this.FirstTimeDisabled) {
+					this.FirstTimeDisabled = false;
 					return;
 				}
 				Events.ToggleDirectionalArrows(Player, false);
@@ -360,14 +382,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	}
 
 	private Block(End: Callback, janitor: Janitor) {
-		if (TryStopSwing(this) && !this.ReturnToBlock) {
-			return End();
-		}
-		if (IsAttacking(this)) {
-			return End();
-		}
 		const [Player, Char] = this.GetCharPlayer();
-		this.ReturnToBlock = false;
 		for (const child of Char.GetChildren()) {
 			if (child.IsA("Model")) {
 				const tool = Essential.Tools.get(child);
@@ -376,6 +391,13 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				}
 			}
 		}
+		if (TryStopSwing(this) && !this.ReturnToBlock) {
+			return End();
+		}
+		if (IsAttacking(this)) {
+			return End();
+		}
+		this.ReturnToBlock = false;
 		this.setState("Blocking");
 		this.SetBlockAnimation(this.BlockAnimations[this.Direction]);
 		End();
@@ -412,7 +434,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.setState("Drawing");
 		this.ShouldEnableArrows = true;
 		this.SetDirection = this.Direction;
-		this.setActiveAnimation(this.Direction, janitor);
+		this.setActiveAnimation(this.Direction);
 		this.TimeDrawStarted = tick();
 
 		this.Damage = BaseDamage;
@@ -453,12 +475,14 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 	private Release(End: Callback, janitor: Janitor) {
 		this.setState("Releasing");
+		let Ended = false;
 		const [Player, Char] = this.GetCharPlayer();
 		const Humanoid = Char.FindFirstChildWhichIsA("Humanoid");
 		if (!Humanoid) {
 			error("");
 		}
 		janitor.Add(() => {
+			Ended = true;
 			this.setState("Enabled");
 			this.Hitbox.Stop();
 			this.Trail.Enabled = false;
@@ -473,6 +497,8 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				Events.ToggleDirectionalArrows(Player, true);
 				this.ShouldEnableArrows = false;
 			}
+
+			this.TryDestroyActiveAnimation();
 		});
 		if (!this.Actions.Draw.Status || this.Actions.Draw.Status === "ENDED") {
 			error("attempting to release sword when the sword hasn't drawn");
@@ -485,8 +511,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 			task.wait(this.FadeInTime - this.timePassed);
 		}
 		this.TimeSwingStarted = tick();
-
-		if (this.Actions.Release.Status === "ENDED") {
+		if (Ended) {
 			return;
 		}
 
@@ -508,49 +533,40 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 			}
 		});
 
-		task.wait(RemainingLength - this.HitStopLength);
-
+		task.wait(RemainingLength - 0.1);
 		this.Hitbox.Stop();
-
-		// @ts-expect-error time is passing
-		if (this.Actions.Release.Status === "ENDED") {
+		task.wait(0.1);
+		if (Ended) {
 			return;
 		}
 		End();
 	}
 
-	public TryDestroyActiveAnimation() {
+	/** returns the previous animationtrack */
+	public TryDestroyActiveAnimation(): AnimationTrack | undefined {
 		if (this.ActiveAnimation) {
-			this.ActiveAnimation.Stop(this.FadeInTime / 2);
+			const prevanimation = this.ActiveAnimation;
 			this.ActiveAnimation = undefined;
+			prevanimation.Stop(0.25);
+			print("ENDED HERE!");
+			return prevanimation;
+		} else {
+			return undefined;
 		}
 	}
 
-	protected setActiveAnimation(direction: Directions, janitor: Janitor, timePosition?: number) {
-		this.TryDestroyActiveAnimation();
+	protected setActiveAnimation(direction: Directions) {
+		const [Player, Char] = this.GetCharPlayer();
+		const prevAnim = this.TryDestroyActiveAnimation();
 		if (!this.LoadedAnimations) {
 			error("attempting to set active animation when animations have not been loaded");
 		}
 		this.ActiveAnimation = this.LoadedAnimations[direction];
 		this.ActiveAnimation.Play(this.FadeInTime);
 
-		this.ActiveAnimation.Priority = Enum.AnimationPriority.Action;
-
-		janitor.Add(
-			this.ActiveAnimation.GetMarkerReachedSignal("DrawEnd").Connect(() => {
-				this.ActiveAnimation?.AdjustSpeed(0);
-			}),
-		);
-
-		janitor.Add(
-			this.ActiveAnimation.Stopped.Connect(() => {
-				this.TryDestroyActiveAnimation();
-			}),
-		);
-
-		if (timePosition !== undefined) {
-			this.ActiveAnimation.TimePosition = timePosition;
-		}
+		// if (timePosition !== undefined) {
+		// 	this.ActiveAnimation.TimePosition = timePosition;
+		// }
 	}
 
 	Destroy() {}

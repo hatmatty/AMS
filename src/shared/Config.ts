@@ -19,10 +19,10 @@ const Config = {
 
 		Sword: {
 			Attack: {
-				Left: 7921642085,
-				Right: 7921644381,
-				Stab: 7921640417,
-				Overhead: 8079836535,
+				Left: 8119288171,
+				Right: 8119284412,
+				Stab: 8120332970,
+				Overhead: 8119294988,
 			},
 
 			Block: {

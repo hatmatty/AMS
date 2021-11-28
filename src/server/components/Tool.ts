@@ -55,7 +55,7 @@ export abstract class Tool<A extends ToolAttributes = ToolAttributes, I extends 
 	implements OnStart
 {
 	public abstract className: string;
-	public abstract Incompatible: string[];
+	public abstract readonly Incompatible: string[];
 	public abstract Actions: Actions;
 	public abstract InputInfo: InputInfo;
 	private LastParent?: Instance;

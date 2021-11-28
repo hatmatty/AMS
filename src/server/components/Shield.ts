@@ -4,7 +4,7 @@ import { Janitor } from "@rbxts/janitor";
 import { Events } from "server/events";
 import { Action } from "server/modules/Action";
 import { playAnim } from "server/modules/AnimPlayer";
-import { TryCancelWeapon, TryStopSwing } from "server/modules/CancelWeapon";
+import { IsAttacking, TryCancelWeapon, TryStopSwing } from "server/modules/CancelWeapon";
 import { GenerateMiddleware, RunMiddleware } from "server/modules/Middleware";
 import Config, { Animations } from "shared/Config";
 import { CharacterLimb, Directions } from "shared/Types";
@@ -93,12 +93,15 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 	}
 
 	private Testudo(End: Callback, janitor: Janitor) {
+		print("GOT HERE?");
 		const [Player, Char] = this.GetCharPlayer();
 		this.BlockAnimation?.Stop(0.15);
 		if (this.TestudoEnabled) {
+			print("TESTUDO DISABLED");
 			this.BlockAnimation = playAnim(Char, anims.Block, { Fade: 0.15 });
 			this.TestudoEnabled = false;
 		} else {
+			print("TESTUDO ENABLED");
 			this.BlockAnimation = playAnim(Char, anims.Testudo, { Fade: 0.15 });
 			this.TestudoEnabled = true;
 		}
@@ -110,13 +113,12 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 		if (Weapon?.state === "Blocking") {
 			Weapon.Actions.EndBlock.Start();
 		}
-		if (Weapon && this.IsAttacking()) {
+		if (Weapon && IsAttacking(Weapon)) {
 			TryStopSwing(Weapon);
 			return End();
 		}
 		this.TestudoEnabled = false;
 		const [Player, Char] = this.GetCharPlayer();
-
 		this.setState("Blocking");
 		const Fade = 0.15;
 		this.BlockAnimation = playAnim(Char, anims.Block, { Fade: Fade });
@@ -127,7 +129,7 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 
 	private EndBlock(End: Callback) {
 		const Weapon = this.GetActiveWeapon();
-		if (Weapon && this.IsAttacking()) {
+		if (Weapon && IsAttacking(Weapon)) {
 			TryStopSwing(Weapon);
 			return End();
 		}

@@ -44,7 +44,16 @@ export function TryCancelWeapon(weapon: Weapon): boolean {
 
 /** returns true if it stops a weapon */
 export function TryStopSwing(weapon: Weapon) {
-	if (IsAttacking(weapon) && weapon.TimeDrawStarted !== undefined && tick() - weapon.TimeDrawStarted <= 0.6) {
+	if (weapon.TimeStopped !== undefined && tick() - weapon.TimeStopped <= 0.5) {
+		return false;
+	} else if (
+		IsAttacking(weapon) &&
+		(weapon.state === "Drawing" ||
+			(weapon.TimeDrawStarted !== undefined && tick() - weapon.TimeDrawStarted <= weapon.FadeInTime) ||
+			(weapon.TimeSwingStarted !== undefined && tick() - weapon.TimeSwingStarted <= 0.125))
+	) {
+		print(weapon.TimeSwingStarted !== undefined && tick() - weapon.TimeSwingStarted);
+		weapon.TimeStopped = tick();
 		return TryCancelWeapon(weapon);
 	} else {
 		return false;

@@ -8,6 +8,7 @@ import { isPartiallyEmittedExpression } from "typescript";
 import Object from "@rbxts/object-utils";
 
 const Inputs = new Map<Enum.KeyCode | Enum.UserInputType, boolean>();
+// OPTIMIZATION
 const InputList = [
 	Enum.KeyCode.One,
 	Enum.KeyCode.Two,
@@ -21,6 +22,7 @@ const InputList = [
 	Enum.KeyCode.E,
 	Enum.UserInputType.MouseButton1,
 	Enum.UserInputType.MouseButton2,
+	Enum.KeyCode.Q,
 ];
 
 for (const input of InputList) {
