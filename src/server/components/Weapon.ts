@@ -108,7 +108,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	TimeSwingEnded?: number;
 	TimeSwingStarted?: number;
 	TimeDrawStarted?: number;
-	readonly HitStopLength = 0;
+	readonly HitStopLength = 0.1;
 	TimeStopped?: number;
 
 	playerInit(player: Player) {
@@ -285,14 +285,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 
 		this.Hitbox.Collided.Connect((collision) => {
 			const hit = collision.Instance;
-			if (
-				hit.Name !== "Blocker" &&
-				this.TimeSwingStarted !== undefined &&
-				tick() - this.TimeSwingStarted <= 0.125
-			) {
-				print("RETURNED", tick() - this.TimeSwingStarted);
-				return;
-			}
 			if (this.db.get(hit)) {
 				return;
 			}
@@ -302,7 +294,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 			}
 			const Amount = hit.Position.sub(this.instance.DmgPart.Position).Magnitude;
 			if (Amount > 7 + this.Ping * Config.Attributes.WalkSpeed * 2 || Amount > 15) {
-				print("Stopped hit from", this.Player);
 				if (Amount > 15) {
 					if (Players.GetPlayerFromCharacter(hit.Parent)) {
 						Events.DisplayMessage(
@@ -414,6 +405,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 	}
 
 	private EndBlock(End: Callback, janitor: Janitor) {
+		this.ReturnToBlock = false;
 		if (TryStopSwing(this)) {
 			this.setState("Blocking");
 			return End();
@@ -533,9 +525,9 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 			}
 		});
 
-		task.wait(RemainingLength - 0.1);
+		task.wait(RemainingLength - this.HitStopLength);
 		this.Hitbox.Stop();
-		task.wait(0.1);
+		task.wait(this.HitStopLength);
 		if (Ended) {
 			return;
 		}
@@ -548,7 +540,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 			const prevanimation = this.ActiveAnimation;
 			this.ActiveAnimation = undefined;
 			prevanimation.Stop(0.25);
-			print("ENDED HERE!");
 			return prevanimation;
 		} else {
 			return undefined;

@@ -22,14 +22,14 @@ const Config = {
 				Left: 8119288171,
 				Right: 8119284412,
 				Stab: 8120332970,
-				Overhead: 8119294988,
+				Overhead: 8126848339,
 			},
 
 			Block: {
 				Up: 8080168777,
 				Down: 8086282564,
-				Left: 8080156569,
-				Right: 8080166525,
+				Right: 8126388129,
+				Left: 8126424778,
 			},
 
 			Holster: 7872920456,

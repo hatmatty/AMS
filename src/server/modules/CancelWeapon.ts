@@ -49,10 +49,8 @@ export function TryStopSwing(weapon: Weapon) {
 	} else if (
 		IsAttacking(weapon) &&
 		(weapon.state === "Drawing" ||
-			(weapon.TimeDrawStarted !== undefined && tick() - weapon.TimeDrawStarted <= weapon.FadeInTime) ||
-			(weapon.TimeSwingStarted !== undefined && tick() - weapon.TimeSwingStarted <= 0.125))
+			(weapon.TimeDrawStarted !== undefined && tick() - weapon.TimeDrawStarted <= weapon.FadeInTime))
 	) {
-		print(weapon.TimeSwingStarted !== undefined && tick() - weapon.TimeSwingStarted);
 		weapon.TimeStopped = tick();
 		return TryCancelWeapon(weapon);
 	} else {

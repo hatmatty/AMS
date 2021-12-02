@@ -93,15 +93,12 @@ export class Shield extends Essential<ToolAttributes, ShieldInstance> {
 	}
 
 	private Testudo(End: Callback, janitor: Janitor) {
-		print("GOT HERE?");
 		const [Player, Char] = this.GetCharPlayer();
 		this.BlockAnimation?.Stop(0.15);
 		if (this.TestudoEnabled) {
-			print("TESTUDO DISABLED");
 			this.BlockAnimation = playAnim(Char, anims.Block, { Fade: 0.15 });
 			this.TestudoEnabled = false;
 		} else {
-			print("TESTUDO ENABLED");
 			this.BlockAnimation = playAnim(Char, anims.Testudo, { Fade: 0.15 });
 			this.TestudoEnabled = true;
 		}
@@ -204,8 +201,6 @@ if (!Added) {
 			if (!Component) {
 				error(`Expected shield or weapon from ${hit.Parent}`);
 			}
-
-			print(Component.className);
 
 			if (Config.Elements.DontBlockWhenDisabled) {
 				if (Component.state === "Disabled") {

@@ -59,7 +59,7 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ra
 	MaxDamage = 40;
 	MAX_DIST = 200;
 	AnimationShootPosition = 2;
-	Velocity = 200;
+	Velocity = 250;
 	MaxTime = 2;
 	MinWaitTime = 1;
 	WalkEffect = true;

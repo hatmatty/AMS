@@ -69,7 +69,7 @@ export function SetupRanged(Tool: Ranged) {
 			if (!Shield) {
 				return false;
 			}
-			if (Shield.state === "Disabled") {
+			if (Shield.state !== "Blocking") {
 				return true;
 			} else {
 				return false;

@@ -36,7 +36,7 @@ export class KillTag extends Roact.Component<{ playerName: string }> {
 						BackgroundTransparency={1}
 						Font={Enum.Font.Merriweather}
 						Position={new UDim2(0.51, 0, 0.5, 0)}
-						Size={new UDim2(0.089, 0, 0.027, 0)}
+						Size={new UDim2(0.089, 0, 0.025, 0)}
 						Text="+ Killed"
 						TextColor3={Color3.fromRGB(241, 196, 65)}
 						TextScaled={true}
@@ -51,8 +51,8 @@ export class KillTag extends Roact.Component<{ playerName: string }> {
 						BackgroundTransparency={1}
 						Font={Enum.Font.Merriweather}
 						TextTransparency={this.transpBinding}
-						Position={new UDim2(0.6, 0, 0.5, 0)}
-						Size={new UDim2(0.385, 0, 0.027, 0)}
+						Position={new UDim2(0.595, 0, 0.5, 0)}
+						Size={new UDim2(0.385, 0, 0.025, 0)}
 						Text={this.props.playerName}
 						TextColor3={Color3.fromRGB(255, 255, 255)}
 						TextScaled={true}
