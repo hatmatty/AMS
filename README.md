@@ -1,32 +1,37 @@
-## Why Advanced Melee System?
+# Advanced Melee System
 
-#### AMS is unique
-- Draw Combat (weapons can be drawn back to do higher damage)
-- Directional Combat
-- A custom Tool System, ToolBar GUI, and Health GUI.
+## What?
+Advanced Melee System is an open source skill-based combat technology which aims to be customizable.
 
-#### AMS contains many features...
-- Immersive Camera
-- Sound Effects
-- Particle Effects
-- Swords, Spears, Bows & Arrows, Shields, & more...
+## Who?
+Advanced Melee System is designed to be used in any genre that uses medieval-like weapons (swords, spears, shields, bows), so it would be suitable for Ancient, Medieval, and even Sci-Fi games (like star wars and dune which use sword-like weapons).
 
-#### AMS is build with modifiability in mind
-- The tech is **extremely customizable** without any coding experience! Many of the features can be easily disabled with the switch of a variable.
-- Configuring weapons and shields is super easy **(no developing experience required)** and has already been documented in a youtube video: https://www.youtube.com/watch?v=BBKqoC4-Vio
-- It's the **most moddable ancient era tech ever!** The code is heavily documented and there are already tutorials on how you can easily add lots of fuctionality to the code without actually editing a single line of the main codebase: https://github.com/hatmatty/AET/wiki/Overview
+## What features does AMS have?
 
-#### AMS is built with attracting new users in mind
-- **Mobile Compatible!** This might not seem like a lot but when you consider that 79% of roblox user's use mobile you realize just how much users, activity, revenue, and more you are missing out by using other technologies that aren't mobile compatible!
-- **Simple to learn!** All of the buttons that the tech uses are intuitive and require no tutorial. In comparison to other ancient era techs, AET stands out. Almost every anicent era tech out there has the shield not on the toolbar. This is actually horrible user experience as new users would be unsure of what button to click to equip the shield! AET changes this by adding the shield into the toolbar through it's usage of a custom tool-system. This allows for users to not worry about knowing an obscure button such as "Q" to equip a shield.
+### Tools
+AMS has most of the tools you would need for a melee combat system. It has swords, shields, spears/javelins, and bows.
 
-#### AMS is built to eliminate toxicity!
+### Directional System
+AMS utilizes a directional system, meaning you can swing in 4 different directions and block in 4 different directions when using only a weapon.
 
-- Ancient genre techs are themselves often a primary contributor to toxicity. For instance Lake tech, an exploitable tech in which there is an obscure tactic known as “angling” to get hits when your sword doesn’t touch the other player. This only causes toxicity as players don’t understand how they died and feel a begrudging feeling against their killer, being more likely to call them an exploiter and hold them in contempt. This extends to almost all ancient genre techs as they do not provide a clear way of understanding if a hit is fair or not. AET changes this by displaying it’s real-time ray tracing in a trail-like effect. If this effect touches a person then it should always hit, however if it isn’t touching then it should never hit! This simple feature decreases toxicity and increases sportsmanship as people see each other’s raycast trail and resort to improving themselves instead of skepticism.
+### Draw System
+AMS utilizes a draw system, meaning you can draw your weapon out by holding left click to deal more damage. Damages range from 20-40.
 
-*Hands down AET is the most configurable, developer-friendly, and user-friendly tech out there and we are striving to be even better!*
+### Feint System
+AMS utilizes a feint system. To feint you must right click while your weapon is still being drawn. This will cancel your attack and possibly trick your opponent.
 
+### Stun System
+AMS utilizes a stun system. There are two types of stuns, a block stun and a hit stun. A __Hit Stun__ is given upon hitting a player. If you hit a player who is swinging / drawing their weapon, you will cancel their attack. They are then stunned for 0.3 seconds in which they cannot attack again. A __Block Stun__ is given upon blocking a player. By blocking a player you deal them with a 0.65 second stun.
 
+## Setup
+Watch this video for a step by step guide on how to setup the tech aswell as new swords, shields, spears, and bows: 
+
+## Modification
+AMS has a "middleware" system that allows you to inject your own functionality in to aspects of the game. The gore, particles, sound effects, and stun system all utilize this system. To learn more about it, go into the Middleware section of this repository's wiki. The information there is a bit outdated, but it can give you an idea on how you may utilize the various middlewares in the codebase to add customization such as anti-team kill, breakable parts, safe-zones, etc.
+
+## Discord
+It's recommended you join the discord for any updates and information on the status of AMS!
+https://discord.gg/2upvhDp
 
 
 
