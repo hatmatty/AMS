@@ -1,4 +1,4 @@
-local Version = "0.4.5"
+local Version = "0.5.0"
 
 local PluginFolder = script.Parent
 if not PluginFolder:IsA("Folder") then
@@ -126,8 +126,8 @@ function DoUpdateScripts()
     -- newAnimate.Parent = StarterCharacterScripts
     
 
-    if not game.Workspace:GetAttribute("AET_INITED") then
-        game.Workspace:SetAttribute("AET_INITED", true)
+    if not game.Workspace:GetAttribute("AMS_INITED") then
+        game.Workspace:SetAttribute("AMS_INITED", true)
         local newTeam = Instance.new("Team")
         newTeam.Name = "Neutral"
         newTeam.TeamColor = BrickColor.new("Institutional white")
@@ -230,6 +230,9 @@ function DoInitalizeTool()
     if not Attach then
         return warn("Tool selected does not have an attach.")
     end
+
+    Attach.CanCollide = false
+    Attach.Massless = true
 
     local parts = {}
     for _,v in ipairs(Tool:GetDescendants()) do
