@@ -90,7 +90,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		new NumberSequenceKeypoint(1, 1),
 	]);
 	readonly Speed = 1.4;
-	Ping = 0;
 
 	readonly Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
 	ShouldEnableArrows = false;
@@ -156,7 +155,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.InitAnim(this.LoadedAnimations.RIGHT);
 		this.InitAnim(this.LoadedAnimations.LEFT);
 
-		this.UpdatePing();
 	}
 
 	InitAnim(anim: AnimationTrack) {
@@ -167,19 +165,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				}
 			}),
 		);
-	}
-
-	UpdatePing() {
-		let UpdatePing = true;
-		task.spawn(() => {
-			while (UpdatePing) {
-				task.wait(1);
-				this.Ping = this.Hitbox.GetPing();
-			}
-		});
-		this.janitor.Add(() => {
-			UpdatePing = false;
-		});
 	}
 
 	ReturnToBlock = false;
@@ -293,18 +278,17 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				error("Expected basepart.");
 			}
 			const Amount = hit.Position.sub(this.instance.DmgPart.Position).Magnitude;
-			if (Amount > 7 + this.Ping * Config.Attributes.WalkSpeed * 2 || Amount > 15) {
-				if (Amount > 15) {
-					if (Players.GetPlayerFromCharacter(hit.Parent)) {
-						Events.DisplayMessage(
-							Players.GetPlayers(),
-							`${this.Player} attempted to hit ${Players.GetPlayerFromCharacter(
-								hit.Parent,
-							)}'s ${hit} from ${Amount} studs with ${this.Ping}s ping.`,
-						);
-					}
+			
+			if (Amount > 15) {
+				if (Players.GetPlayerFromCharacter(hit.Parent)) {
+					Events.DisplayMessage(
+						Players.GetPlayers(),
+						`${this.Player} attempted to hit ${Players.GetPlayerFromCharacter(
+							hit.Parent,
+						)}'s ${hit} from ${Amount} studs.`,
+					);
 				}
-				return;
+				return
 			}
 
 			const Player = Players.GetPlayerFromCharacter(hit.Parent);
