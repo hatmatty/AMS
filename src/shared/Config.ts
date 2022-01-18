@@ -64,7 +64,7 @@ const Config = {
 	},
 
 	Elements: {
-		TeamKill: false,
+		TeamKill: true,
 		ClientHitValidation: false,
 		ClientTrackedCollisions: true,
 		DirectionalArrows: true,
