@@ -322,7 +322,10 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				if (!Humanoid) {
 					error();
 				}
-
+				
+				if (!Config.Elements.TeamKill && Player.Team === this.Player.Team) {
+					return
+				}
 				Humanoid.TakeDamage(this.Damage);
 			} else {
 				RunMiddleware(HitMiddleWare, this, hit, this.db);
