@@ -64,7 +64,8 @@ const Config = {
 	},
 
 	Elements: {
-		ClientHitValidation: true,
+		TeamKill: false,
+		ClientHitValidation: false,
 		ClientTrackedCollisions: true,
 		DirectionalArrows: true,
 		DisableCameraShake: true,
