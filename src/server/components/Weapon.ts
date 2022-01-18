@@ -154,7 +154,6 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.InitAnim(this.LoadedAnimations.DOWN);
 		this.InitAnim(this.LoadedAnimations.RIGHT);
 		this.InitAnim(this.LoadedAnimations.LEFT);
-
 	}
 
 	InitAnim(anim: AnimationTrack) {
@@ -278,7 +277,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				error("Expected basepart.");
 			}
 			const Amount = hit.Position.sub(this.instance.DmgPart.Position).Magnitude;
-			
+
 			if (Amount > 15) {
 				if (Players.GetPlayerFromCharacter(hit.Parent)) {
 					Events.DisplayMessage(
@@ -288,7 +287,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 						)}'s ${hit} from ${Amount} studs.`,
 					);
 				}
-				return
+				return;
 			}
 
 			const Player = Players.GetPlayerFromCharacter(hit.Parent);
@@ -322,9 +321,9 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 				if (!Humanoid) {
 					error();
 				}
-				
-				if (!Config.Elements.TeamKill && Player.Team === this.Player.Team) {
-					return
+
+				if (!Config.Elements.TeamKill && Player.Team === this.Player?.Team) {
+					return;
 				}
 				Humanoid.TakeDamage(this.Damage);
 			} else {
