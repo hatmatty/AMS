@@ -415,6 +415,8 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.SetDirection = this.Direction;
 		this.setActiveAnimation(this.Direction);
 		this.TimeDrawStarted = tick();
+		
+		this.Damage = this.BaseDamage
 
 		let IncreaseDamage = true;
 		janitor.Add(() => {
