@@ -105,7 +105,8 @@ const Config = {
 	},
 
 	ToolDamage: {
-		Kopis: [20, 40], //BaseDamage, MaxDamage
+		// ToolName: [MinDamage, MaxDamage]
+		Kopis: [20, 40],
 		Bow: [0, 40],
 		Dory: [20, 40],
 	},
