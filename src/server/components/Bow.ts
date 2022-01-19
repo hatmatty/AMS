@@ -55,8 +55,8 @@ export class Bow extends Essential<ToolAttributes, RangedInstance> implements Ra
 	EnabledLimb = "LeftHand" as CharacterLimb;
 	DisabledLimb = "UpperTorso" as CharacterLimb;
 	ArrowMotor = new Instance("Motor6D");
-	Damage = Config.ToolDamage[Tool.instance.Name][0]
-	MaxDamage = Config.ToolDamage[Tool.instance.Name][1]
+	Damage = Config.ToolDamage[Tool.instance.Name][0] || 0;
+	MaxDamage = Config.ToolDamage[Tool.instance.Name][1] || 40;
 	MAX_DIST = 200;
 	AnimationShootPosition = 2;
 	Velocity = 250;
