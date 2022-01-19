@@ -24,8 +24,6 @@ const [DrawMiddleware, AddDrawMiddleware] = GenerateMiddleware<[Weapon]>();
 export { AddHitMiddleware, AddDamageMiddleware, AddSwingMiddleware, AddDrawMiddleware };
 
 const ReleasePosition = 3;
-const BaseDamage = 20;
-const MaxDamage = 40;
 const secToMax = 2;
 
 const Limbs = [
@@ -90,6 +88,9 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		new NumberSequenceKeypoint(1, 1),
 	]);
 	readonly Speed = 1.4;
+	
+	BaseDamage = Config.ToolDamage[this.instance.Name][0] || 20;
+	MaxDamage = Config.ToolDamage[this.instance.Name][1] || 40;
 
 	readonly Incompatible = ["RbxTool", "Sword", "Bow", "Spear"];
 	ShouldEnableArrows = false;
@@ -414,8 +415,8 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.SetDirection = this.Direction;
 		this.setActiveAnimation(this.Direction);
 		this.TimeDrawStarted = tick();
-
-		this.Damage = BaseDamage;
+		
+		this.Damage = this.BaseDamage
 
 		let IncreaseDamage = true;
 		janitor.Add(() => {
@@ -428,7 +429,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		while (IncreaseDamage) {
 			task.wait(time);
 			timePassed += time;
-			this.Damage = math.min(timePassed / secToMax, 1) * (MaxDamage - BaseDamage) + BaseDamage;
+			this.Damage = math.min(timePassed / secToMax, 1) * (this.MaxDamage - this.BaseDamage) + this.BaseDamage;
 			if (timePassed >= secToMax) {
 				IncreaseDamage = false;
 			}

@@ -10,6 +10,7 @@ import { Janitor } from "@rbxts/janitor";
 import { Events } from "server/events";
 import { PartCache } from "@rbxts/partcache/out/class";
 import { playAnim } from "./AnimPlayer";
+import Config from "shared/Config";
 
 export const [RangedHitMiddleWare, AddRangedHitMiddleware] =
 	GenerateMiddleware<[Ranged, Instance, Instance?, BasePart?]>();
@@ -36,7 +37,7 @@ export interface Ranged {
 	Gravity: Vector3;
 	instance: Model;
 	WalkEffect: boolean;
-
+	
 	Damage: number;
 	MAX_DIST: number;
 	MaxTime: number;

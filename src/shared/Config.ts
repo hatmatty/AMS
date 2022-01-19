@@ -103,6 +103,13 @@ const Config = {
 		Bow: "Bow",
 		Dory: "Spear",
 	},
+
+	ToolDamage: {
+		// ToolName: [MinDamage, MaxDamage]
+		Kopis: [20, 40],
+		Bow: [0, 40],
+		Dory: [20, 40],
+	}  as { [index: string]: [number, number] },
 };
 
 export = Config;
