@@ -95,7 +95,7 @@ export function SetupRanged(Tool: Ranged) {
 				return;
 			}
 
-			Tool.Damage = Config.ToolDamage[Tool.instance.Name][1] * CalculateAccuracy(Tool);
+			Tool.Damage = Tool.MaxDamage * CalculateAccuracy(Tool);
 			RunMiddleware(RangedHitMiddleWare, Tool, Player, instance, hit);
 
 			const Character = hit.Parent;
