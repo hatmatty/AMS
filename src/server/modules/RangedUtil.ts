@@ -33,10 +33,11 @@ export interface Ranged {
 	MinWaitTime: number;
 	Velocity: number;
 	AnimationShootPosition: number;
+	MaxDamage: number;
 	Gravity: Vector3;
 	instance: Model;
 	WalkEffect: boolean;
-
+	
 	Damage: number;
 	MAX_DIST: number;
 	MaxTime: number;
