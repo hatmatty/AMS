@@ -103,6 +103,12 @@ const Config = {
 		Bow: "Bow",
 		Dory: "Spear",
 	},
+
+	ToolDamage: {
+		Kopis: [20, 40], //BaseDamage, MaxDamage
+		Bow: [0, 40],
+		Dory: [20, 40],
+	},
 };
 
 export = Config;

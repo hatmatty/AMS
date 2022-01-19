@@ -10,6 +10,7 @@ import { Janitor } from "@rbxts/janitor";
 import { Events } from "server/events";
 import { PartCache } from "@rbxts/partcache/out/class";
 import { playAnim } from "./AnimPlayer";
+import Config from "shared/Config";
 
 export const [RangedHitMiddleWare, AddRangedHitMiddleware] =
 	GenerateMiddleware<[Ranged, Instance, Instance?, BasePart?]>();
@@ -32,7 +33,6 @@ export interface Ranged {
 	MinWaitTime: number;
 	Velocity: number;
 	AnimationShootPosition: number;
-	MaxDamage: number;
 	Gravity: Vector3;
 	instance: Model;
 	WalkEffect: boolean;
@@ -95,7 +95,7 @@ export function SetupRanged(Tool: Ranged) {
 				return;
 			}
 
-			Tool.Damage = Tool.MaxDamage * CalculateAccuracy(Tool);
+			Tool.Damage = Config.ToolDamage[Tool.instance.Name][1] * CalculateAccuracy(Tool);
 			RunMiddleware(RangedHitMiddleWare, Tool, Player, instance, hit);
 
 			const Character = hit.Parent;
