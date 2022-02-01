@@ -88,7 +88,7 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		new NumberSequenceKeypoint(1, 1),
 	]);
 	readonly Speed = 1.4;
-	
+
 	BaseDamage = Config.ToolDamage[this.instance.Name][0] || 20;
 	MaxDamage = Config.ToolDamage[this.instance.Name][1] || 40;
 
@@ -415,8 +415,8 @@ export abstract class Weapon<T extends WeaponInstance = WeaponInstance> extends 
 		this.SetDirection = this.Direction;
 		this.setActiveAnimation(this.Direction);
 		this.TimeDrawStarted = tick();
-		
-		this.Damage = this.BaseDamage
+
+		this.Damage = this.BaseDamage;
 
 		let IncreaseDamage = true;
 		janitor.Add(() => {

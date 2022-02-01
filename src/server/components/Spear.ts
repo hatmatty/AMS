@@ -69,7 +69,6 @@ export class Spear extends Weapon<SpearInstance> implements Ranged {
 	AnimationShootPosition = 3;
 	Velocity = 100;
 	Gravity = new Vector3(0, -game.Workspace.Gravity / 3, 0);
-	MaxDamage = 80;
 	Caster: Caster = new FastCast();
 	Ray = new Ray();
 	MAX_DIST = 200;
